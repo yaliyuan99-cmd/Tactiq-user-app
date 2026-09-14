@@ -5,3 +5,4 @@ export * from './evidence';
 export * from './protocol';
 export * from './lessons';
 export * from './models';
+export * from './onboarding';

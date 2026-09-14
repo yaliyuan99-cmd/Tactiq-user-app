@@ -23,6 +23,8 @@ export type LessonStep =
       readonly contact: ContactKey;
       readonly token: 'emergency';
       readonly holdMs: number;
+      /** 'cancel': start the hold and let go before five seconds. 'complete': hold the full five seconds. */
+      readonly expect: 'cancel' | 'complete';
       readonly instruction: string;
     };
 
@@ -139,14 +141,16 @@ export const LESSONS: readonly Lesson[] = [
         contact: 'pinky_tip',
         token: 'emergency',
         holdMs: EMERGENCY_HOLD_MS,
-        instruction: 'Squeeze, then hold the pinky fingertip for five seconds until the hold completes.',
+        expect: 'cancel',
+        instruction: 'Squeeze, start holding the pinky fingertip, then let go before five seconds to cancel.',
       },
       {
         kind: 'hold',
         contact: 'pinky_tip',
         token: 'emergency',
         holdMs: EMERGENCY_HOLD_MS,
-        instruction: 'Again: squeeze, hold the pinky fingertip for the full five seconds.',
+        expect: 'complete',
+        instruction: 'Squeeze, then hold the pinky fingertip for the full five seconds until the hold completes.',
       },
     ],
     teaches: ['emergency'],
