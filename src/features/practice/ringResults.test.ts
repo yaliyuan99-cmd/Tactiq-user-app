@@ -1,4 +1,4 @@
-import { DEFAULT_SHORTCUT_MAPPING, type CommandToken, type ShortcutMapping } from '@/domain/commands';
+import { DEFAULT_SHORTCUT_MAPPING, getCommand, type CommandToken, type ShortcutMapping } from '@/domain/commands';
 import type { ContactKey } from '@/domain/contacts';
 import { EMERGENCY_SIMULATION_NOTICE } from '@/domain/evidence';
 import type { DeviceEvent, RejectReason } from '@/services/device/types';
@@ -98,7 +98,21 @@ describe('describeRingResult', () => {
       feedbackKind: 'confirm',
       shortLabel: 'Confirm',
     });
-    expect(describeRingResult(command('back', 'index_base'), mapping).message).toBe('Dismiss / Back.');
+  });
+
+  it('announces a fixed command in its feedback words, never its slashed label, and keeps the label for the screen', () => {
+    expect(describeRingResult(command('back', 'index_base'), mapping)).toEqual({
+      message: 'Back.',
+      visibleMessage: 'Back.',
+      feedbackKind: 'confirm',
+      shortLabel: 'Dismiss / Back',
+    });
+    expect(describeRingResult(command('read', 'ring_tip'), mapping)).toMatchObject({ message: 'Read again.', shortLabel: 'Read / Repeat' });
+    for (const token of ['confirm', 'back', 'undo', 'next', 'read', 'previous'] as const) {
+      const description = describeRingResult(command(token, getCommand(token).contact), mapping);
+      expect(description.message).toBe(getCommand(token).feedback.text);
+      expect(description.message).not.toContain('/');
+    }
   });
 
   it('names a shortcut with its action and simulated outcome, marking the outcome Simulated only on screen', () => {

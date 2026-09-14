@@ -2,6 +2,7 @@
  * Turns a ring result into the activity-history record for it. Pure: the
  * caller decides the source, mode, target and evidence.
  */
+import type { CommandToken } from '@/domain/commands';
 import type { ContactKey } from '@/domain/contacts';
 import type { LessonId } from '@/domain/lessons';
 import type { GestureEventMode, GestureEventSource, GestureOutcome } from '@/domain/models';
@@ -16,17 +17,34 @@ export interface GestureEventContext {
   readonly mode: GestureEventMode;
   /** The contact the user was asked to use (guided, lesson and calibration modes). Null or omitted in free practice. */
   readonly targetContact?: ContactKey | null;
+  /**
+   * The command the user was asked for, when the exercise knows it (guided
+   * practice and lessons). Null or omitted when there is none: free practice,
+   * squeeze steps and calibration, which prompts a contact rather than a
+   * command. It matters on the pinky fingertip, which carries two commands: a
+   * brief tap there while Emergency was asked for is a mismatch, not a
+   * recognised attempt.
+   */
+  readonly targetToken?: CommandToken | null;
   readonly lessonId?: LessonId;
   readonly evidence: HistoryEvidence;
 }
 
-/** Context without evidence: `useRecordResult` fills evidence in from the device. */
+/** Context without evidence (`targetContact`, `targetToken`, `lessonId` as above): `useRecordResult` fills evidence in from the device. */
 export type RecordContext = Omit<GestureEventContext, 'evidence'>;
 
-function outcomeFor(result: RingResult, targetContact: ContactKey | null): GestureOutcome {
+/**
+ * A command is recognised when it matches everything the exercise asked for:
+ * the target command (when given) and the target contact (when given). With
+ * neither, as in free practice, every command is recognised.
+ */
+function outcomeFor(result: RingResult, targetContact: ContactKey | null, targetToken: CommandToken | null): GestureOutcome {
   switch (result.kind) {
-    case 'command':
-      return targetContact === null || result.contact === targetContact ? 'recognised' : 'mismatch';
+    case 'command': {
+      const contactMatches = targetContact === null || result.contact === targetContact;
+      const tokenMatches = targetToken === null || result.token === targetToken;
+      return contactMatches && tokenMatches ? 'recognised' : 'mismatch';
+    }
     case 'emergency':
       return 'emergency';
     case 'emergency_cancelled':
@@ -50,6 +68,7 @@ function tokenFor(result: RingResult): NewGestureEvent['token'] {
 
 export function toGestureEvent(result: RingResult, context: GestureEventContext): NewGestureEvent {
   const targetContact = context.targetContact ?? null;
+  const targetToken = context.targetToken ?? null;
   return {
     at: new Date(result.at).toISOString(),
     source: context.source,
@@ -58,8 +77,9 @@ export function toGestureEvent(result: RingResult, context: GestureEventContext)
     detectedContact: result.contact,
     token: tokenFor(result),
     durationMs: durationFor(result),
-    outcome: outcomeFor(result, targetContact),
+    outcome: outcomeFor(result, targetContact, targetToken),
     evidence: context.evidence,
+    ...(targetToken !== null ? { targetToken } : {}),
     ...(context.lessonId ? { lessonId: context.lessonId } : {}),
   };
 }

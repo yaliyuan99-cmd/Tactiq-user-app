@@ -7,14 +7,18 @@
  *     /reset-password      reachable signed in or out (recovery links sign the user in)
  *   PublicLayout (skip link, logo banner with Help once signed in, main)
  *     /                    RootRedirect → dashboard or sign-in
- *     ProtectedRoute       /onboarding
  *     *                    Page not found
+ *   ProtectedRoute (standalone)
+ *     /onboarding          OnboardingPage draws its own frame (skip link, banner with
+ *                          Help and Skip setup, main), so it sits outside PublicLayout
+ *                          and the page has exactly one main landmark and one skip link
  *   ProtectedRoute → OnboardingGate → AppShell (top bar, navigation, main)
  *     /dashboard, connect, calibrate, train, train/:lessonId, simulator,
  *     commands, history, settings, help, and * (Page not found inside the shell)
  *
  * Every page is rendered through RoutePage: its own Suspense boundary with an
- * accessible "Loading…" status, plus RouteFocus for focus and announcements.
+ * accessible "Loading…" status (inside its own main landmark for a standalone
+ * page), plus RouteFocus for focus and announcements.
  */
 import { useState } from 'react';
 import { BrowserRouter, Route, Routes } from 'react-router';
@@ -54,10 +58,11 @@ export function AppRoutes() {
 
           <Route element={<PublicLayout />}>
             <Route path={ROUTES.root} element={<RootRedirect />} />
-            <Route element={<ProtectedRoute />}>
-              <Route path={ROUTES.onboarding} element={<RoutePage page={Pages.OnboardingPage} />} />
-            </Route>
             <Route path="*" element={<RoutePage page={Pages.NotFoundPage} />} />
+          </Route>
+
+          <Route element={<ProtectedRoute standalone />}>
+            <Route path={ROUTES.onboarding} element={<RoutePage page={Pages.OnboardingPage} standalone />} />
           </Route>
 
           <Route element={<ProtectedRoute standalone />}>

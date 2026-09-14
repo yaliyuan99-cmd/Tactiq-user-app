@@ -46,10 +46,12 @@
  *
  * ── 4. Record history: `useRecordResult` ───────────────────────────────────
  *   const record = useRecordResult();
- *   useRing({ onResult: (r) => record(r, { source: 'training', mode: 'lesson', targetContact, lessonId }) });
+ *   useRing({ onResult: (r) => record(r, { source: 'training', mode: 'lesson', targetContact, targetToken, lessonId }) });
  * Evidence is filled in for you ("simulated" in Demo Mode, "measured" only
- * with a connected hardware ring). Outcomes: a command on the target (or with
- * no target) is "recognised", on another point "mismatch"; closed-window
+ * with a connected hardware ring). Outcomes: a command that matches the
+ * target contact and target command (each only when given) is "recognised",
+ * anything else "mismatch" — so a brief pinky tap while Emergency was asked
+ * for is a mismatch; closed-window
  * presses are "window_closed", too-long presses "rejected_duration", and the
  * two emergency outcomes keep their names. `useRecordSqueeze()` records a
  * squeeze for lessons that practise opening the window. Pure versions:
@@ -57,14 +59,16 @@
  *
  * Per screen:
  *   Simulator  — useRing + PracticeSurface; free mode records with no target,
- *                guided mode passes targetContact; source 'simulator'.
+ *                guided mode passes targetContact and targetToken; source 'simulator'.
  *   Train      — useRing({ onResult }) + PracticeSurface with the step's
  *                targetContact; record with source 'training', mode 'lesson',
- *                lessonId. For squeeze steps use onGate(true) + useRecordSqueeze.
+ *                lessonId and the step's targetToken ('emergency' on hold
+ *                steps). For squeeze steps use onGate(true) + useRecordSqueeze.
  *                For hold steps read result.kind 'emergency' / 'emergency_cancelled'.
  *   Calibrate  — useRing + PracticeSurface (showEmergencyHold={false}) with the
  *                prompted targetContact and detectedContact for misreads;
- *                source 'calibration', mode 'calibration'.
+ *                source 'calibration', mode 'calibration', no targetToken
+ *                (calibration prompts a contact, not a command).
  *   Onboarding — embed PracticeSurface for a first try; pass `announce: false`
  *                only if the step already narrates every change.
  * Whenever a result has kind 'emergency', EMERGENCY_SIMULATION_NOTICE must be

@@ -75,11 +75,75 @@ describe('PreferencesProvider', () => {
     });
     expect(result.current.preferences).toEqual(DEFAULT_PREFERENCES);
     expect(storage.get(STORAGE_KEYS.preferences)).toEqual(DEFAULT_PREFERENCES);
+    expect(result.current.persisted).toBe(true);
     const root = document.documentElement;
     expect(root.classList.contains('dark')).toBe(false);
     expect(root.hasAttribute('data-text-size')).toBe(false);
     expect(root.hasAttribute('data-contrast')).toBe(false);
     expect(root.classList.contains('force-reduced-motion')).toBe(false);
+  });
+
+  it('keeps onboarding progress when resetting, so a finished user is not sent back to setup', () => {
+    const storage = new MemoryStorageAdapter();
+    const customised: UserPreferences = {
+      version: 1,
+      theme: 'dark',
+      textSize: 'larger',
+      contrast: 'high',
+      reducedMotion: true,
+      audioAnnouncements: true,
+      visualConfirmation: false,
+      hapticFeedback: false,
+      longerInteractionTime: true,
+      hand: 'left',
+      onboardingCompleted: true,
+      onboardingStep: 6,
+    };
+    storage.set(STORAGE_KEYS.preferences, customised);
+    const { result } = setup(storage);
+    expect(result.current.preferences).toEqual(customised);
+
+    act(() => {
+      result.current.reset();
+    });
+
+    const expected: UserPreferences = { ...DEFAULT_PREFERENCES, onboardingCompleted: true, onboardingStep: 6 };
+    expect(result.current.preferences).toEqual(expected);
+    expect(storage.get(STORAGE_KEYS.preferences)).toEqual(expected);
+    expect(loadPreferences(storage)).toEqual(expected);
+  });
+
+  it('keeps an unfinished onboarding step when resetting', () => {
+    const { result, storage } = setup();
+    act(() => {
+      result.current.update({ onboardingStep: 2, hand: 'left', hapticFeedback: false });
+    });
+    act(() => {
+      result.current.reset();
+    });
+    expect(result.current.preferences).toEqual({ ...DEFAULT_PREFERENCES, onboardingStep: 2 });
+    expect(storage.get(STORAGE_KEYS.preferences)).toEqual({ ...DEFAULT_PREFERENCES, onboardingStep: 2 });
+  });
+
+  it('uses the latest onboarding progress when an update and a reset happen in the same batch', () => {
+    const { result } = setup();
+    act(() => {
+      result.current.update({ onboardingCompleted: true, onboardingStep: 6, theme: 'dark' });
+      result.current.reset();
+    });
+    expect(result.current.preferences).toEqual({ ...DEFAULT_PREFERENCES, onboardingCompleted: true, onboardingStep: 6 });
+  });
+
+  it('reports when a reset could not be saved', () => {
+    const storage = new MemoryStorageAdapter();
+    storage.set(STORAGE_KEYS.preferences, { ...DEFAULT_PREFERENCES, theme: 'dark', onboardingCompleted: true });
+    vi.spyOn(storage, 'set').mockReturnValue(false);
+    const { result } = setup(storage);
+    act(() => {
+      result.current.reset();
+    });
+    expect(result.current.preferences).toEqual({ ...DEFAULT_PREFERENCES, onboardingCompleted: true });
+    expect(result.current.persisted).toBe(false);
   });
 
   it('reports when preferences could not be saved', () => {

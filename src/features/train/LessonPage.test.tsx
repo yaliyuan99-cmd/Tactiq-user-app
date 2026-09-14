@@ -118,6 +118,7 @@ describe('LessonPage', () => {
       mode: 'lesson',
       lessonId: 'confirm_and_back',
       targetContact: 'index_tip',
+      targetToken: 'confirm',
       detectedContact: 'index_base',
       token: 'back',
       outcome: 'mismatch',
@@ -196,6 +197,14 @@ describe('LessonPage', () => {
     await user.click(within(summary).getByRole('button', { name: 'Practise again' }));
     expect(stepHeading(1, 5)).toHaveFocus();
     expect(runStatsText()).toMatch(/^Attempts: 0 · Correct: 0 · Accuracy: —/);
+
+    // A replay keeps the lesson Completed, with its best accuracy, while it is under way and after leaving it.
+    expect(savedTraining(storage).getLesson('confirm_and_back')).toMatchObject({ status: 'complete', bestAccuracy: 5 / 6, runs: 1 });
+    expect(screen.getByText('Leaving keeps this lesson marked Completed.')).toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: 'Exit lesson' }));
+    expect(screen.getByText('Train page stand-in')).toBeInTheDocument();
+    expect(savedTraining(storage).getLesson('confirm_and_back')).toMatchObject({ status: 'complete', runs: 1 });
+    expect(savedTraining(storage).summary()).toMatchObject({ lessonsCompleted: 1 });
   });
 
   it('restarts after confirming, and Exit lesson returns to Train with the lesson still in progress', async () => {
@@ -212,6 +221,7 @@ describe('LessonPage', () => {
     await waitFor(() => expect(stepHeading(1, 5)).toHaveFocus());
     expect(runStatsText()).toMatch(/^Attempts: 0 · Correct: 0 · Accuracy: —/);
 
+    expect(screen.getByText('Leaving keeps this lesson marked In progress.')).toBeInTheDocument();
     await user.click(screen.getByRole('button', { name: 'Exit lesson' }));
     expect(screen.getByText('Train page stand-in')).toBeInTheDocument();
     expect(savedTraining(storage).getLesson('confirm_and_back')).toMatchObject({ status: 'in_progress', attempts: 1 });
@@ -249,10 +259,36 @@ describe('LessonPage', () => {
     expect(screen.getByText('You completed every hold step, with no retries.')).toBeInTheDocument();
     expect(screen.getByText(EMERGENCY_SIMULATION_NOTICE)).toBeInTheDocument();
     expect(screen.getByRole('link', { name: 'Back to all lessons' })).toHaveAttribute('href', '/dashboard/train');
-    const outcomes = savedHistory(storage)
-      .list()
-      .map((event) => event.outcome);
-    expect(outcomes).toEqual(['emergency', 'emergency_cancelled']);
+    const events = savedHistory(storage).list();
+    expect(events.map((event) => event.outcome)).toEqual(['emergency', 'emergency_cancelled']);
+    expect(events.every((event) => event.targetToken === 'emergency' && event.targetContact === 'pinky_tip')).toBe(true);
+  });
+
+  it('lesson 5: a brief tap on the pinky fingertip is Shortcut 1, not the hold, and is recorded as a mismatch', async () => {
+    const { user, storage } = await renderLessonPage('emergency_hold');
+    await startLesson(user);
+    await squeeze(user);
+    await tapPoint(user, /^Pinky fingertip, Shortcut 1: Play or pause media/);
+
+    expect(feedbackPanel()).toHaveTextContent('Not yet');
+    expect(feedbackPanel()).toHaveTextContent('That was Shortcut 1: Play or pause media, on the pinky fingertip.');
+    expect(screen.queryByText(EMERGENCY_SIMULATION_NOTICE)).not.toBeInTheDocument();
+    advance(ADVANCE_DELAY_MS);
+    expect(stepHeading(1, 2)).toBeInTheDocument();
+    expect(savedTraining(storage).getLesson('emergency_hold')).toMatchObject({ attempts: 1, correct: 0 });
+    const events = savedHistory(storage).list();
+    expect(events).toHaveLength(1);
+    expect(events[0]).toMatchObject({
+      source: 'training',
+      mode: 'lesson',
+      lessonId: 'emergency_hold',
+      targetContact: 'pinky_tip',
+      targetToken: 'emergency',
+      detectedContact: 'pinky_tip',
+      token: 'quick_action_1',
+      outcome: 'mismatch',
+      evidence: 'simulated',
+    });
   });
 
   it('lesson 5: completing the hold on the cancel step is incorrect and shows the notice', async () => {

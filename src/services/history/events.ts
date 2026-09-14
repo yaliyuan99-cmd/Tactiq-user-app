@@ -41,6 +41,7 @@ export function isGestureEvent(value: unknown): value is GestureEvent {
     oneOf(GESTURE_EVENT_SOURCES, e.source) &&
     oneOf(GESTURE_EVENT_MODES, e.mode) &&
     (e.targetContact === null || isContactKey(e.targetContact)) &&
+    (e.targetToken === undefined || isCommandToken(e.targetToken)) &&
     (e.detectedContact === null || isContactKey(e.detectedContact)) &&
     (e.token === null || isCommandToken(e.token)) &&
     (e.durationMs === null || (typeof e.durationMs === 'number' && Number.isFinite(e.durationMs))) &&

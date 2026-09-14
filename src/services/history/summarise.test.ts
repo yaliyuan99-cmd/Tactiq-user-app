@@ -27,6 +27,27 @@ describe('intendedToken', () => {
     ).toBe('emergency');
   });
 
+  it('prefers the stored target command over every other rule', () => {
+    // A guided Emergency hold answered with a brief tap (Shortcut 1 on the same point).
+    expect(
+      intendedToken(ev({ targetContact: 'pinky_tip', targetToken: 'emergency', token: 'quick_action_1', outcome: 'mismatch' })),
+    ).toBe('emergency');
+    expect(
+      intendedToken(ev({ targetContact: 'pinky_tip', targetToken: 'emergency', token: 'quick_action_1', outcome: 'recognised' })),
+    ).toBe('emergency');
+    // Asked for Shortcut 1, but the hold ran on: still an attempt at Shortcut 1.
+    expect(
+      intendedToken(ev({ targetContact: 'pinky_tip', targetToken: 'quick_action_1', token: null, outcome: 'emergency_cancelled' })),
+    ).toBe('quick_action_1');
+    expect(intendedToken(ev({ targetContact: null, detectedContact: 'index_tip', targetToken: 'next', token: 'confirm' }))).toBe('next');
+  });
+
+  it('keeps the contact rule for records without a target command', () => {
+    const legacy = ev({ targetContact: 'pinky_tip', token: 'quick_action_1' });
+    expect('targetToken' in legacy).toBe(false);
+    expect(intendedToken(legacy)).toBe('quick_action_1');
+  });
+
   it('falls back to the recognised token without a target, or null', () => {
     expect(intendedToken(ev({ targetContact: null, detectedContact: 'middle_base', token: 'next' }))).toBe('next');
     expect(intendedToken(ev({ targetContact: null, detectedContact: null, token: null, outcome: 'window_closed' }))).toBeNull();
@@ -117,6 +138,17 @@ describe('summariseEvents', () => {
     expect(summary.lastAt).toBe('2026-09-15T01:07:00.000Z');
     expect(summary.includesSeeded).toBe(true);
     expect(summary.evidence).toBe('simulated');
+  });
+
+  it('counts a tap on an Emergency target against Emergency, not Shortcut 1', () => {
+    const events = [
+      ev({ targetContact: 'pinky_tip', targetToken: 'emergency', token: 'quick_action_1', durationMs: 180, outcome: 'mismatch' }),
+      ev({ targetContact: 'pinky_tip', targetToken: 'quick_action_1', token: 'quick_action_1', durationMs: 180 }),
+    ];
+    const byToken = Object.fromEntries(summariseEvents(events, 'all').perCommand.map((c) => [c.token, c]));
+    expect(byToken.emergency).toEqual({ token: 'emergency', attempts: 1, successes: 0, rate: 0 });
+    expect(byToken.quick_action_1).toEqual({ token: 'quick_action_1', attempts: 1, successes: 1, rate: 1 });
+    expect(filterEvents(events, { range: 'all', token: 'emergency' }, NOW)).toEqual([events[0]]);
   });
 
   it('breaks most-practised ties by command order and reports mixed evidence', () => {

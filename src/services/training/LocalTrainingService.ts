@@ -34,8 +34,20 @@ export class LocalTrainingService implements TrainingService {
     return this.getProgress().lessons[lessonId];
   }
 
+  /**
+   * Begins a run with zeroed run counters. A lesson not yet started (or in
+   * progress) becomes in progress; a lesson already complete stays complete,
+   * so "Practise again" never lowers lessonsCompleted or commandsLearnt while
+   * the replay is under way. completeRun still records the replay's accuracy
+   * and run count. Use restartLesson to send a lesson back to not started.
+   */
   startRun(lessonId: LessonId): LessonProgress {
-    return this.update(lessonId, (lesson) => ({ ...lesson, status: 'in_progress', runAttempts: 0, runCorrect: 0 }));
+    return this.update(lessonId, (lesson) => ({
+      ...lesson,
+      status: lesson.status === 'complete' ? 'complete' : 'in_progress',
+      runAttempts: 0,
+      runCorrect: 0,
+    }));
   }
 
   /** Counts towards the lesson's totals and the current run. A lesson not yet started becomes in progress. */

@@ -65,6 +65,25 @@ describe('useRecordResult', () => {
     expect(get().services.history.list()).toEqual([event]);
   });
 
+  it('saves the target command and judges the result against it', async () => {
+    renderApp(<Probe />);
+    await settleProviders();
+    const briefPinkyTap: RingResult = { id: 'r2', at: AT, kind: 'command', token: 'quick_action_1', contact: 'pinky_tip', durationMs: 150 };
+    let event: GestureEvent | null = null;
+    act(() => {
+      event = get().record(briefPinkyTap, { source: 'simulator', mode: 'guided', targetContact: 'pinky_tip', targetToken: 'emergency' });
+    });
+    expect(event).toMatchObject({
+      targetContact: 'pinky_tip',
+      targetToken: 'emergency',
+      detectedContact: 'pinky_tip',
+      token: 'quick_action_1',
+      outcome: 'mismatch',
+      evidence: 'simulated',
+    });
+    expect(get().services.history.list()[0]).toMatchObject({ targetToken: 'emergency', outcome: 'mismatch' });
+  });
+
   it('saves results from a connected hardware ring as measured', async () => {
     renderApp(<Probe />, { deviceAdapter: new FakeHardwareRing('connected') });
     await settleProviders();

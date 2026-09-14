@@ -69,6 +69,7 @@ describe('Simulator page, guided practice', () => {
       source: 'simulator',
       mode: 'guided',
       targetContact: 'index_tip',
+      targetToken: 'confirm',
       detectedContact: 'index_tip',
       token: 'confirm',
       outcome: 'recognised',
@@ -107,7 +108,7 @@ describe('Simulator page, guided practice', () => {
     await waitFor(() =>
       expect(politeRegion()).toHaveTextContent('Correct: Dismiss / Back. New target: Confirm, index fingertip.'),
     );
-    expect(history()[0]).toMatchObject({ targetContact: 'index_base', outcome: 'recognised' });
+    expect(history()[0]).toMatchObject({ targetContact: 'index_base', targetToken: 'back', outcome: 'recognised' });
     expect(within(targetCard()).getByText('This session: 2 of 2 correct')).toBeInTheDocument();
     advance(ADVANCE_DELAY_MS);
     expect(within(targetCard()).getByText('Confirm — index fingertip')).toBeInTheDocument();
@@ -128,6 +129,7 @@ describe('Simulator page, guided practice', () => {
     expect(history()[0]).toMatchObject({
       mode: 'guided',
       targetContact: 'index_tip',
+      targetToken: 'confirm',
       detectedContact: 'middle_base',
       token: 'next',
       outcome: 'mismatch',
@@ -143,7 +145,7 @@ describe('Simulator page, guided practice', () => {
     expect(
       within(targetCard()).getByText('The ring is asleep. Squeeze first, then tap. Try again: Confirm, index fingertip.'),
     ).toBeInTheDocument();
-    expect(history()[0]).toMatchObject({ outcome: 'window_closed', targetContact: 'index_tip' });
+    expect(history()[0]).toMatchObject({ outcome: 'window_closed', targetContact: 'index_tip', targetToken: 'confirm' });
   });
 
   it('repeats the prompt and skips to a different target', async () => {
@@ -202,7 +204,34 @@ describe('Simulator page, guided practice', () => {
     await waitFor(() => expect(assertiveRegion()).toHaveTextContent(message));
     expect(screen.getByText(EMERGENCY_SIMULATION_NOTICE)).toBeInTheDocument();
     expect(within(targetCard()).getByText(message)).toBeInTheDocument();
-    expect(history()[0]).toMatchObject({ outcome: 'emergency', token: 'emergency', targetContact: 'pinky_tip' });
+    expect(history()[0]).toMatchObject({ outcome: 'emergency', token: 'emergency', targetContact: 'pinky_tip', targetToken: 'emergency' });
+  });
+
+  it('records a brief pinky tap as a mismatch when the target is the emergency hold, and keeps the target', async () => {
+    const { user, history } = await renderSimulator({ random: () => 0.999 });
+    await user.click(screen.getByRole('checkbox', { name: 'Include the five-second emergency hold' }));
+    await user.click(screen.getByRole('button', { name: 'Skip' }));
+    expect(within(targetCard()).getByText('Emergency — hold the pinky fingertip for five seconds')).toBeInTheDocument();
+
+    await squeeze(user);
+    await user.click(screen.getByRole('button', { name: /^Pinky fingertip, Shortcut 1: Play or pause media/ }));
+
+    const message = 'That was Shortcut 1, on the pinky fingertip. Try again: Emergency, hold the pinky fingertip for five seconds.';
+    await waitFor(() => expect(politeRegion()).toHaveTextContent(message));
+    expect(within(targetCard()).getByText(message)).toBeInTheDocument();
+    expect(within(targetCard()).getByText('This session: 0 of 1 correct')).toBeInTheDocument();
+    expect(within(targetCard()).getByText('Emergency — hold the pinky fingertip for five seconds')).toBeInTheDocument();
+    expect(screen.queryByText(EMERGENCY_SIMULATION_NOTICE)).not.toBeInTheDocument();
+    expect(history()).toHaveLength(1);
+    expect(history()[0]).toMatchObject({
+      mode: 'guided',
+      targetContact: 'pinky_tip',
+      targetToken: 'emergency',
+      detectedContact: 'pinky_tip',
+      token: 'quick_action_1',
+      outcome: 'mismatch',
+    });
+    expect(screen.getByRole('table', { name: 'Latest attempts in this session' })).toHaveTextContent('Not the target: Shortcut 1');
   });
 
   it('replaces an Emergency target when the emergency hold is switched off', async () => {

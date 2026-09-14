@@ -1,5 +1,6 @@
 import type { LessonId } from '@/domain/lessons';
 import type { LessonProgress, TrainingProgress } from '@/domain/models';
+import { LocalTrainingService } from '@/services/training/LocalTrainingService';
 import { emptyTrainingProgress } from '@/services/training/trainingRules';
 import { MemoryStorageAdapter, STORAGE_KEYS } from '@/services/storage/StorageAdapter';
 import { screen, waitFor, within } from '@/test/renderApp';
@@ -101,6 +102,31 @@ describe('TrainPage', () => {
     expect(within(overview).getByText('Attempts').nextElementSibling).toHaveTextContent('6');
     expect(within(overview).getByText('Accuracy').nextElementSibling).toHaveTextContent('83%');
     expect(within(overview).getByRole('link', { name: 'Continue lesson 2' })).toBeInTheDocument();
+  });
+
+  it('keeps a completed lesson Completed, with Practise again and no recommendation, while it is being replayed', async () => {
+    const storage = new MemoryStorageAdapter();
+    const training = new LocalTrainingService(storage);
+    training.startRun('squeeze_to_activate');
+    for (let step = 0; step < 3; step += 1) training.recordAttempt('squeeze_to_activate', { correct: true });
+    training.completeRun('squeeze_to_activate');
+    // "Practise again", then leaving part-way through the replay.
+    training.startRun('squeeze_to_activate');
+    training.recordAttempt('squeeze_to_activate', { correct: false });
+    training.dispose();
+
+    await renderWithUser(<TrainPage />, { route: '/dashboard/train', storage });
+    const [first, second] = lessonItems() as [HTMLElement, HTMLElement];
+    expect(first).toHaveTextContent('Completed');
+    expect(first).not.toHaveTextContent('In progress');
+    expect(first).toHaveTextContent('Best: 100%');
+    expect(within(first).queryByText('Recommended')).not.toBeInTheDocument();
+    expect(within(first).getByRole('link', { name: 'Practise again lesson 1: Squeeze to activate' })).toBeInTheDocument();
+    expect(within(second).getByText('Recommended')).toBeInTheDocument();
+
+    const overview = screen.getByRole('region', { name: 'Your progress' });
+    expect(within(overview).getByRole('progressbar', { name: 'Lessons completed' })).toHaveAttribute('aria-valuetext', '1 of 5');
+    expect(within(overview).getByRole('link', { name: 'Start lesson 2' })).toHaveAttribute('href', '/dashboard/train/confirm_and_back');
   });
 
   it('says when every lesson is complete, with no recommendation', async () => {

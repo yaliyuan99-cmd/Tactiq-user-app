@@ -53,6 +53,58 @@ describe('LocalTrainingService', () => {
     expect(stored.lessons.confirm_and_back.status).toBe('in_progress');
   });
 
+  it('keeps a completed lesson complete when a new run starts (Practise again)', () => {
+    run('confirm_and_back', [true, false, true, true]);
+    const completedAt = training.getLesson('confirm_and_back').completedAt;
+    const before = training.summary();
+    expect(before.lessonsCompleted).toBe(1);
+    expect(before.commandsLearnt).toEqual(['confirm', 'back']);
+
+    const lesson = training.startRun('confirm_and_back');
+    expect(lesson).toMatchObject({
+      status: 'complete',
+      runAttempts: 0,
+      runCorrect: 0,
+      attempts: 4,
+      correct: 3,
+      runs: 1,
+      lastAccuracy: 0.75,
+      bestAccuracy: 0.75,
+      completedAt,
+    });
+    expect(normaliseTrainingProgress(storage.get(STORAGE_KEYS.training)).lessons.confirm_and_back.status).toBe('complete');
+    expect(training.summary()).toEqual(before);
+    expect(training.nextLesson()).toBe('squeeze_to_activate');
+
+    training.recordAttempt('confirm_and_back', { correct: true });
+    expect(training.getLesson('confirm_and_back')).toMatchObject({ status: 'complete', runAttempts: 1, runCorrect: 1 });
+    const during = training.summary();
+    expect(during.lessonsCompleted).toBe(1);
+    expect(during.commandsLearnt).toEqual(['confirm', 'back']);
+    expect(during.attempts).toBe(5);
+
+    vi.setSystemTime(new Date(NOW.getTime() + 60_000));
+    training.recordAttempt('confirm_and_back', { correct: true });
+    const finished = training.completeRun('confirm_and_back');
+    expect(finished).toMatchObject({
+      status: 'complete',
+      lastAccuracy: 1,
+      bestAccuracy: 1,
+      runs: 2,
+      attempts: 6,
+      correct: 5,
+      completedAt: new Date(NOW.getTime() + 60_000).toISOString(),
+    });
+    expect(training.summary().lessonsCompleted).toBe(1);
+  });
+
+  it('still starts a lesson that was restarted as in progress', () => {
+    run('confirm_and_back', [true]);
+    training.restartLesson('confirm_and_back');
+    expect(training.startRun('confirm_and_back').status).toBe('in_progress');
+    expect(training.summary().lessonsCompleted).toBe(0);
+  });
+
   it('records attempts against the lesson and the run', () => {
     training.startRun('confirm_and_back');
     training.recordAttempt('confirm_and_back', { correct: true });

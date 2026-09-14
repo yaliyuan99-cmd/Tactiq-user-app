@@ -1,6 +1,7 @@
 import { DEFAULT_SHORTCUT_MAPPING, type ShortcutMapping } from '@/domain/commands';
 import { MemoryStorageAdapter, STORAGE_KEYS } from '@/services/storage/StorageAdapter';
 import { LocalCommandMappingService, SHORTCUTS_ONLY_MESSAGE, isValidShortcutMapping } from './LocalCommandMappingService';
+import type { CommandMappingService } from './types';
 
 const NOW = new Date('2026-09-15T04:30:00.000Z');
 
@@ -86,5 +87,18 @@ describe('LocalCommandMappingService', () => {
     commands.set({ quick_action_1: 'announce_time', quick_action_2: 'play_pause' });
     expect(commands.lastWriteSucceeded()).toBe(false);
     expect(commands.get().shortcuts.quick_action_1).toBe('announce_time');
+  });
+
+  it('exposes lastWriteSucceeded through the CommandMappingService contract', () => {
+    const service: CommandMappingService = commands;
+    expect(service.lastWriteSucceeded()).toBe(true);
+
+    const set = vi.spyOn(storage, 'set').mockReturnValue(false);
+    service.restoreDefaults();
+    expect(service.lastWriteSucceeded()).toBe(false);
+
+    set.mockRestore();
+    service.set({ quick_action_1: 'unassigned', quick_action_2: 'unassigned' });
+    expect(service.lastWriteSucceeded()).toBe(true);
   });
 });

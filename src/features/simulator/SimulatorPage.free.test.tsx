@@ -76,6 +76,7 @@ describe('Simulator page, free practice', () => {
       outcome: 'recognised',
       evidence: 'simulated',
     });
+    expect(history()[0]).not.toHaveProperty('targetToken');
     const row = within(logTable()).getAllByRole('row')[1];
     expect(row).toHaveTextContent('None (free practice)');
     expect(row).toHaveTextContent('Middle finger base');

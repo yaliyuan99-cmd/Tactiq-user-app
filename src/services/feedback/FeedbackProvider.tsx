@@ -29,13 +29,61 @@ function detectVibration(): boolean {
   return typeof navigator !== 'undefined' && typeof navigator.vibrate === 'function';
 }
 
-function scheduleFrame(callback: () => void): () => void {
-  if (typeof window !== 'undefined' && typeof window.requestAnimationFrame === 'function') {
-    const id = window.requestAnimationFrame(callback);
-    return () => window.cancelAnimationFrame(id);
+/**
+ * Animation frames do not run in hidden or background tabs, so a timeout of
+ * this many milliseconds writes the announcement if no frame has come first.
+ */
+export const ANNOUNCE_FALLBACK_MS = 50;
+
+type Politeness = 'polite' | 'assertive';
+
+/** Runs the callback once, on the next animation frame or after the fallback timeout, whichever fires first. */
+function scheduleSoon(callback: () => void): () => void {
+  let done = false;
+  let frameId: number | null = null;
+  let timeoutId: ReturnType<typeof setTimeout> | null = null;
+  const cancel = () => {
+    done = true;
+    if (frameId !== null) window.cancelAnimationFrame(frameId);
+    if (timeoutId !== null) clearTimeout(timeoutId);
+    frameId = null;
+    timeoutId = null;
+  };
+  const fire = () => {
+    if (done) return;
+    cancel();
+    callback();
+  };
+  if (
+    typeof window !== 'undefined' &&
+    typeof window.requestAnimationFrame === 'function' &&
+    typeof window.cancelAnimationFrame === 'function'
+  ) {
+    frameId = window.requestAnimationFrame(() => {
+      frameId = null;
+      fire();
+    });
   }
-  const id = setTimeout(callback, 16);
-  return () => clearTimeout(id);
+  timeoutId = setTimeout(() => {
+    timeoutId = null;
+    fire();
+  }, ANNOUNCE_FALLBACK_MS);
+  return cancel;
+}
+
+interface PendingMessage {
+  text: string;
+  /** Set for feedback(): a later feedback of the same kind in the same batch replaces this one. */
+  readonly kind: FeedbackKind | null;
+}
+
+/** Everything announced before the next write. One write per region, however many callers announced. */
+interface AnnouncementBatch {
+  polite: PendingMessage[] | null;
+  assertive: PendingMessage[] | null;
+  /** Messages already spoken in this batch: the first interrupts earlier speech, later ones queue behind it. */
+  spoken: Set<string> | null;
+  cancel: (() => void) | null;
 }
 
 /**
@@ -49,10 +97,7 @@ export function FeedbackProvider({ children }: { children: ReactNode }) {
   const [canVibrate] = useState(detectVibration);
   const politeRef = useRef<HTMLDivElement>(null);
   const assertiveRef = useRef<HTMLDivElement>(null);
-  const pendingRef = useRef<{ polite: (() => void) | null; assertive: (() => void) | null }>({
-    polite: null,
-    assertive: null,
-  });
+  const batchRef = useRef<AnnouncementBatch>({ polite: null, assertive: null, spoken: null, cancel: null });
   const prefsRef = useRef(preferences);
 
   useEffect(() => {
@@ -60,21 +105,23 @@ export function FeedbackProvider({ children }: { children: ReactNode }) {
   }, [preferences]);
 
   useEffect(() => {
-    const pending = pendingRef.current;
+    const batch = batchRef.current;
     return () => {
-      pending.polite?.();
-      pending.assertive?.();
+      batch.cancel?.();
+      batch.cancel = null;
+      batch.polite = null;
+      batch.assertive = null;
+      batch.spoken = null;
       if (detectSpeech()) window.speechSynthesis.cancel();
     };
   }, []);
 
-  const speakNow = useCallback(
-    (text: string, force: boolean) => {
+  const utter = useCallback(
+    (text: string, interrupt: boolean) => {
       if (!canSpeak || !text) return;
-      if (!force && !prefsRef.current.audioAnnouncements) return;
       try {
         const synth = window.speechSynthesis;
-        synth.cancel();
+        if (interrupt) synth.cancel();
         const utterance = new window.SpeechSynthesisUtterance(text);
         utterance.rate = SPEECH_RATE;
         const lang = typeof document !== 'undefined' ? document.documentElement.lang : '';
@@ -85,7 +132,12 @@ export function FeedbackProvider({ children }: { children: ReactNode }) {
     [canSpeak],
   );
 
-  const speak = useCallback((text: string) => speakNow(text, false), [speakNow]);
+  const speak = useCallback(
+    (text: string) => {
+      if (prefsRef.current.audioAnnouncements) utter(text, true);
+    },
+    [utter],
+  );
 
   const stopSpeaking = useCallback(() => {
     if (!canSpeak) return;
@@ -94,22 +146,71 @@ export function FeedbackProvider({ children }: { children: ReactNode }) {
     } catch {}
   }, [canSpeak]);
 
-  const announce = useCallback(
-    (message: string, options?: AnnounceOptions) => {
-      const which = options?.assertive ? 'assertive' : 'polite';
-      const region = which === 'assertive' ? assertiveRef.current : politeRef.current;
-      if (region) {
-        // Clear first, then set on the next frame, so an identical message is announced again.
-        pendingRef.current[which]?.();
-        region.textContent = '';
-        pendingRef.current[which] = scheduleFrame(() => {
-          pendingRef.current[which] = null;
-          region.textContent = message;
+  /**
+   * Queues a message for its live region. Everything queued before the next
+   * animation frame (or the fallback timeout) is written once, in order,
+   * separated by spaces, so two callers announcing together are both heard (a
+   * page's own message and the route title, say). Exact repeats are dropped.
+   * The one exception is feedback of the same kind: a feature that rewords a
+   * ring outcome (a lesson's "Correct. Confirm, on the index fingertip." for
+   * the ring's "Confirm.") sends it with the same kind in the same tick, and
+   * it replaces the earlier words rather than being read after them.
+   */
+  const enqueue = useCallback(
+    (message: string, assertive: boolean, forceSpeech: boolean, kind: FeedbackKind | null) => {
+      const which: Politeness = assertive ? 'assertive' : 'polite';
+      const batch = batchRef.current;
+      const regionFor = (politeness: Politeness) =>
+        politeness === 'assertive' ? assertiveRef.current : politeRef.current;
+
+      if (!batch.cancel) {
+        batch.cancel = scheduleSoon(() => {
+          const pending = { polite: batch.polite, assertive: batch.assertive };
+          batch.cancel = null;
+          batch.polite = null;
+          batch.assertive = null;
+          batch.spoken = null;
+          for (const politeness of ['polite', 'assertive'] as const) {
+            const messages = pending[politeness];
+            const region = regionFor(politeness);
+            if (messages && region) region.textContent = [...new Set(messages.map((m) => m.text))].join(' ');
+          }
         });
       }
-      speakNow(message, options?.forceSpeech === true);
+
+      let pending = batch[which];
+      if (!pending) {
+        // Clear now and write once the batch runs, so an identical message is announced again.
+        pending = [];
+        batch[which] = pending;
+        const region = regionFor(which);
+        if (region) region.textContent = '';
+      }
+
+      if (message.trim() === '') return;
+      const superseded = kind === null ? undefined : pending.find((m) => m.kind === kind);
+      const replacedText = superseded?.text;
+      if (superseded) superseded.text = message;
+      else if (!pending.some((m) => m.text === message)) pending.push({ text: message, kind });
+
+      if (!forceSpeech && !prefsRef.current.audioAnnouncements) return;
+      // Each message is spoken once; the merged text is never spoken. The first message of a batch
+      // interrupts earlier speech and later ones queue behind it, unless they replace words just spoken.
+      if (!batch.spoken || (replacedText !== undefined && batch.spoken.has(replacedText))) {
+        batch.spoken = new Set([message]);
+        utter(message, true);
+      } else if (!batch.spoken.has(message)) {
+        batch.spoken.add(message);
+        utter(message, false);
+      }
     },
-    [speakNow],
+    [utter],
+  );
+
+  const announce = useCallback(
+    (message: string, options?: AnnounceOptions) =>
+      enqueue(message, options?.assertive === true, options?.forceSpeech === true, null),
+    [enqueue],
   );
 
   const vibrate = useCallback(
@@ -127,10 +228,10 @@ export function FeedbackProvider({ children }: { children: ReactNode }) {
 
   const feedback = useCallback(
     (kind: FeedbackKind, message: string) => {
-      announce(message, { assertive: ASSERTIVE_KINDS.has(kind) });
+      enqueue(message, ASSERTIVE_KINDS.has(kind), false, kind);
       vibrate(VIBRATION_PATTERNS[kind]);
     },
-    [announce, vibrate],
+    [enqueue, vibrate],
   );
 
   const value = useMemo<FeedbackContextValue>(

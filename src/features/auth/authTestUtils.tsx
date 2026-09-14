@@ -1,11 +1,11 @@
 /** Test-only helpers: a fake Supabase-mode AuthService and a renderer that injects it into the real provider stack. */
-import { render, type RenderResult } from '@testing-library/react';
+import { render, screen, type RenderResult } from '@testing-library/react';
 import { MemoryRouter } from 'react-router';
 import { vi } from 'vitest';
 import { AppProviders } from '@/app/AppProviders';
 import type { AuthService, AuthUser } from '@/services/auth/types';
-import { MemoryStorageAdapter } from '@/services/storage/StorageAdapter';
-import { AuthTestRoutes } from './AuthTestRoutes';
+import { MemoryStorageAdapter, type StorageAdapter } from '@/services/storage/StorageAdapter';
+import { AuthTestRoutes, LocationStateProbe } from './AuthTestRoutes';
 
 export const SUPABASE_TEST_USER: AuthUser = {
   id: 'supabase_user',
@@ -41,6 +41,35 @@ export function renderWithAuthService(service: AuthService, route: string): Rend
     <MemoryRouter initialEntries={[route]}>
       <AppProviders storage={new MemoryStorageAdapter()} authService={service}>
         <AuthTestRoutes />
+      </AppProviders>
+    </MemoryRouter>,
+  );
+}
+
+/** The router state of the current history entry, as JSON ("null" when there is none). */
+export function currentLocationState(): string {
+  return screen.getByTestId('location-state').getAttribute('data-state') ?? '';
+}
+
+/** The current "pathname+search". */
+export function currentLocationPath(): string {
+  return screen.getByTestId('location-state').getAttribute('data-location') ?? '';
+}
+
+export interface HistoryEntry {
+  readonly pathname: string;
+  readonly search?: string;
+  /** Router state, as another screen passes it with navigate(to, { state }). */
+  readonly state?: unknown;
+}
+
+/** Renders the auth routes (signed out, Demo Mode) starting at a history entry that can carry router state. */
+export function renderAuthRoutesAt(entry: HistoryEntry, storage: StorageAdapter = new MemoryStorageAdapter()): RenderResult {
+  return render(
+    <MemoryRouter initialEntries={[{ pathname: entry.pathname, search: entry.search ?? '', state: entry.state }]}>
+      <AppProviders storage={storage}>
+        <AuthTestRoutes />
+        <LocationStateProbe />
       </AppProviders>
     </MemoryRouter>,
   );

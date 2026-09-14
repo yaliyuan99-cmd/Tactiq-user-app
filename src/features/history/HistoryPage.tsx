@@ -14,7 +14,6 @@ import { toServiceFilter, type HistoryFilterState } from './historyParams';
 import { NoMatchingActivity } from './NoMatchingActivity';
 import { performanceRows } from './performance';
 import { RecentAttemptsSection } from './RecentAttemptsSection';
-import { countSampleRecords, removeSampleRecords } from './removeSampleRecords';
 import { SummarySection } from './SummarySection';
 import { useHistoryFilters } from './useHistoryFilters';
 import { YourDataSection } from './YourDataSection';
@@ -36,6 +35,11 @@ function useInitialRead(history: HistoryService): boolean {
     setReady(true);
   }, [history]);
   return ready;
+}
+
+/** Demo Mode sample records anywhere in history, whatever the filters. */
+function countSampleRecords(history: HistoryService): number {
+  return history.list({ range: 'all' }).filter((event) => event.seeded).length;
 }
 
 /** Moves focus to an element id after the next render, e.g. when the focused control has gone. */
@@ -91,10 +95,12 @@ export default function HistoryPage() {
   };
 
   const removeSamples = () => {
-    const { removed, kept } = removeSampleRecords(history);
+    // One write that keeps the user's own records, in order; sample records are not seeded again.
+    const removed = history.removeSeeded();
     if (removed === 0) return;
     announce(`Removed ${plural(removed, 'sample record')}.`);
-    focusAfterRender(kept > 0 ? HISTORY_HEADING_IDS.filters : PAGE_TITLE_ID);
+    // With nothing left the filters go away too, so focus moves to the page title.
+    focusAfterRender(history.count() > 0 ? HISTORY_HEADING_IDS.filters : PAGE_TITLE_ID);
   };
 
   return (

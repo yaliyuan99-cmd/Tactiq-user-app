@@ -21,7 +21,7 @@ afterEach(() => {
 describe('AppShell navigation', () => {
   it('shows the five mobile destinations and the sidebar with its secondary group', async () => {
     renderRoutes({ route: ROUTES.dashboard });
-    await screen.findByRole('heading', { level: 1, name: 'Overview' });
+    await screen.findByRole('heading', { level: 1, name: 'Home' });
     const { sidebar, mobile } = mainNavs();
 
     expect(mobile).toHaveAttribute('aria-label', 'Main');
@@ -45,7 +45,7 @@ describe('AppShell navigation', () => {
 
   it('navigates with Train and moves aria-current', async () => {
     const { user } = renderRoutes({ route: ROUTES.dashboard });
-    await screen.findByRole('heading', { level: 1, name: 'Overview' });
+    await screen.findByRole('heading', { level: 1, name: 'Home' });
     const { sidebar, mobile } = mainNavs();
 
     await user.click(within(mobile).getByRole('link', { name: 'Train' }));
@@ -59,7 +59,7 @@ describe('AppShell navigation', () => {
 
   it('moves focus to the new page heading and announces it after navigating', async () => {
     const { user } = renderRoutes({ route: ROUTES.dashboard });
-    await screen.findByRole('heading', { level: 1, name: 'Overview' });
+    await screen.findByRole('heading', { level: 1, name: 'Home' });
     expect(document.body).toHaveFocus();
 
     await user.click(within(mainNavs().sidebar).getByRole('link', { name: 'Calibrate' }));
@@ -76,7 +76,7 @@ describe('AppShell navigation', () => {
 
   it('makes the skip link the first tab stop, targeting main content', async () => {
     const { user } = renderRoutes({ route: ROUTES.dashboard });
-    await screen.findByRole('heading', { level: 1, name: 'Overview' });
+    await screen.findByRole('heading', { level: 1, name: 'Home' });
     await user.tab();
     const skip = screen.getByRole('link', { name: 'Skip to main content' });
     expect(skip).toHaveFocus();
@@ -115,7 +115,7 @@ describe('AppShell navigation', () => {
 
   it('shows the Demo Mode notice with a way to change it', async () => {
     renderRoutes({ route: ROUTES.dashboard });
-    await screen.findByRole('heading', { level: 1, name: 'Overview' });
+    await screen.findByRole('heading', { level: 1, name: 'Home' });
     const notice = screen.getByText(DEMO_MODE_NOTICE);
     const change = within(notice.parentElement as HTMLElement).getByRole('link', { name: 'Change device mode' });
     expect(change).toHaveAttribute('href', ROUTES.connect);
@@ -123,14 +123,14 @@ describe('AppShell navigation', () => {
 
   it('hides the Demo Mode notice when a hardware ring is chosen', async () => {
     renderRoutes({ route: ROUTES.dashboard, deviceMode: 'hardware' });
-    await screen.findByRole('heading', { level: 1, name: 'Overview' });
+    await screen.findByRole('heading', { level: 1, name: 'Home' });
     expect(screen.queryByText(DEMO_MODE_NOTICE)).not.toBeInTheDocument();
     expect(screen.getByRole('link', { name: /^Device: .+\. Open connection settings$/ })).not.toHaveTextContent('Demo Mode');
   });
 
   it('switches the theme from the sidebar', async () => {
     const { user } = renderRoutes({ route: ROUTES.dashboard });
-    await screen.findByRole('heading', { level: 1, name: 'Overview' });
+    await screen.findByRole('heading', { level: 1, name: 'Home' });
     const theme = within(screen.getByTestId('sidebar')).getByRole('group', { name: 'Theme' });
     expect(within(theme).getByRole('radio', { name: 'System' })).toBeChecked();
 
@@ -145,7 +145,7 @@ describe('AppShell navigation', () => {
 
   it('opens the More dialog with the secondary destinations, theme and sign out', async () => {
     const { user } = renderRoutes({ route: ROUTES.dashboard });
-    await screen.findByRole('heading', { level: 1, name: 'Overview' });
+    await screen.findByRole('heading', { level: 1, name: 'Home' });
 
     await user.click(screen.getByRole('button', { name: 'More' }));
     const dialog = await screen.findByRole('dialog', { name: 'More' });
@@ -188,7 +188,7 @@ describe('AppShell sign-out failure', () => {
     }
     const storage = new MemoryStorageAdapter();
     const { user } = renderRoutes({ route: ROUTES.dashboard, storage, authService: new FailingSignOut(storage) });
-    await screen.findByRole('heading', { level: 1, name: 'Overview' });
+    await screen.findByRole('heading', { level: 1, name: 'Home' });
 
     const sidebar = within(screen.getByTestId('sidebar'));
     await user.click(sidebar.getByRole('button', { name: 'Sign out' }));
@@ -204,7 +204,7 @@ describe('AppShell demo history seeding', () => {
     const services = createServices(storage);
     const seed = vi.spyOn(services.history, 'seedDemo');
     const { user } = renderRoutes({ route: ROUTES.dashboard, storage, services });
-    await screen.findByRole('heading', { level: 1, name: 'Overview' });
+    await screen.findByRole('heading', { level: 1, name: 'Home' });
 
     await waitFor(() => expect(seed).toHaveBeenCalledTimes(1));
     const count = services.history.count();
@@ -215,7 +215,7 @@ describe('AppShell demo history seeding', () => {
     await user.click(within(mainNavs().mobile).getByRole('link', { name: 'Train' }));
     await screen.findByRole('heading', { level: 1, name: 'Train' });
     await user.click(within(mainNavs().mobile).getByRole('link', { name: 'Home' }));
-    await screen.findByRole('heading', { level: 1, name: 'Overview' });
+    await screen.findByRole('heading', { level: 1, name: 'Home' });
     expect(seed).toHaveBeenCalledTimes(1);
     expect(services.history.count()).toBe(count);
   });
@@ -231,7 +231,7 @@ describe('AppShell demo history seeding', () => {
 
   it('does not seed for a hardware ring', async () => {
     const { services } = renderRoutes({ route: ROUTES.dashboard, deviceMode: 'hardware' });
-    await screen.findByRole('heading', { level: 1, name: 'Overview' });
+    await screen.findByRole('heading', { level: 1, name: 'Home' });
     expect(services.history.hasSeededDemo()).toBe(false);
     expect(services.history.count()).toBe(0);
   });

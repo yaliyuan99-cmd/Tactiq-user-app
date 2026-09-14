@@ -1,14 +1,17 @@
 import { ROUTES } from '@/app/routes';
+import type { GestureEvent } from '@/domain/models';
+import { downloadTextFile } from '@/lib/download';
+import { LocalHistoryService } from '@/services/history/LocalHistoryService';
 import { useHistory } from '@/services/ServicesProvider';
 import { MemoryStorageAdapter, STORAGE_KEYS } from '@/services/storage/StorageAdapter';
 import { renderApp, screen, userEvent, within } from '@/test/renderApp';
-import { downloadTextFile } from './download';
 import { SAMPLE_RECORDS_NOTICE } from './EvidenceBanner';
 import HistoryPage, { STORAGE_WARNING } from './HistoryPage';
 import { TEST_NOW, manyEvents, minutesAgo, standardEvents, storageWith } from './historyTestData';
 
-vi.mock('./download', async (importOriginal) => {
-  const actual = await importOriginal<typeof import('./download')>();
+// The browser plumbing is tested in src/lib/download.test.ts; the real datedFilename names the file.
+vi.mock('@/lib/download', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@/lib/download')>();
   return { ...actual, downloadTextFile: vi.fn() };
 });
 
@@ -53,6 +56,9 @@ describe('HistoryPage data', () => {
     it('removes only sample records after confirmation', async () => {
       const user = userEvent.setup();
       const storage = seededStorage();
+      const removeSeeded = vi.spyOn(LocalHistoryService.prototype, 'removeSeeded');
+      const clear = vi.spyOn(LocalHistoryService.prototype, 'clear');
+      const append = vi.spyOn(LocalHistoryService.prototype, 'append');
       renderApp(<HistoryPage />, { route: ROUTES.history, storage });
       await user.click(await screen.findByRole('button', { name: 'Remove sample records' }));
 
@@ -65,9 +71,30 @@ describe('HistoryPage data', () => {
       expect(screen.queryByText(SAMPLE_RECORDS_NOTICE)).not.toBeInTheDocument();
       expect(screen.getByRole('table', { name: 'Newest first, showing 10 of 10' })).not.toHaveTextContent('Sample');
       expect(screen.getByRole('heading', { level: 2, name: 'Filters' })).toHaveFocus();
-      const stored = storage.get<{ seeded: boolean }[]>(STORAGE_KEYS.history);
+      const stored = storage.get<GestureEvent[]>(STORAGE_KEYS.history);
       expect(stored).toHaveLength(standardEvents().length);
       expect(stored?.every((e) => !e.seeded)).toBe(true);
+      // The user's own records are kept unchanged, oldest first, by one call to the history service.
+      expect(stored).toEqual(storageWith(standardEvents()).get(STORAGE_KEYS.history));
+      expect(removeSeeded).toHaveBeenCalledTimes(1);
+      expect(clear).not.toHaveBeenCalled();
+      expect(append).not.toHaveBeenCalled();
+    });
+
+    it('moves focus to the page title when every record was a sample', async () => {
+      const user = userEvent.setup();
+      const storage = storageWith(manyEvents(3, { seeded: true }));
+      renderApp(<HistoryPage />, { route: ROUTES.history, storage });
+      await user.click(await screen.findByRole('button', { name: 'Remove sample records' }));
+      expect(screen.getByRole('dialog', { name: 'Remove sample records?' })).toHaveTextContent(
+        'This deletes the 3 sample records created for Demo Mode.',
+      );
+      await user.click(within(screen.getByRole('dialog')).getByRole('button', { name: 'Remove samples' }));
+
+      expect(await polite().findByText('Removed 3 sample records.')).toBeInTheDocument();
+      expect(screen.getByRole('heading', { level: 2, name: 'No activity yet' })).toBeInTheDocument();
+      expect(screen.getByRole('heading', { level: 1, name: 'Activity' })).toHaveFocus();
+      expect(storage.get(STORAGE_KEYS.history)).toEqual([]);
     });
 
     it('keeps everything when the removal is cancelled', async () => {
@@ -107,8 +134,19 @@ describe('HistoryPage data', () => {
       expect(filename).toBe('tactiq-activity-2026-09-15.csv');
       expect(contentType).toBe('text/csv;charset=utf-8');
       const lines = (content ?? '').split('\r\n');
-      expect(lines[0]).toBe('id,at,source,mode,targetContact,detectedContact,token,durationMs,outcome,evidence,seeded,lessonId');
+      expect(lines[0]).toBe(
+        'id,at,source,mode,targetContact,detectedContact,token,durationMs,outcome,evidence,seeded,lessonId,targetToken',
+      );
       expect(lines).toHaveLength(13);
+    });
+
+    it('names the file with the local calendar date, zero-padded', async () => {
+      vi.setSystemTime(new Date(2026, 0, 5, 23, 59));
+      const user = userEvent.setup();
+      renderApp(<HistoryPage />, { route: ROUTES.history, storage: storageWith(standardEvents()) });
+      await user.click(await screen.findByRole('button', { name: 'Download CSV' }));
+      expect(vi.mocked(downloadTextFile).mock.calls[0]?.[1]).toBe('tactiq-activity-2026-01-05.csv');
+      expect(await polite().findByText('Download started: tactiq-activity-2026-01-05.csv.')).toBeInTheDocument();
     });
   });
 

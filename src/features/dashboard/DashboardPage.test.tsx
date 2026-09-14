@@ -31,15 +31,20 @@ describe('DashboardPage greeting', () => {
     vi.useFakeTimers({ toFake: ['Date'], shouldAdvanceTime: true });
     vi.setSystemTime(new Date(2026, 8, 15, hour, 0));
     renderApp(<DashboardPage />, { preferences: SETUP_FINISHED });
-    expect(await screen.findByRole('heading', { level: 1, name: title })).toHaveAttribute('id', 'page-title');
-    expect(screen.getByText('Your Tactiq')).toBeInTheDocument();
-    expect(document.title).toBe('Overview · Tactiq');
+    const heading = await screen.findByRole('heading', { level: 1, name: title });
+    expect(heading).toHaveAttribute('id', 'page-title');
+    // The page is named Home (document title, eyebrow, navigation); the h1 is the greeting.
+    const eyebrow = screen.getByText('Home');
+    expect(eyebrow.nextElementSibling).toBe(heading);
+    expect(document.title).toBe('Home · Tactiq');
   });
 
-  it('falls back to Overview when nobody is signed in', async () => {
+  it('falls back to a Home h1 without a repeated eyebrow when nobody is signed in', async () => {
     renderApp(<DashboardPage />, { signedIn: false, preferences: SETUP_FINISHED });
     await act(async () => {});
-    expect(screen.getByRole('heading', { level: 1, name: 'Overview' })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { level: 1, name: 'Home' })).toBeInTheDocument();
+    expect(screen.getAllByText('Home')).toHaveLength(1);
+    expect(document.title).toBe('Home · Tactiq');
   });
 
   it('has one h1 and the sections as h2 in reading order', async () => {

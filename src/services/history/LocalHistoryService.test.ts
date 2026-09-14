@@ -52,14 +52,45 @@ describe('LocalHistoryService', () => {
     expect(history.lastWriteSucceeded()).toBe(true);
   });
 
-  it('keeps supplied id, time and seeded flag, and omits an absent lessonId', () => {
+  it('keeps supplied id, time and seeded flag, and omits an absent lessonId and targetToken', () => {
     const event = history.append(tap({ id: 'custom', at: '2026-09-14T00:00:00.000Z', seeded: true }));
     expect(event).toMatchObject({ id: 'custom', at: '2026-09-14T00:00:00.000Z', seeded: true });
     expect('lessonId' in event).toBe(false);
+    expect('targetToken' in event).toBe(false);
+  });
+
+  it('stores the target command and reads it back from storage', () => {
+    const event = history.append(
+      tap({
+        id: 'emergency-target-tap',
+        mode: 'lesson',
+        source: 'training',
+        lessonId: 'emergency_hold',
+        targetContact: 'pinky_tip',
+        targetToken: 'emergency',
+        detectedContact: 'pinky_tip',
+        token: 'quick_action_1',
+        outcome: 'mismatch',
+      }),
+    );
+    expect(event.targetToken).toBe('emergency');
+    expect(storage.get(STORAGE_KEYS.history)).toEqual([event]);
+    const reread = new LocalHistoryService(storage);
+    expect(reread.list()).toEqual([event]);
+    expect(intendedToken(reread.list()[0]!)).toBe('emergency');
+    expect(reread.summarise().perCommand.find((c) => c.token === 'emergency')).toEqual({
+      token: 'emergency',
+      attempts: 1,
+      successes: 0,
+      rate: 0,
+    });
+    expect(reread.summarise().perCommand.find((c) => c.token === 'quick_action_1')?.attempts).toBe(0);
+    reread.dispose();
   });
 
   it('rejects an invalid record', () => {
     expect(() => history.append(tap({ at: 'not a date' }))).toThrow('This activity record is not valid');
+    expect(() => history.append(tap({ targetToken: 'call_mum' as never }))).toThrow('This activity record is not valid');
     expect(history.count()).toBe(0);
   });
 
@@ -106,8 +137,16 @@ describe('LocalHistoryService', () => {
   });
 
   it('ignores malformed stored records', () => {
-    storage.set(STORAGE_KEYS.history, [makeGestureEvent({ id: 'ok' }), { id: 'broken' }, 42, null]);
-    expect(history.list().map((e) => e.id)).toEqual(['ok']);
+    storage.set(STORAGE_KEYS.history, [
+      makeGestureEvent({ id: 'ok', at: '2026-09-15T01:00:00.000Z' }),
+      makeGestureEvent({ id: 'ok-with-target', at: '2026-09-15T02:00:00.000Z', targetToken: 'confirm' }),
+      { ...makeGestureEvent({ id: 'bad-target' }), targetToken: 'call_mum' },
+      { id: 'broken' },
+      42,
+      null,
+    ]);
+    expect(history.list().map((e) => e.id)).toEqual(['ok-with-target', 'ok']);
+    expect(history.list()[0]?.targetToken).toBe('confirm');
     storage.set(STORAGE_KEYS.history, { not: 'an array' });
     expect(history.count()).toBe(0);
   });
@@ -122,17 +161,87 @@ describe('LocalHistoryService', () => {
   });
 
   it('exports CSV and JSON oldest first', () => {
-    history.append(tap({ id: 'second', at: '2026-09-15T02:00:00.000Z' }));
+    history.append(tap({ id: 'second', at: '2026-09-15T02:00:00.000Z', targetToken: 'confirm' }));
     history.append(tap({ id: 'first', at: '2026-09-15T01:00:00.000Z' }));
     const csvLines = history.exportCsv().split('\r\n');
     expect(csvLines).toHaveLength(3);
+    expect(csvLines[0]?.endsWith(',lessonId,targetToken')).toBe(true);
     expect(csvLines[1]?.startsWith('first,')).toBe(true);
-    const json = JSON.parse(history.exportJson()) as { format: string; version: number; exportedAt: string; note: string; events: { id: string }[] };
+    expect(csvLines[1]?.endsWith(',false,,')).toBe(true);
+    expect(csvLines[2]?.endsWith(',false,,confirm')).toBe(true);
+    const json = JSON.parse(history.exportJson()) as {
+      format: string;
+      version: number;
+      exportedAt: string;
+      note: string;
+      events: { id: string; targetToken?: string }[];
+    };
     expect(json.format).toBe('tactiq.history');
     expect(json.version).toBe(1);
     expect(json.exportedAt).toBe(NOW.toISOString());
     expect(json.note).toBe('Simulated practice records from the Tactiq user app. Not hardware measurements.');
     expect(json.events.map((e) => e.id)).toEqual(['first', 'second']);
+    expect(json.events.map((e) => e.targetToken)).toEqual([undefined, 'confirm']);
+  });
+
+  describe('removeSeeded', () => {
+    it('removes only sample records in one write, keeps the rest in order and leaves the seeded flag set', () => {
+      history.append(tap({ id: 'mine-early', at: new Date(NOW.getTime() - 6 * DAY).toISOString() }));
+      history.seedDemo(NOW);
+      history.append(tap({ id: 'mine-late', targetToken: 'confirm' }));
+      const seededCount = history.list().filter((e) => e.seeded).length;
+      expect(seededCount).toBeGreaterThan(0);
+      const flag = storage.get(STORAGE_KEYS.historySeeded);
+
+      const listener = vi.fn();
+      history.subscribe(listener);
+      const setSpy = vi.spyOn(storage, 'set');
+
+      expect(history.removeSeeded()).toBe(seededCount);
+
+      expect(setSpy).toHaveBeenCalledTimes(1);
+      expect(listener).toHaveBeenCalledTimes(1);
+      expect(history.list().map((e) => e.id)).toEqual(['mine-late', 'mine-early']);
+      expect(history.list()[0]?.targetToken).toBe('confirm');
+      expect(storage.get<{ id: string }[]>(STORAGE_KEYS.history)?.map((e) => e.id)).toEqual(['mine-early', 'mine-late']);
+      expect(history.lastWriteSucceeded()).toBe(true);
+      expect(history.hasSeededDemo()).toBe(true);
+      expect(storage.get(STORAGE_KEYS.historySeeded)).toEqual(flag);
+
+      history.seedDemo(NOW);
+      expect(history.count()).toBe(2);
+    });
+
+    it('returns 0 without writing or notifying when there are no sample records', () => {
+      history.append(tap({ id: 'mine' }));
+      const listener = vi.fn();
+      history.subscribe(listener);
+      const setSpy = vi.spyOn(storage, 'set');
+      expect(history.removeSeeded()).toBe(0);
+      expect(setSpy).not.toHaveBeenCalled();
+      expect(listener).not.toHaveBeenCalled();
+      expect(history.count()).toBe(1);
+    });
+
+    it('leaves an empty history when every record was a sample', () => {
+      history.seedDemo(NOW);
+      const count = history.count();
+      expect(history.removeSeeded()).toBe(count);
+      expect(history.count()).toBe(0);
+      const reread = new LocalHistoryService(storage);
+      expect(reread.count()).toBe(0);
+      expect(reread.hasSeededDemo()).toBe(true);
+      reread.dispose();
+    });
+
+    it('reports a failed write but removes the samples for this session', () => {
+      history.seedDemo(NOW);
+      history.append(tap({ id: 'mine' }));
+      vi.spyOn(storage, 'set').mockReturnValue(false);
+      expect(history.removeSeeded()).toBeGreaterThan(0);
+      expect(history.lastWriteSucceeded()).toBe(false);
+      expect(history.list().map((e) => e.id)).toEqual(['mine']);
+    });
   });
 
   describe('seedDemo', () => {

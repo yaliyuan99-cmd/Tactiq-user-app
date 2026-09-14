@@ -27,7 +27,11 @@ export interface UserPreferences {
   readonly visualConfirmation: boolean;
   /** Vibrate the phone (where the browser allows it) as a stand-in for the ring's haptics. */
   readonly hapticFeedback: boolean;
-  /** Doubles the command window and hold tolerances in this app. */
+  /**
+   * Doubles the command window of the simulated ring (Demo Mode). A connected
+   * bench prototype keeps its firmware's 3-second window, and the Emergency
+   * hold and tap limit do not change.
+   */
   readonly longerInteractionTime: boolean;
   readonly hand: Hand;
   readonly onboardingCompleted: boolean;
@@ -169,6 +173,14 @@ export interface GestureEvent {
   readonly source: GestureEventSource;
   readonly mode: GestureEventMode;
   readonly targetContact: ContactKey | null;
+  /**
+   * The command the exercise asked for. Set by guided practice, lessons and
+   * calibration when known. It disambiguates a target contact that carries two
+   * commands: on the pinky fingertip, a guided Emergency hold answered with a
+   * brief tap is an attempt at `emergency`, not at `quick_action_1`. Absent on
+   * free practice and on records saved before this field existed.
+   */
+  readonly targetToken?: CommandToken;
   readonly detectedContact: ContactKey | null;
   readonly token: CommandToken | null;
   readonly durationMs: number | null;

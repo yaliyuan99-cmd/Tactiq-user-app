@@ -25,7 +25,7 @@ async function findPageHeading(name: string) {
 describe('AppRoutes: root and guards', () => {
   it('sends a signed-in user from / to the dashboard', async () => {
     renderRoutes({ route: '/' });
-    expect(await findPageHeading('Overview')).toBeInTheDocument();
+    expect(await findPageHeading('Home')).toBeInTheDocument();
     expect(currentLocation()).toBe(ROUTES.dashboard);
   });
 
@@ -67,7 +67,6 @@ describe('AppRoutes: root and guards', () => {
     expect(await findPageHeading('Welcome to Tactiq')).toBeInTheDocument();
     expect(currentLocation()).toBe(ROUTES.onboarding);
     expect(screen.queryByRole('navigation', { name: 'Main' })).not.toBeInTheDocument();
-    expect(screen.getByRole('link', { name: 'Help' })).toHaveAttribute('href', ROUTES.help);
   });
 
   it('keeps Help reachable before onboarding is finished', async () => {
@@ -92,13 +91,13 @@ describe('AppRoutes: auth screens', () => {
 
   it('ignores an unsafe next path', async () => {
     renderRoutes({ route: `/sign-in?next=${encodeURIComponent('https://evil.example')}` });
-    await findPageHeading('Overview');
+    await findPageHeading('Home');
     expect(currentLocation()).toBe(ROUTES.dashboard);
   });
 
   it('sends a signed-in user away from sign-up', async () => {
     renderRoutes({ route: ROUTES.signUp });
-    await findPageHeading('Overview');
+    await findPageHeading('Home');
     expect(currentLocation()).toBe(ROUTES.dashboard);
   });
 
@@ -135,14 +134,23 @@ describe('AppRoutes: auth screens', () => {
     expect(currentLocation()).toBe('/sign-in?next=%2Fdashboard%2Fhistory');
   });
 
-  it('gives onboarding a skip link, a logo banner with Help and a main landmark', async () => {
+  it('renders onboarding outside the public frame, so the page supplies the only main landmark', async () => {
+    // The onboarding page is a stub here; App.onboarding.test.tsx renders the real page and
+    // checks there is exactly one main landmark and one skip link.
     renderRoutes({ route: ROUTES.onboarding, preferences: { onboardingCompleted: false } });
     await findPageHeading('Welcome to Tactiq');
-    expect(screen.getByRole('link', { name: 'Skip to main content' })).toHaveAttribute('href', '#main-content');
+    expect(screen.queryByRole('main')).not.toBeInTheDocument();
+    expect(screen.queryByRole('link', { name: 'Skip to main content' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('link', { name: 'Tactiq home' })).not.toBeInTheDocument();
+  });
+
+  it('keeps the public frame for Page not found: one main landmark and one skip link', async () => {
+    renderRoutes({ route: '/no-such-place' });
+    await findPageHeading('Page not found');
+    expect(screen.getAllByRole('main')).toHaveLength(1);
+    expect(screen.getAllByRole('link', { name: 'Skip to main content' })).toHaveLength(1);
     const banner = screen.getByRole('link', { name: 'Tactiq home' }).closest('header');
-    expect(banner).not.toBeNull();
     expect(within(banner as HTMLElement).getByRole('link', { name: 'Help' })).toHaveAttribute('href', ROUTES.help);
-    expect(within(screen.getByRole('main')).getByRole('heading', { level: 1 })).toBeInTheDocument();
   });
 });
 
@@ -160,7 +168,7 @@ describe('AppRoutes: unknown addresses', () => {
     expect(await findPageHeading('Page not found')).toBeInTheDocument();
     expect(screen.getAllByRole('navigation', { name: 'Main' }).length).toBeGreaterThan(0);
     await user.click(screen.getByRole('link', { name: 'Go to the dashboard' }));
-    expect(await findPageHeading('Overview')).toBeInTheDocument();
+    expect(await findPageHeading('Home')).toBeInTheDocument();
   });
 
   it('renders the lesson route with its parameter', async () => {

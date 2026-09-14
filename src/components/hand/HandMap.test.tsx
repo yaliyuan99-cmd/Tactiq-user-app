@@ -2,6 +2,7 @@ import { fireEvent, render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { resolveCommand } from '@/domain/commands';
 import { CONTACT_POINTS, type ContactKey } from '@/domain/contacts';
+import { CONTACT_COORDINATES, HAND_VIEWBOX_WIDTH } from './geometry';
 import { HandMap } from './HandMap';
 
 const commandName = (contact: ContactKey) => resolveCommand(contact, 'tap')?.label ?? '';
@@ -159,6 +160,60 @@ describe('HandMap', () => {
     fireEvent.pointerDown(button, { pointerId: 1, button: 0 });
     fireEvent.click(button);
     expect(onPressStart).not.toHaveBeenCalled();
+  });
+
+  it('keeps interactive points at a fixed 44px minimum, not scaled with the figure', () => {
+    render(<HandMap hand="right" size="sm" />);
+    const buttons = screen.getAllByRole('button');
+    expect(buttons).toHaveLength(8);
+    buttons.forEach((b) => {
+      expect(b).toHaveClass('h-[44px]', 'w-[44px]', 'min-h-[44px]', 'min-w-[44px]');
+      expect(b.className).not.toContain('clamp(');
+      expect(b).not.toHaveClass('aspect-square');
+    });
+  });
+
+  it('sizes decorative points relative to the figure so neighbours never overlap at a 280px container', () => {
+    const { container } = render(<HandMap hand="right" interactive={false} size="sm" />);
+    const points = Array.from(container.querySelectorAll<HTMLElement>('[data-contact]'));
+    expect(points).toHaveLength(8);
+    points.forEach((point) => {
+      expect(point).toHaveClass('aspect-square', 'rounded-full');
+      expect(point.className).toMatch(/\bw-\[clamp\(\d+px,\d+%,\d+px\)\]/);
+      expect(point.className).not.toMatch(/(^|\s)(min-)?[wh]-\[44px\]/);
+    });
+    // Colours, shapes and the emergency ring are unchanged.
+    const pinkyTip = container.querySelector<HTMLElement>('[data-contact="pinky_tip"]');
+    expect(pinkyTip).toHaveClass('bg-primary', 'text-primary-foreground');
+    expect(pinkyTip?.querySelector('[data-emergency-ring]')?.className).toContain('border-dashed');
+    expect(container.querySelector('[data-contact="index_tip"]')).toHaveClass('bg-foreground', 'text-background');
+
+    const [, min, percent, max] = /w-\[clamp\((\d+)px,(\d+)%,(\d+)px\)\]/.exec(points[0]?.className ?? '')?.map(Number) ?? [];
+    if (min === undefined || percent === undefined || max === undefined) throw new Error('No relative size class');
+    expect(min).toBeLessThan(44);
+    expect(max).toBeLessThan(44);
+
+    // Emergency points carry a dashed ring 5px outside the point (-inset-[5px]).
+    const ringOutset = (key: string) =>
+      container.querySelector(`[data-contact="${key}"] [data-emergency-ring]`) ? 5 : 0;
+    const keys = Object.keys(CONTACT_COORDINATES) as (keyof typeof CONTACT_COORDINATES)[];
+
+    for (const figureWidth of [280, 340, 408, 476]) {
+      const scale = figureWidth / HAND_VIEWBOX_WIDTH;
+      const diameter = Math.min(max, Math.max(min, (figureWidth * percent) / 100));
+      let smallestGap = Number.POSITIVE_INFINITY;
+      keys.forEach((a, i) => {
+        keys.slice(i + 1).forEach((b) => {
+          const distance = Math.hypot(
+            CONTACT_COORDINATES[a].cx - CONTACT_COORDINATES[b].cx,
+            CONTACT_COORDINATES[a].cy - CONTACT_COORDINATES[b].cy,
+          );
+          const gap = distance * scale - diameter - ringOutset(a) - ringOutset(b);
+          smallestGap = Math.min(smallestGap, gap);
+        });
+      });
+      expect(smallestGap, `gap between the closest points at ${figureWidth}px`).toBeGreaterThanOrEqual(4);
+    }
   });
 
   it('renders no buttons when not interactive, but keeps the text alternative', () => {

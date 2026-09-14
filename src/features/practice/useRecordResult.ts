@@ -13,7 +13,13 @@ import { evidenceForDevice, squeezeGestureEvent, toGestureEvent, type RecordCont
 export type RecordResult = (result: RingResult, context: RecordContext) => GestureEvent;
 export type RecordSqueeze = (context: RecordContext, at?: number) => GestureEvent;
 
-/** Returns `record(result, context)`, which appends the result to history and returns the saved event. */
+/**
+ * Returns `record(result, context)`, which appends the result to history and
+ * returns the saved event. Pass `targetContact` and, whenever the exercise
+ * knows the command it asked for, `targetToken` too: a command is recorded as
+ * recognised only when it matches both, so a brief pinky tap during an
+ * Emergency target is a mismatch rather than a success.
+ */
 export function useRecordResult(): RecordResult {
   const { history } = useServices();
   const { state } = useDevice();

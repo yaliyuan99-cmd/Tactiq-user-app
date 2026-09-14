@@ -3,7 +3,15 @@ import type { ContactKey } from '@/domain/contacts';
 import { EMERGENCY_SIMULATION_NOTICE } from '@/domain/evidence';
 import type { LessonStep } from '@/domain/lessons';
 import type { RingResult } from '@/features/practice/ringResults';
-import { evaluateStep, stepHint, stepTargetContact, targetPhrase, type LessonInput, type StepEvaluation } from './lessonLogic';
+import {
+  evaluateStep,
+  stepHint,
+  stepTargetContact,
+  stepTargetToken,
+  targetPhrase,
+  type LessonInput,
+  type StepEvaluation,
+} from './lessonLogic';
 
 const confirmStep: LessonStep = { kind: 'tap', contact: 'index_tip', token: 'confirm', instruction: 'Tap Confirm.' };
 const shortcutStep: LessonStep = { kind: 'tap', contact: 'pinky_tip', token: 'quick_action_1', instruction: 'Tap Shortcut 1.' };
@@ -188,5 +196,13 @@ describe('step words', () => {
     expect(stepHint(completeStep)).toMatch(/Keep holding/);
     expect(stepTargetContact(squeezeStep)).toBeNull();
     expect(stepTargetContact(completeStep)).toBe('pinky_tip');
+  });
+
+  it('names the command each step asks for: the tap’s token, Emergency for a hold, nothing for a squeeze', () => {
+    expect(stepTargetToken(confirmStep)).toBe('confirm');
+    expect(stepTargetToken(shortcutStep)).toBe('quick_action_1');
+    expect(stepTargetToken(cancelStep)).toBe('emergency');
+    expect(stepTargetToken(completeStep)).toBe('emergency');
+    expect(stepTargetToken(squeezeStep)).toBeNull();
   });
 });

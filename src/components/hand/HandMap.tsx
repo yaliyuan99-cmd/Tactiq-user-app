@@ -10,9 +10,12 @@ import { type HandMapProps } from './types';
 import { useContactPress } from './useContactPress';
 
 /**
- * Widths at which neighbouring 44px points do not touch (the index, middle and
- * ring fingertips are about 45 drawing units apart). Narrower containers shrink
- * the figure; ContactList is the alternative when that happens.
+ * Maximum figure widths. The closest contact points (ring and pinky finger
+ * bases) are about 37 of the drawing's 300 units apart, so 44px interactive
+ * points only stay clear of each other when the figure is at least about 358px
+ * wide (md and lg at full width). Narrower containers shrink the figure;
+ * ContactList is the alternative when that happens. Decorative points scale
+ * with the figure instead, so they never overlap (see DECORATIVE_POINT_SIZE).
  */
 const SIZES: Record<NonNullable<HandMapProps['size']>, string> = {
   sm: 'max-w-[340px]',
@@ -22,11 +25,26 @@ const SIZES: Record<NonNullable<HandMapProps['size']>, string> = {
 
 const HOLD_RING_SIZE = 76;
 
+/**
+ * Interactive points are real buttons: 44 CSS px, deliberately not rem-based, so
+ * they meet the target size and larger text sizes do not make them collide.
+ */
+const INTERACTIVE_POINT_SIZE = 'h-[44px] min-h-[44px] w-[44px] min-w-[44px]';
+
+/**
+ * Decorative points (interactive={false}) are sized from the figure: 10% of its
+ * width, between 20px and 40px, kept square. The closest centres (ring and pinky
+ * finger bases) are 12.3% of the width apart, so neighbours keep a gap at any
+ * width above about 163px; at a 280px container they are 28px wide with 6px
+ * between the closest pair. HandMap.test.tsx checks this against geometry.ts.
+ */
+const DECORATIVE_POINT_SIZE = 'aspect-square w-[clamp(20px,10%,40px)]';
+
 function pointClasses(state: ContactVisualState, interactive: boolean, disabled: boolean): string {
   const filled = state.isActive || state.isShortcut ? 'bg-primary text-primary-foreground' : 'bg-foreground text-background';
   return cn(
-    // 44 CSS px, deliberately not rem-based: larger text sizes must not make the points collide.
-    'absolute flex h-[44px] min-h-[44px] w-[44px] min-w-[44px] -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full',
+    'absolute flex -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full',
+    interactive ? INTERACTIVE_POINT_SIZE : DECORATIVE_POINT_SIZE,
     'font-mono-label font-medium leading-none shadow-card transition-[scale,background-color] duration-[var(--dur-tap)]',
     filled,
     state.isActive && 'z-10 scale-110 ring-4 ring-primary/35',

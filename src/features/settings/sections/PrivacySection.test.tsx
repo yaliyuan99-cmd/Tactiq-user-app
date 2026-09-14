@@ -1,7 +1,10 @@
+import { Route, Routes } from 'react-router';
+import { ROUTES } from '@/app/routes';
+import { OnboardingGate } from '@/app/routing/OnboardingGate';
 import type { UserPreferences } from '@/domain/models';
 import { STORAGE_KEYS } from '@/services/storage/StorageAdapter';
-import { act, screen, userEvent, waitFor, within } from '@/test/renderApp';
-import { SIGN_IN_STUB, politeRegion, renderSettings } from '../testing/renderSettings';
+import { act, renderApp, screen, userEvent, waitFor, within } from '@/test/renderApp';
+import { SIGN_IN_STUB, politeRegion, renderSettings, signInState } from '../testing/renderSettings';
 import { FakeRingAdapter } from '../testing/FakeRingAdapter';
 import SettingsPage from '../SettingsPage';
 import { PrivacySection } from './PrivacySection';
@@ -22,6 +25,7 @@ describe('PrivacySection', () => {
   afterEach(() => {
     URL.createObjectURL = originalCreate;
     URL.revokeObjectURL = originalRevoke;
+    vi.useRealTimers();
   });
 
   it('says what is stored and that nothing is sent anywhere in Demo Mode', async () => {
@@ -33,6 +37,8 @@ describe('PrivacySection', () => {
   });
 
   it('downloads every tactiq key as one JSON file and announces the file name', async () => {
+    vi.useFakeTimers({ toFake: ['Date'] });
+    vi.setSystemTime(new Date(2026, 8, 5, 23, 59));
     const user = userEvent.setup();
     const blobs: Blob[] = [];
     URL.createObjectURL = vi.fn((blob: Blob) => {
@@ -50,7 +56,8 @@ describe('PrivacySection', () => {
     await user.click(screen.getByRole('button', { name: 'Download all my data' }));
 
     expect(clicked).toHaveLength(1);
-    expect(clicked[0]?.download).toMatch(/^tactiq-data-\d{4}-\d{2}-\d{2}\.json$/);
+    // The local calendar date, zero-padded.
+    expect(clicked[0]?.download).toBe('tactiq-data-2026-09-05.json');
     const blob = blobs[0];
     expect(blob).toBeDefined();
     const parsed = JSON.parse(blob ? await readBlob(blob) : '{}') as { format: string; data: Record<string, unknown> };
@@ -59,7 +66,7 @@ describe('PrivacySection', () => {
       expect.arrayContaining(['tactiq.prefs', 'tactiq.auth.accounts', 'tactiq.auth.session', 'tactiq.calibration']),
     );
     expect(parsed.data['tactiq.calibration']).toEqual({ id: 'cal_test' });
-    await waitFor(() => expect(politeRegion()).toHaveTextContent(`Download started: ${clicked[0]?.download ?? ''}.`));
+    await waitFor(() => expect(politeRegion()).toHaveTextContent('Download started: tactiq-data-2026-09-05.json.'));
   });
 
   it('resets preferences to their defaults after confirmation, keeping onboarding complete', async () => {
@@ -84,6 +91,33 @@ describe('PrivacySection', () => {
     await waitFor(() => expect(politeRegion()).toHaveTextContent('Preferences reset to their defaults.'));
   });
 
+  it('keeps onboarding progress when preferences are reset, so a finished user stays on Settings', async () => {
+    const user = userEvent.setup();
+    const { storage } = renderApp(
+      <Routes>
+        <Route element={<OnboardingGate />}>
+          <Route path={ROUTES.settings} element={<PrivacySection />} />
+        </Route>
+        <Route path={ROUTES.onboarding} element={<h1>Onboarding stand-in</h1>} />
+      </Routes>,
+      { route: ROUTES.settings, preferences: { onboardingCompleted: true, onboardingStep: 7, textSize: 'larger' } },
+    );
+    await act(async () => {});
+    expect(screen.getByRole('button', { name: 'Reset preferences' })).toBeInTheDocument();
+
+    await user.click(screen.getByRole('button', { name: 'Reset preferences' }));
+    await user.click(within(screen.getByRole('dialog', { name: 'Reset preferences?' })).getByRole('button', { name: 'Reset to defaults' }));
+
+    await waitFor(() => expect(politeRegion()).toHaveTextContent('Preferences reset to their defaults.'));
+    expect(storage.get<UserPreferences>(STORAGE_KEYS.preferences)).toMatchObject({
+      textSize: 'default',
+      onboardingCompleted: true,
+      onboardingStep: 7,
+    });
+    expect(screen.queryByRole('heading', { name: 'Onboarding stand-in' })).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Reset preferences' })).toBeInTheDocument();
+  });
+
   it('deletes all local data only once “delete” is typed, then signs out and opens sign-in', async () => {
     const user = userEvent.setup();
     const { storage } = await renderSettings();
@@ -105,6 +139,7 @@ describe('PrivacySection', () => {
     await user.click(confirm);
 
     expect(await screen.findByRole('heading', { level: 1, name: SIGN_IN_STUB })).toBeInTheDocument();
+    expect(signInState()).toEqual({ signedOut: true, dataDeleted: true });
     expect(storage.keys()).toEqual([]);
   });
 

@@ -53,6 +53,18 @@ describe('labels', () => {
     expect(intendedCommandLabel(ev({ targetContact: null, detectedContact: null, token: null, outcome: 'window_closed' }))).toBeNull();
   });
 
+  it('names the command asked for when the record says, so a brief tap on an Emergency target reads as such', () => {
+    const tapOnEmergencyTarget = ev({
+      targetContact: 'pinky_tip',
+      targetToken: 'emergency',
+      detectedContact: 'pinky_tip',
+      token: 'quick_action_1',
+      outcome: 'mismatch',
+    });
+    expect(intendedCommandLabel(tapOnEmergencyTarget)).toBe('Emergency');
+    expect(describeOutcome(tapOnEmergencyTarget)).toBe('Detected as Shortcut 1');
+  });
+
   it('pluralises and joins', () => {
     expect(plural(1, 'attempt')).toBe('1 attempt');
     expect(plural(0, 'attempt')).toBe('0 attempts');

@@ -1,7 +1,8 @@
 /**
- * Routes each ring result for the current mode: guided results are judged,
- * every result is saved to activity history and added to the session log,
- * and free practice remembers the last command for "What would happen".
+ * Routes each ring result for the current mode: guided results are judged
+ * (and saved with the target command and contact), every result is saved to
+ * activity history and added to the session log, and free practice remembers
+ * the last command for "What would happen".
  */
 import { useCallback, useState } from 'react';
 import type { CommandToken, ShortcutMapping } from '@/domain/commands';
@@ -37,7 +38,14 @@ export function useSimulatorSession({ mode, guided, mapping }: UseSimulatorSessi
   const onResult = (result: RingResult) => {
     if (mode === 'guided') {
       const { target, evaluation } = guided.handleResult(result);
-      const saved = record(result, { source: 'simulator', mode: 'guided', targetContact: contactForTarget(target) });
+      // The target command as well as its contact: the pinky fingertip carries Shortcut 1 and Emergency,
+      // so a brief tap there while Emergency is the target is recorded as a mismatch.
+      const saved = record(result, {
+        source: 'simulator',
+        mode: 'guided',
+        targetContact: contactForTarget(target),
+        targetToken: target,
+      });
       setLog((previous) => addLogEntry(previous, logEntryFor(saved, target, evaluation.logWords)));
       return;
     }

@@ -8,6 +8,12 @@ export const HISTORY_EXPORT_FORMAT = 'tactiq.history';
 export const HISTORY_EXPORT_VERSION = 1;
 export const HISTORY_EXPORT_NOTE = 'Simulated practice records from the Tactiq user app. Not hardware measurements.';
 
+/**
+ * CSV column order. New columns are appended at the end so existing
+ * spreadsheets and scripts keep reading the same positions. `targetToken` is
+ * the command the exercise asked for; it is blank for free practice and for
+ * records saved before the field existed.
+ */
 export const HISTORY_CSV_COLUMNS = [
   'id',
   'at',
@@ -21,6 +27,7 @@ export const HISTORY_CSV_COLUMNS = [
   'evidence',
   'seeded',
   'lessonId',
+  'targetToken',
 ] as const;
 
 export interface HistoryExport {

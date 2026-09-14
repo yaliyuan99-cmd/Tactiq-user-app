@@ -3,8 +3,16 @@ import { DEMO_MESSAGES, GUEST_EMAIL, type LocalAccountRecord } from '@/services/
 import { SUPABASE_MESSAGES } from '@/services/auth/supabaseErrors';
 import { AuthError, type AuthUser } from '@/services/auth/types';
 import { MemoryStorageAdapter, STORAGE_KEYS } from '@/services/storage/StorageAdapter';
-import { createFakeSupabaseAuth, renderWithAuthService, SUPABASE_TEST_USER } from './authTestUtils';
+import {
+  createFakeSupabaseAuth,
+  currentLocationPath,
+  currentLocationState,
+  renderAuthRoutesAt,
+  renderWithAuthService,
+  SUPABASE_TEST_USER,
+} from './authTestUtils';
 import { AuthTestRoutes } from './AuthTestRoutes';
+import { SIGNED_OUT_MESSAGE } from './SignInPage';
 
 function storageWithProfile() {
   const storage = new MemoryStorageAdapter();
@@ -99,6 +107,52 @@ describe('SignInPage in Demo Mode', () => {
     renderApp(<AuthTestRoutes />, { route: '/sign-in' });
     expect(await screen.findByText(/You are already signed in as Alex/)).toBeInTheDocument();
     expect(screen.getByRole('link', { name: 'Go to your dashboard' })).toHaveAttribute('href', '/dashboard');
+  });
+});
+
+describe('SignInPage after signing out', () => {
+  it('confirms the sign-out in a success status above the form', async () => {
+    renderAuthRoutesAt({ pathname: '/sign-in', state: { signedOut: true } });
+    const message = await screen.findByText(SIGNED_OUT_MESSAGE);
+    const status = message.closest('[role="status"]');
+    expect(status).not.toBeNull();
+    expect(status).not.toHaveAttribute('data-testid', 'live-region-polite');
+    expect(message.closest('[data-kind]')).toHaveAttribute('data-kind', 'success');
+    const form = screen.getByRole('button', { name: 'Sign in' }).closest('form') as HTMLFormElement;
+    expect(status?.compareDocumentPosition(form) ?? 0).toBe(Node.DOCUMENT_POSITION_FOLLOWING);
+    // The status region is enough: the message is not also sent to the app live region.
+    expect(screen.getByTestId('live-region-polite')).not.toHaveTextContent(SIGNED_OUT_MESSAGE);
+  });
+
+  it('clears the router state so a refresh does not repeat the confirmation, keeping ?next=', async () => {
+    const first = renderAuthRoutesAt({ pathname: '/sign-in', search: '?next=%2Fdashboard%2Fhistory', state: { signedOut: true } });
+    expect(await screen.findByText(SIGNED_OUT_MESSAGE)).toBeInTheDocument();
+    await waitFor(() => expect(currentLocationState()).toBe('null'));
+    expect(currentLocationPath()).toBe('/sign-in?next=%2Fdashboard%2Fhistory');
+    // Still shown after the state is cleared…
+    expect(screen.getByText(SIGNED_OUT_MESSAGE)).toBeInTheDocument();
+    first.unmount();
+
+    // …but a reload of that history entry (now without state) shows no confirmation.
+    renderAuthRoutesAt({ pathname: '/sign-in', search: '?next=%2Fdashboard%2Fhistory', state: null });
+    expect(await screen.findByRole('heading', { level: 1, name: 'Sign in' })).toBeInTheDocument();
+    expect(screen.queryByText(SIGNED_OUT_MESSAGE)).toBeNull();
+  });
+
+  it('shows no confirmation without the sign-out marker', async () => {
+    renderAuthRoutesAt({ pathname: '/sign-in', state: { signedOut: 'yes' } });
+    expect(await screen.findByRole('heading', { level: 1, name: 'Sign in' })).toBeInTheDocument();
+    expect(screen.queryByText(SIGNED_OUT_MESSAGE)).toBeNull();
+    expect(currentLocationState()).toBe('{"signedOut":"yes"}');
+  });
+
+  it('removes the confirmation once the user tries to sign in again', async () => {
+    const user = userEvent.setup();
+    renderAuthRoutesAt({ pathname: '/sign-in', state: { signedOut: true } });
+    expect(await screen.findByText(SIGNED_OUT_MESSAGE)).toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: 'Sign in' }));
+    await waitFor(() => expect(emailField()).toHaveFocus());
+    expect(screen.queryByText(SIGNED_OUT_MESSAGE)).toBeNull();
   });
 });
 

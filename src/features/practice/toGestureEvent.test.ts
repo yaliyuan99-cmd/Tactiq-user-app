@@ -105,6 +105,62 @@ describe('toGestureEvent', () => {
     expect(isGestureEvent(asStored(event))).toBe(true);
   });
 
+  describe('with a target command', () => {
+    const briefPinkyTap: RingResult = { id: 'p', at: AT, kind: 'command', token: 'quick_action_1', contact: 'pinky_tip', durationMs: 140 };
+    const emergencyTarget: GestureEventContext = {
+      source: 'simulator',
+      mode: 'guided',
+      targetContact: 'pinky_tip',
+      targetToken: 'emergency',
+      evidence: 'simulated',
+    };
+
+    it('records a brief pinky tap as a mismatch when the target was the emergency hold, keeping both tokens', () => {
+      const event = toGestureEvent(briefPinkyTap, emergencyTarget);
+      expect(event).toMatchObject({
+        targetContact: 'pinky_tip',
+        targetToken: 'emergency',
+        detectedContact: 'pinky_tip',
+        token: 'quick_action_1',
+        outcome: 'mismatch',
+      });
+      expect(isGestureEvent(asStored(event))).toBe(true);
+    });
+
+    it('records a completed hold on the emergency target as emergency', () => {
+      const event = toGestureEvent({ id: 'e', at: AT, kind: 'emergency', contact: 'pinky_tip', durationMs: 5000 }, emergencyTarget);
+      expect(event).toMatchObject({ outcome: 'emergency', token: 'emergency', targetToken: 'emergency' });
+    });
+
+    it('records the target command on the target contact as recognised', () => {
+      const event = toGestureEvent(briefPinkyTap, { ...emergencyTarget, targetToken: 'quick_action_1' });
+      expect(event).toMatchObject({ outcome: 'recognised', targetToken: 'quick_action_1' });
+    });
+
+    it('needs the command to match even without a target contact', () => {
+      expect(toGestureEvent(confirmTap, { ...free, targetToken: 'confirm' }).outcome).toBe('recognised');
+      expect(toGestureEvent(confirmTap, { ...free, targetToken: 'back' })).toMatchObject({ outcome: 'mismatch', targetToken: 'back' });
+    });
+
+    it('needs the contact to match too when both are given', () => {
+      const event = toGestureEvent(confirmTap, { ...guided('index_base'), targetToken: 'confirm' });
+      expect(event.outcome).toBe('mismatch');
+    });
+
+    it('keeps the target command on a dropped press', () => {
+      expect(toGestureEvent(rejected('indeterminate_duration', 1300), { ...guided('ring_base'), targetToken: 'previous' })).toMatchObject({
+        outcome: 'rejected_duration',
+        token: null,
+        targetToken: 'previous',
+      });
+    });
+
+    it('omits the field when there is no target command', () => {
+      expect(toGestureEvent(confirmTap, free)).not.toHaveProperty('targetToken');
+      expect(toGestureEvent(confirmTap, { ...guided('index_tip'), targetToken: null })).not.toHaveProperty('targetToken');
+    });
+  });
+
   it('records a cancelled emergency hold with its elapsed time and no token', () => {
     const event = toGestureEvent({ id: 'e', at: AT, kind: 'emergency_cancelled', contact: 'pinky_tip', elapsedMs: 1800 }, free);
     expect(event).toMatchObject({ outcome: 'emergency_cancelled', token: null, detectedContact: 'pinky_tip', durationMs: 1800 });

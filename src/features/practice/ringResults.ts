@@ -101,7 +101,10 @@ export function formatSeconds(ms: number): string {
 }
 
 export interface RingResultDescription {
-  /** What is announced (live region, and speech when audio announcements are on). */
+  /**
+   * What is announced (live region, and speech when audio announcements are
+   * on). Fixed commands use their feedback words, e.g. "Back." for Dismiss / Back.
+   */
   readonly message: string;
   /**
    * What is shown on screen. Identical to `message` except that simulated
@@ -117,9 +120,15 @@ function same(message: string, feedbackKind: FeedbackKind, shortLabel: string): 
   return { message, visibleMessage: message, feedbackKind, shortLabel };
 }
 
+/**
+ * A fixed command is announced in its own feedback words ("Back.", "Read
+ * again."), not its display label: a screen reader would read "Dismiss / Back"
+ * as "Dismiss slash Back". The label stays in `shortLabel` for the screen.
+ */
 function describeCommand(token: CommandToken, mapping: ShortcutMapping): RingResultDescription {
   const command = getCommand(token);
   const shortLabel = commandLabelWithShortcut(command, mapping);
+  if (command.kind === 'fixed') return same(command.feedback.text, 'confirm', shortLabel);
   if (!isShortcutToken(token)) return same(`${command.label}.`, 'confirm', shortLabel);
   const action = getShortcutAction(mapping[token]);
   if (action.id === 'unassigned') return same(`${command.label}: nothing assigned.`, 'confirm', shortLabel);

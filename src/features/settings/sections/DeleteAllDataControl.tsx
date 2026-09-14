@@ -46,7 +46,8 @@ export function DeleteAllDataControl() {
       setError(DELETE_ALL_SIGN_OUT_FAILED);
       return;
     }
-    const locationState: SignedOutLocationState = { signedOut: true };
+    // `dataDeleted` lets sign-in say that the local data is gone, not only that the user signed out.
+    const locationState: SignedOutLocationState & { readonly dataDeleted: true } = { signedOut: true, dataDeleted: true };
     navigate(ROUTES.signIn, { replace: true, state: locationState });
   };
 

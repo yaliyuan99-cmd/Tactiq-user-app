@@ -21,6 +21,13 @@ export interface HistoryService {
   count(): number;
   /** Removes every stored event, seeded or not. */
   clear(): void;
+  /**
+   * Removes only the Demo Mode sample records (`seeded: true`) in one write and
+   * keeps everything the user did, unchanged and in order. Notifies subscribers
+   * once when anything was removed. The "already seeded" flag stays set, so
+   * sample records are not written again. Returns how many were removed.
+   */
+  removeSeeded(): number;
   exportJson(): string;
   exportCsv(): string;
   /** Writes labelled sample records once per browser (Demo Mode). */

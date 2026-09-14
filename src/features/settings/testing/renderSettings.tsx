@@ -4,8 +4,14 @@ import { Route, Routes } from 'react-router';
 import { ROUTES } from '@/app/routes';
 import { act, renderApp, screen, type RenderAppOptions, type RenderAppResult } from '@/test/renderApp';
 import SettingsPage from '../SettingsPage';
+import { SignInStub } from './SignInStub';
 
 export const SIGN_IN_STUB = 'Sign-in screen';
+
+/** The router state the sign-in stub was opened with. */
+export function signInState(): unknown {
+  return JSON.parse(screen.getByTestId('sign-in-state').textContent ?? 'null');
+}
 
 /**
  * Renders `ui` (the whole page by default) at /dashboard/settings, with a
@@ -18,7 +24,7 @@ export async function renderSettings(
   const result = renderApp(
     <Routes>
       <Route path={ROUTES.settings} element={ui} />
-      <Route path={ROUTES.signIn} element={<h1>{SIGN_IN_STUB}</h1>} />
+      <Route path={ROUTES.signIn} element={<SignInStub title={SIGN_IN_STUB} />} />
     </Routes>,
     { route: ROUTES.settings, ...options },
   );

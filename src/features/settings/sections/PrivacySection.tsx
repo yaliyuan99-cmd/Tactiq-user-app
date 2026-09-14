@@ -1,14 +1,14 @@
 import { useState } from 'react';
 import { Download, RotateCcw } from 'lucide-react';
 import { Button, ConfirmDialog } from '@/components';
+import { datedFilename, downloadTextFile } from '@/lib/download';
 import { nowIso } from '@/lib/time';
 import { useAuth } from '@/services/auth/AuthProvider';
 import { useFeedback } from '@/services/feedback/FeedbackProvider';
 import { usePreferences } from '@/services/preferences/PreferencesProvider';
 import { useServices } from '@/services/ServicesProvider';
 import { SettingsDivider, SettingsSection } from '../SettingsSection';
-import { LOCAL_DATA_CONTENT_TYPE, downloadTextFile, localDataExportJson, localDataFilename } from '../dataExport';
-import { preferencesAfterReset } from '../settingsOptions';
+import { LOCAL_DATA_CONTENT_TYPE, LOCAL_DATA_FILENAME_BASE, localDataExportJson } from '../dataExport';
 import { DeleteAllDataControl } from './DeleteAllDataControl';
 
 interface StoredItem {
@@ -36,13 +36,13 @@ function storedItems(supabase: boolean): readonly StoredItem[] {
 export function PrivacySection() {
   const { storage } = useServices();
   const { mode } = useAuth();
-  const { preferences, update } = usePreferences();
+  const { reset } = usePreferences();
   const { announce } = useFeedback();
   const [confirmingReset, setConfirmingReset] = useState(false);
   const supabase = mode === 'supabase';
 
   const download = () => {
-    const filename = localDataFilename();
+    const filename = datedFilename(LOCAL_DATA_FILENAME_BASE, 'json');
     downloadTextFile(localDataExportJson(storage, nowIso()), filename, LOCAL_DATA_CONTENT_TYPE);
     announce(`Download started: ${filename}.`);
   };
@@ -91,7 +91,8 @@ export function PrivacySection() {
         confirmLabel="Reset to defaults"
         onCancel={() => setConfirmingReset(false)}
         onConfirm={() => {
-          update(preferencesAfterReset(preferences));
+          // reset() keeps onboarding progress, so a user who finished setup is not sent back to it.
+          reset();
           setConfirmingReset(false);
           announce('Preferences reset to their defaults.');
         }}

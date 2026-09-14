@@ -25,14 +25,18 @@ export function isAttempt(event: Pick<GestureEvent, 'outcome'>): boolean {
 
 /**
  * The command the user was aiming for.
- * - Emergency holds (token `emergency`, an emergency outcome, or a step of the
- *   emergency lesson on the pinky fingertip) → `emergency`.
+ * - When the record says which command the exercise asked for (`targetToken`),
+ *   that command. This is the only way to tell a guided Emergency hold that was
+ *   answered with a brief tap from a Shortcut 1 attempt on the same point.
+ * - Otherwise, emergency holds (token `emergency`, an emergency outcome, or a
+ *   step of the emergency lesson on the pinky fingertip) → `emergency`.
  * - Otherwise, when a target contact was set, the tap command on that contact.
  * - Otherwise the token that was recognised (free practice), or null.
  */
 export function intendedToken(
-  event: Pick<GestureEvent, 'targetContact' | 'token' | 'outcome' | 'lessonId'>,
+  event: Pick<GestureEvent, 'targetContact' | 'targetToken' | 'token' | 'outcome' | 'lessonId'>,
 ): CommandToken | null {
+  if (event.targetToken) return event.targetToken;
   const isHold =
     event.token === 'emergency' ||
     NON_ATTEMPT_OUTCOMES.includes(event.outcome) ||

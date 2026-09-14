@@ -13,8 +13,20 @@
  * and always accompanied by text.
  *
  * Anchors: stone #F6F4EF · graphite #211E1A · burnt orange #A63A0A.
- * Contrast (checked): #211E1A on stone 14.9:1 · #5F594E on stone 5.3:1 ·
- * white on #A63A0A 6.0:1 · #8C3009 on stone 7.5:1.
+ *
+ * Contrast (WCAG 2.2 AA, relative-luminance ratios): every token pair used for
+ * text was checked in all four themes (light, dark, high-contrast light,
+ * high-contrast dark) and is at least 4.5:1 —
+ *   foreground, muted-foreground, primary-strong, destructive and status-*
+ *     on background, card, popover, muted and secondary;
+ *   primary-foreground on primary, accent-foreground on accent,
+ *   destructive-foreground on destructive, secondary-, card-, popover- and
+ *     sidebar-foreground on their surfaces, background on foreground (skip link).
+ * Non-text marks (primary fills and strokes, focus, ring, destructive borders)
+ * are at least 3:1 against background and card.
+ * src/design-system/theme.contrast.test.ts recomputes these from this file.
+ * Light examples: #211E1A on stone 15.1:1 · #5F594E on stone 6.3:1 ·
+ * white on #A63A0A 6.5:1 · #8C3009 on stone 7.5:1.
  */
 :root {
   --font-size: 17px;
@@ -86,17 +98,26 @@
   --card-foreground: #ece8e0;
   --popover: #242119;
   --popover-foreground: #ece8e0;
-  --primary: #d3591d;
+  /* White on #c24f16 is 4.75:1 (the earlier #d3591d was 4.03:1, below AA).
+     As a fill it is 3.70:1 on background #1b1916 and 3.39:1 on card #242119,
+     so filled points and icons still pass 3:1 non-text contrast. It is not
+     for text on dark surfaces: use primary-strong for links (6.38:1). */
+  --primary: #c24f16;
   --primary-foreground: #ffffff;
   --primary-strong: #e8813f;
   --secondary: #2e2a22;
   --secondary-foreground: #ece8e0;
   --muted: #2e2a22;
   --muted-foreground: #aca596;
-  --accent: #d3591d;
+  --accent: #c24f16;
   --accent-foreground: #ffffff;
-  --destructive: #e0564c;
-  --destructive-foreground: #ffffff;
+  /* Used both as text (errors) and as the danger-button fill. #ef6b61 is
+     5.80:1 on background, 5.32:1 on card, 4.72:1 on secondary/muted. No red
+     can carry white text at 4.5:1 and also be 4.5:1 text on these surfaces
+     (the earlier #e0564c was 3.75:1 under white and 4.29:1 on card), so the
+     danger button uses dark ink: #1b1916 on #ef6b61 is 5.80:1. */
+  --destructive: #ef6b61;
+  --destructive-foreground: #1b1916;
   --border: rgba(236, 232, 224, 0.16);
   --border-strong: rgba(236, 232, 224, 0.36);
   --input: rgba(236, 232, 224, 0.2);
@@ -150,13 +171,16 @@
   --card-foreground: #ffffff;
   --popover: #0d0c0a;
   --popover-foreground: #ffffff;
+  /* Black on #ff9a5c is 10.03:1; #ff9a5c is 10.03:1 on background and 9.34:1 on card. */
   --primary: #ff9a5c;
   --primary-foreground: #000000;
   --primary-strong: #ffb98a;
   --secondary: #262320;
   --muted: #1a1815;
   --muted-foreground: #e6e2da;
+  /* Black on #ff7b70 is 8.32:1 (white, inherited from .dark, was 2.52:1). */
   --destructive: #ff7b70;
+  --destructive-foreground: #000000;
   --border: rgba(255, 255, 255, 0.7);
   --border-strong: rgba(255, 255, 255, 0.9);
   --input: rgba(255, 255, 255, 0.8);

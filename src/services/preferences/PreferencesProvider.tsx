@@ -5,6 +5,11 @@ import { STORAGE_KEYS, type StorageAdapter } from '@/services/storage/StorageAda
 export interface PreferencesContextValue {
   readonly preferences: UserPreferences;
   readonly update: (patch: Partial<UserPreferences>) => void;
+  /**
+   * Puts every preference back to DEFAULT_PREFERENCES except onboarding
+   * progress: `onboardingCompleted` and `onboardingStep` are kept, so a user who
+   * finished setup is not sent back through onboarding.
+   */
   readonly reset: () => void;
   /** The theme in effect after resolving "system". */
   readonly resolvedTheme: 'light' | 'dark';
@@ -20,6 +25,15 @@ export function loadPreferences(storage: StorageAdapter): UserPreferences {
   const stored = storage.get<Partial<UserPreferences>>(STORAGE_KEYS.preferences);
   if (!stored || typeof stored !== 'object') return DEFAULT_PREFERENCES;
   return { ...DEFAULT_PREFERENCES, ...stored, version: 1 };
+}
+
+/** The defaults, keeping onboarding progress from `current`. What `reset()` stores. */
+function resetPreferences(current: UserPreferences): UserPreferences {
+  return {
+    ...DEFAULT_PREFERENCES,
+    onboardingCompleted: current.onboardingCompleted,
+    onboardingStep: current.onboardingStep,
+  };
 }
 
 function systemPrefersDark(): boolean {
@@ -89,8 +103,11 @@ export function PreferencesProvider({ storage, children }: { storage: StorageAda
   );
 
   const reset = useCallback(() => {
-    setPersisted(storage.set(STORAGE_KEYS.preferences, DEFAULT_PREFERENCES));
-    setPreferences(DEFAULT_PREFERENCES);
+    setPreferences((prev) => {
+      const next = resetPreferences(prev);
+      setPersisted(storage.set(STORAGE_KEYS.preferences, next));
+      return next;
+    });
   }, [storage]);
 
   const value = useMemo<PreferencesContextValue>(

@@ -30,6 +30,19 @@ describe('safeNextPath', () => {
   it('returns an in-app path from ?next=', () => {
     expect(safeNextPath('?next=%2Fdashboard%2Fhistory%3Frange%3D7d')).toBe('/dashboard/history?range=7d');
     expect(safeNextPath('?next=/dashboard/help%23emergency')).toBe('/dashboard/help#emergency');
+    expect(safeNextPath(`?next=${encodeURIComponent('/dashboard/train/confirm_and_back?step=2#top')}`)).toBe(
+      '/dashboard/train/confirm_and_back?step=2#top',
+    );
+  });
+
+  it('keeps a backslash later in the path on this origin, but refuses one straight after the slash', () => {
+    expect(safeNextPath(`?next=${encodeURIComponent('/dashboard\\history')}`)).toBe('/dashboard/history');
+    expect(safeNextPath('?next=/%5Cevil.example')).toBe(ROUTES.dashboard);
+    expect(safeNextPath('?next=%2F%2Fevil.example')).toBe(ROUTES.dashboard);
+  });
+
+  it('allows reset-password, which a recovery link needs while signed in', () => {
+    expect(safeNextPath(`?next=${encodeURIComponent(ROUTES.resetPassword)}`)).toBe(ROUTES.resetPassword);
   });
 
   it('falls back to the dashboard when next is missing or empty', () => {
@@ -41,13 +54,17 @@ describe('safeNextPath', () => {
   it.each([
     ['an absolute URL', 'https://evil.example/phish'],
     ['a protocol-relative URL', '//evil.example'],
+    ['a protocol-relative URL without a dot', '//evil'],
     ['a backslash host', '/\\evil.example'],
     ['a javascript: URL', 'javascript:alert(1)'],
     ['a relative path', 'dashboard'],
     ['control characters', '/dashboard\n/evil'],
+    ['a header injection attempt', '/dashboard\nSet-Cookie'],
+    ['a NUL character', '/dash\u0000board'],
     ['the sign-in screen', '/sign-in?next=/dashboard'],
     ['the sign-up screen', '/Sign-Up/'],
     ['the forgot-password screen', '/forgot-password'],
+    ['the forgot-password screen with a query', '/forgot-password?x=1'],
   ])('refuses %s', (_label, next) => {
     expect(safeNextPath(`?next=${encodeURIComponent(next)}`)).toBe(ROUTES.dashboard);
   });

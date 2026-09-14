@@ -1,6 +1,7 @@
-import { useId, useRef, useState, type FormEvent } from 'react';
-import { useNavigate, useSearchParams } from 'react-router';
+import { useEffect, useId, useRef, useState, type FormEvent } from 'react';
+import { useLocation, useNavigate } from 'react-router';
 import { ROUTES } from '@/app/routes';
+import { isSignedOutLocationState, safeNextPath } from '@/app/routing/redirects';
 import { Button, Callout, PageHeader, TextField } from '@/components';
 import { usePageTitle } from '@/lib/usePageTitle';
 import { useAuth } from '@/services/auth/AuthProvider';
@@ -16,18 +17,20 @@ import {
   type FieldErrors,
   type SignInField,
 } from './formValidation';
-import { resolveNextPath } from './nextPath';
 import { PasswordField } from './PasswordField';
 import { useFocusRequest } from './useFocusRequest';
 
 type Pending = 'sign-in' | 'guest' | null;
+
+/** Confirmation after signing out, deleting a profile or deleting all local data (all arrive with `{ signedOut: true }`). */
+export const SIGNED_OUT_MESSAGE = 'You have signed out.';
 
 export default function SignInPage() {
   usePageTitle('Sign in');
   const { mode, user, signIn, continueAsGuest } = useAuth();
   const { announce } = useFeedback();
   const navigate = useNavigate();
-  const [searchParams] = useSearchParams();
+  const location = useLocation();
   const demo = mode === 'demo';
   const guestHintId = `guest-hint-${useId().replace(/:/g, '')}`;
 
@@ -36,6 +39,7 @@ export default function SignInPage() {
   const [errors, setErrors] = useState<FieldErrors<SignInField>>({});
   const [formError, setFormError] = useState<string | null>(null);
   const [pending, setPending] = useState<Pending>(null);
+  const [signedOut, setSignedOut] = useState(false);
 
   const emailRef = useRef<HTMLInputElement>(null);
   const passwordRef = useRef<HTMLInputElement>(null);
@@ -43,9 +47,20 @@ export default function SignInPage() {
   const requestFocus = useFocusRequest();
   const fieldRefs = { email: emailRef, password: passwordRef };
 
+  // Arriving from a sign-out: show the confirmation, then replace the history entry
+  // without the marker so a refresh (or coming Back) does not repeat it. The status
+  // region is already on the page, so the message is announced when it appears; the
+  // route change itself announces the page title.
+  const { pathname, search, hash, state: locationState } = location;
+  useEffect(() => {
+    if (!isSignedOutLocationState(locationState)) return;
+    setSignedOut(true);
+    navigate({ pathname, search, hash }, { replace: true, state: null });
+  }, [locationState, pathname, search, hash, navigate]);
+
   const finish = (message: string) => {
     announce(message);
-    navigate(resolveNextPath(searchParams.get('next')), { replace: true });
+    navigate(safeNextPath(search), { replace: true });
   };
 
   const fail = (error: unknown) => {
@@ -67,6 +82,7 @@ export default function SignInPage() {
     const found = validateSignIn({ email, password }, mode);
     setErrors(found);
     setFormError(null);
+    setSignedOut(false);
     const firstInvalid = firstInvalidField(SIGN_IN_FIELDS, found);
     if (firstInvalid) {
       requestFocus(fieldRefs[firstInvalid]);
@@ -85,6 +101,7 @@ export default function SignInPage() {
     if (pending) return;
     setErrors({});
     setFormError(null);
+    setSignedOut(false);
     setPending('guest');
     try {
       await continueAsGuest();
@@ -108,6 +125,8 @@ export default function SignInPage() {
             : 'Enter the email and password for your Tactiq account.'
         }
       />
+
+      <FormMessage tone="success" message={signedOut ? SIGNED_OUT_MESSAGE : null} className="mb-6" />
 
       {user && (
         <Callout kind="info" className="mb-6">

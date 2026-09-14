@@ -6,6 +6,7 @@ import {
   DEFAULT_SHORTCUT_MAPPING,
   commandLabelWithShortcut,
   getCommand,
+  type CommandToken,
   type ShortcutMapping,
 } from '@/domain/commands';
 import { getContact, type ContactKey } from '@/domain/contacts';
@@ -57,6 +58,16 @@ export function targetPhrase(step: LessonStep): string {
 /** The contact a step asks for, or null for a squeeze. */
 export function stepTargetContact(step: LessonStep): ContactKey | null {
   return step.kind === 'squeeze' ? null : step.contact;
+}
+
+/**
+ * The command a step asks for, saved with each attempt so activity history
+ * judges it against that command: the tap's own token, or 'emergency' on a
+ * hold step (so a brief pinky tap there is a mismatch, not Shortcut 1
+ * recognised). Null for a squeeze, which asks for no command.
+ */
+export function stepTargetToken(step: LessonStep): CommandToken | null {
+  return step.kind === 'squeeze' ? null : step.token;
 }
 
 /** One short line shown before the first attempt on a step. */

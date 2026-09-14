@@ -3,14 +3,7 @@
  * Pure, so the wording is tested once and every section says things the same way.
  */
 import type { RadioOption } from '@/components';
-import {
-  DEFAULT_PREFERENCES,
-  type ContrastPreference,
-  type Hand,
-  type TextSize,
-  type ThemePreference,
-  type UserPreferences,
-} from '@/domain/models';
+import { type ContrastPreference, type Hand, type TextSize, type ThemePreference } from '@/domain/models';
 import { COMMAND_WINDOW_LONG_MS, COMMAND_WINDOW_MS, type TimingFact } from '@/domain/timing';
 
 export const THEME_LABELS: Readonly<Record<ThemePreference, string>> = { light: 'Light', dark: 'Dark', system: 'System' };
@@ -74,18 +67,6 @@ export const LONGER_TIME_DESCRIPTION = `Keeps the command window open for ${whol
 export function longerTimeAnnouncement(on: boolean): string {
   const seconds = wholeSeconds(commandWindowMsFor(on));
   return `Longer interaction time ${on ? 'on' : 'off'}. The command window stays open for ${seconds} seconds.`;
-}
-
-/**
- * Every preference back to its default, except onboarding progress: resetting
- * that too would send a finished user straight back into setup.
- */
-export function preferencesAfterReset(current: UserPreferences): UserPreferences {
-  return {
-    ...DEFAULT_PREFERENCES,
-    onboardingCompleted: current.onboardingCompleted,
-    onboardingStep: current.onboardingStep,
-  };
 }
 
 /** "1 point", "3 points". */

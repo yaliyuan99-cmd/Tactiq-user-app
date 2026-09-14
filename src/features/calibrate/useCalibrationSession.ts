@@ -102,6 +102,8 @@ export function useCalibrationSession(): CalibrationSession {
     if (live.current.phase !== 'running' || !currentRun || !current) return;
     const target = nextPrompt(current, currentRun);
     if (!target) return;
+    // No targetToken: calibration prompts a contact point, not a command, so any tap on the prompted
+    // point is the attempt asked for (on the pinky fingertip that is a brief tap, never the Emergency hold).
     record(result, { source: 'calibration', mode: 'calibration', targetContact: target });
 
     const attempt = attemptFromResult(result);

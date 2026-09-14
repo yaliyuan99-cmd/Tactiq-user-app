@@ -1,6 +1,7 @@
 import { MemoryStorageAdapter, STORAGE_KEYS } from '@/services/storage/StorageAdapter';
 import { act, renderApp, screen, userEvent, waitFor, within } from '@/test/renderApp';
 import CommandsPage from './CommandsPage';
+import { NOT_PERSISTED_NOTE } from './ShortcutResult';
 
 /** Renders the page and lets the provider stack finish restoring the session. */
 async function renderPage(storage = new MemoryStorageAdapter()) {
@@ -89,6 +90,34 @@ describe('Shortcut editor', () => {
     expect(within(group1()).getByRole('radio', { name: 'Toggle the flashlight' })).toBeChecked();
     expect(within(group2()).getByRole('radio', { name: 'Nothing assigned' })).toBeChecked();
     expect(screen.getByText(/^Last changed /)).toBeInTheDocument();
+  });
+
+  it('says when the browser did not store the saved shortcuts, while they still apply for now', async () => {
+    class RefusingStorage extends MemoryStorageAdapter {
+      set<T>(key: string, value: T): boolean {
+        if (key === STORAGE_KEYS.commandMapping) return false;
+        return super.set(key, value);
+      }
+    }
+    const user = userEvent.setup();
+    await renderPage(new RefusingStorage());
+    await user.click(within(group1()).getByRole('radio', { name: 'Toggle the flashlight' }));
+    await user.click(saveButton());
+
+    await waitFor(() => expect(politeRegion()).toHaveTextContent(`Shortcuts saved. ${NOT_PERSISTED_NOTE}`));
+    const result = screen.getAllByRole('status').find((el) => el.textContent?.includes('Shortcuts saved'));
+    expect(result).toHaveTextContent('Shortcut 1: Toggle the flashlight');
+    expect(result).toHaveTextContent(NOT_PERSISTED_NOTE);
+    expect(within(group1()).getByRole('radio', { name: 'Toggle the flashlight' })).toBeChecked();
+  });
+
+  it('does not mention storage when the save was stored', async () => {
+    const user = userEvent.setup();
+    await renderPage();
+    await user.click(within(group2()).getByRole('radio', { name: 'Toggle the flashlight' }));
+    await user.click(saveButton());
+    await waitFor(() => expect(politeRegion()).toHaveTextContent('Shortcuts saved.'));
+    expect(screen.queryByText(NOT_PERSISTED_NOTE)).toBeNull();
   });
 
   it('discards the draft, reverts the choices and keeps focus nearby', async () => {

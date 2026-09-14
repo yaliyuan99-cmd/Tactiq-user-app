@@ -104,6 +104,8 @@ describe('CalibratePage running', () => {
       evidence: 'simulated',
       seeded: false,
     });
+    // Calibration prompts a point, not a command, so no target command is saved.
+    expect(history[0]).not.toHaveProperty('targetToken');
   });
 
   it('counts taps from the list view too', async () => {

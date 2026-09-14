@@ -119,6 +119,60 @@ describe('DeviceProvider', () => {
     expect(result.current.state.commandWindowMs).toBe(COMMAND_WINDOW_MS);
   });
 
+  it('gives the hardware adapter the firmware window even with longer interaction time on; the mock gets the longer window', () => {
+    const storage = new MemoryStorageAdapter();
+    storage.set(STORAGE_KEYS.preferences, { ...DEFAULT_PREFERENCES, longerInteractionTime: true });
+    // Constructed with the long window, to prove the provider pins it back to the firmware's.
+    const hardware = new WebBluetoothDeviceAdapter(storage, {
+      navigator: { bluetooth: new FakeBluetooth(new FakeBluetoothDevice()) },
+      window: { isSecureContext: true },
+      commandWindowMs: COMMAND_WINDOW_LONG_MS,
+    });
+    const hardwareConfigure = vi.spyOn(hardware, 'configure');
+    const mockConfigure = vi.spyOn(MockDeviceAdapter.prototype, 'configure');
+
+    const { result } = renderDevice({ storage, adapter: hardware });
+    expect(result.current.adapter).toBe(hardware);
+    expect(hardwareConfigure).toHaveBeenCalledWith({ commandWindowMs: COMMAND_WINDOW_MS });
+    expect(hardwareConfigure).not.toHaveBeenCalledWith({ commandWindowMs: COMMAND_WINDOW_LONG_MS });
+    expect(result.current.state.commandWindowMs).toBe(COMMAND_WINDOW_MS);
+    expect(COMMAND_WINDOW_MS).toBe(3000);
+    expect(mockConfigure).toHaveBeenCalledWith({ commandWindowMs: COMMAND_WINDOW_LONG_MS });
+    expect(mockConfigure).not.toHaveBeenCalledWith({ commandWindowMs: COMMAND_WINDOW_MS });
+    expect(COMMAND_WINDOW_LONG_MS).toBe(6000);
+
+    // Toggling the preference while on hardware never changes the hardware window.
+    act(() => {
+      storage.set(STORAGE_KEYS.preferences, { ...DEFAULT_PREFERENCES, longerInteractionTime: false });
+    });
+    act(() => {
+      storage.set(STORAGE_KEYS.preferences, { ...DEFAULT_PREFERENCES, longerInteractionTime: true });
+    });
+    expect(result.current.state.commandWindowMs).toBe(COMMAND_WINDOW_MS);
+    expect(hardwareConfigure.mock.calls.every(([options]) => options.commandWindowMs === COMMAND_WINDOW_MS)).toBe(true);
+
+    act(() => result.current.setMode('demo'));
+    expect(result.current.adapter.kind).toBe('mock');
+    expect(result.current.state.commandWindowMs).toBe(COMMAND_WINDOW_LONG_MS);
+  });
+
+  it('creates the Web Bluetooth adapter with the firmware window when switching to hardware with longer interaction time on', () => {
+    const storage = new MemoryStorageAdapter();
+    storage.set(STORAGE_KEYS.preferences, { ...DEFAULT_PREFERENCES, longerInteractionTime: true });
+    const hardwareConfigure = vi.spyOn(WebBluetoothDeviceAdapter.prototype, 'configure');
+    const { result } = renderDevice({ storage });
+    expect(result.current.state.commandWindowMs).toBe(COMMAND_WINDOW_LONG_MS);
+
+    act(() => result.current.setMode('hardware'));
+    expect(result.current.adapter.kind).toBe('web_bluetooth');
+    expect(result.current.state.commandWindowMs).toBe(COMMAND_WINDOW_MS);
+    expect(hardwareConfigure).toHaveBeenCalled();
+    expect(hardwareConfigure.mock.calls.every(([options]) => options.commandWindowMs === COMMAND_WINDOW_MS)).toBe(true);
+
+    act(() => result.current.setMode('demo'));
+    expect(result.current.state.commandWindowMs).toBe(COMMAND_WINDOW_LONG_MS);
+  });
+
   it('switching to hardware without Web Bluetooth reports unsupported with a reason', async () => {
     const original = Object.getOwnPropertyDescriptor(window, 'isSecureContext');
     Object.defineProperty(window, 'isSecureContext', { value: true, configurable: true });

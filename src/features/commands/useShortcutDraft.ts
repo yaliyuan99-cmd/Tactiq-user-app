@@ -2,7 +2,6 @@ import { useCallback, useState } from 'react';
 import { type ShortcutActionId, type ShortcutMapping, type ShortcutToken } from '@/domain/commands';
 import type { CommandMapping } from '@/domain/models';
 import { useCommandMapping } from '@/services/ServicesProvider';
-import type { CommandMappingService } from '@/services/commands/types';
 import {
   applyChoice,
   canRestoreDefaults,
@@ -33,12 +32,6 @@ export interface ShortcutDraftState {
   readonly restoreDefaults: () => SaveOutcome;
 }
 
-/** The local service reports failed writes; the shared contract does not require it. */
-function lastWriteSucceeded(service: CommandMappingService): boolean {
-  const candidate = service as CommandMappingService & { lastWriteSucceeded?: unknown };
-  return typeof candidate.lastWriteSucceeded === 'function' ? candidate.lastWriteSucceeded() !== false : true;
-}
-
 /** Draft shortcut choices, kept apart from the saved mapping until the user saves. */
 export function useShortcutDraft(): ShortcutDraftState {
   const service = useCommandMapping();
@@ -63,13 +56,13 @@ export function useShortcutDraft(): ShortcutDraftState {
   const save = (): SaveOutcome => {
     const mapping = service.set(current);
     setDraft(null);
-    return { mapping, persisted: lastWriteSucceeded(service) };
+    return { mapping, persisted: service.lastWriteSucceeded() };
   };
 
   const restoreDefaults = (): SaveOutcome => {
     const mapping = service.restoreDefaults();
     setDraft(null);
-    return { mapping, persisted: lastWriteSucceeded(service) };
+    return { mapping, persisted: service.lastWriteSucceeded() };
   };
 
   return {

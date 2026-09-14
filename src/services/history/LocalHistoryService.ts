@@ -50,6 +50,7 @@ export class LocalHistoryService implements HistoryService {
       source: input.source,
       mode: input.mode,
       targetContact: input.targetContact,
+      ...(input.targetToken ? { targetToken: input.targetToken } : {}),
       detectedContact: input.detectedContact,
       token: input.token,
       durationMs: input.durationMs,
@@ -76,6 +77,19 @@ export class LocalHistoryService implements HistoryService {
     this.cache = [];
     this.lastWrite = true;
     this.notifier.emit();
+  }
+
+  /**
+   * One filter and one write: drops `seeded` records, keeps the rest in order.
+   * Leaves STORAGE_KEYS.historySeeded alone so samples do not come back. When
+   * there is nothing to remove it neither writes nor notifies.
+   */
+  removeSeeded(): number {
+    const events = this.events();
+    const kept = events.filter((event) => !event.seeded);
+    const removed = events.length - kept.length;
+    if (removed > 0) this.write(kept);
+    return removed;
   }
 
   /** Oldest first. */

@@ -5,6 +5,11 @@
  * `events`, or `subscribe` for every event without re-rendering.
  *
  * The chosen mode is persisted under STORAGE_KEYS.device (see deviceStorage.ts).
+ *
+ * "Longer interaction time" lengthens the command window of the simulated
+ * ring (Demo Mode) only. The Web Bluetooth adapter is always configured with
+ * COMMAND_WINDOW_MS, because the bench firmware keeps its own 3-second
+ * ARM_WINDOW_MS and the app cannot change it; a longer countdown would be wrong.
  */
 import {
   createContext,
@@ -78,7 +83,8 @@ function appendCapped(events: readonly DeviceEvent[], event: DeviceEvent): reado
 
 export function DeviceProvider({ storage, children, adapter, initialMode }: DeviceProviderProps) {
   const { preferences } = usePreferences();
-  const commandWindowMs = preferences.longerInteractionTime ? COMMAND_WINDOW_LONG_MS : COMMAND_WINDOW_MS;
+  /** Demo Mode only. The hardware adapter always gets COMMAND_WINDOW_MS (firmware ARM_WINDOW_MS). */
+  const mockCommandWindowMs = preferences.longerInteractionTime ? COMMAND_WINDOW_LONG_MS : COMMAND_WINDOW_MS;
 
   const [initial] = useState(() => {
     const injectedHardware = adapter && adapter.kind !== 'mock' ? adapter : null;
@@ -86,12 +92,12 @@ export function DeviceProvider({ storage, children, adapter, initialMode }: Devi
     return { mode, injectedHardware };
   });
   const [mockAdapter] = useState<DeviceAdapter>(() =>
-    adapter && adapter.kind === 'mock' ? adapter : new MockDeviceAdapter({ commandWindowMs }),
+    adapter && adapter.kind === 'mock' ? adapter : new MockDeviceAdapter({ commandWindowMs: mockCommandWindowMs }),
   );
   const [hardwareAdapter, setHardwareAdapter] = useState<DeviceAdapter | null>(
     () =>
       initial.injectedHardware ??
-      (initial.mode === 'hardware' ? new WebBluetoothDeviceAdapter(storage, { commandWindowMs }) : null),
+      (initial.mode === 'hardware' ? new WebBluetoothDeviceAdapter(storage, { commandWindowMs: COMMAND_WINDOW_MS }) : null),
   );
   const [mode, setModeState] = useState<DeviceMode>(initial.mode);
   const [events, setEvents] = useState<readonly DeviceEvent[]>([]);
@@ -123,11 +129,14 @@ export function DeviceProvider({ storage, children, adapter, initialMode }: Devi
     [active],
   );
 
-  // Preferences → command window, on every adapter that exists.
+  // Preferences → command window. Only the simulated ring follows "Longer interaction time";
+  // the bench firmware's window is fixed, so the hardware adapter is pinned to COMMAND_WINDOW_MS.
   useEffect(() => {
-    mockAdapter.configure({ commandWindowMs });
-    hardwareAdapter?.configure({ commandWindowMs });
-  }, [mockAdapter, hardwareAdapter, commandWindowMs]);
+    mockAdapter.configure({ commandWindowMs: mockCommandWindowMs });
+  }, [mockAdapter, mockCommandWindowMs]);
+  useEffect(() => {
+    hardwareAdapter?.configure({ commandWindowMs: COMMAND_WINDOW_MS });
+  }, [hardwareAdapter]);
 
   // Owned adapters release their timers and connections on unmount.
   useEffect(() => {
@@ -145,13 +154,15 @@ export function DeviceProvider({ storage, children, adapter, initialMode }: Devi
       setActionError(null);
       if (next === 'hardware') {
         if (isMockDeviceAdapter(mockAdapter)) mockAdapter.controls.closeWindow();
-        if (!hardwareAdapter) setHardwareAdapter(new WebBluetoothDeviceAdapter(storage, { commandWindowMs }));
+        if (!hardwareAdapter) {
+          setHardwareAdapter(new WebBluetoothDeviceAdapter(storage, { commandWindowMs: COMMAND_WINDOW_MS }));
+        }
       } else if (hardwareAdapter) {
         hardwareAdapter.disconnect().catch(() => undefined);
       }
       setModeState(next);
     },
-    [storage, mockAdapter, hardwareAdapter, commandWindowMs],
+    [storage, mockAdapter, hardwareAdapter],
   );
 
   const run = useCallback(

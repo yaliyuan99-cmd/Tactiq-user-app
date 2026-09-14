@@ -1,13 +1,5 @@
 import { MemoryStorageAdapter, STORAGE_KEYS } from '@/services/storage/StorageAdapter';
-import {
-  LOCAL_DATA_CONTENT_TYPE,
-  LOCAL_DATA_EXPORT_FORMAT,
-  LOCAL_DATA_EXPORT_NOTE,
-  buildLocalDataExport,
-  downloadTextFile,
-  localDataExportJson,
-  localDataFilename,
-} from './dataExport';
+import { LOCAL_DATA_EXPORT_FORMAT, LOCAL_DATA_EXPORT_NOTE, buildLocalDataExport, localDataExportJson } from './dataExport';
 
 const EXPORTED_AT = '2026-09-15T04:30:00.000Z';
 
@@ -41,44 +33,5 @@ describe('buildLocalDataExport', () => {
     const json = localDataExportJson(storage, EXPORTED_AT);
     expect(json).toContain('\n  "format": "tactiq.local-data"');
     expect(JSON.parse(json)).toEqual(buildLocalDataExport(storage, EXPORTED_AT));
-  });
-});
-
-describe('localDataFilename', () => {
-  it('uses the local date, zero-padded', () => {
-    expect(localDataFilename(new Date(2026, 8, 5, 23, 59))).toBe('tactiq-data-2026-09-05.json');
-  });
-});
-
-describe('downloadTextFile', () => {
-  const originalCreate = URL.createObjectURL;
-  const originalRevoke = URL.revokeObjectURL;
-
-  afterEach(() => {
-    URL.createObjectURL = originalCreate;
-    URL.revokeObjectURL = originalRevoke;
-    vi.useRealTimers();
-  });
-
-  it('clicks a temporary download link for a Blob, then revokes the URL', () => {
-    vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] });
-    const blobs: Blob[] = [];
-    URL.createObjectURL = vi.fn((blob: Blob) => {
-      blobs.push(blob);
-      return 'blob:tactiq-data';
-    });
-    URL.revokeObjectURL = vi.fn();
-    const clicked: HTMLAnchorElement[] = [];
-    vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(function (this: HTMLAnchorElement) {
-      clicked.push(this);
-    });
-
-    downloadTextFile('{}', 'tactiq-data-2026-09-15.json', LOCAL_DATA_CONTENT_TYPE);
-
-    expect(blobs[0]?.type).toBe('application/json');
-    expect(clicked[0]?.download).toBe('tactiq-data-2026-09-15.json');
-    expect(document.querySelector('a[download]')).toBeNull();
-    vi.runAllTimers();
-    expect(URL.revokeObjectURL).toHaveBeenCalledWith('blob:tactiq-data');
   });
 });

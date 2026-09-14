@@ -17,7 +17,7 @@ import { useShortcutLabels } from '@/features/practice/useShortcutLabels';
 import { useFeedback } from '@/services/feedback/FeedbackProvider';
 import type { FeedbackKind } from '@/services/feedback/types';
 import { useTraining } from '@/services/ServicesProvider';
-import { ADVANCE_DELAY_MS, evaluateStep, stepTargetContact, type LessonInput } from './lessonLogic';
+import { ADVANCE_DELAY_MS, evaluateStep, stepTargetContact, stepTargetToken, type LessonInput } from './lessonLogic';
 import { advanceRun, beginRun, createRunState, recordEvaluation, runTotals, type LessonRunState } from './lessonRun';
 import type { LessonRunnerResult } from './LessonRunner';
 
@@ -155,7 +155,13 @@ export function useLessonRun(lessonId: LessonId, { onComplete }: UseLessonRunOpt
     if (input.kind === 'window_opened') {
       recordSqueeze({ source: 'training', mode: 'lesson', lessonId });
     } else {
-      record(input.result, { source: 'training', mode: 'lesson', lessonId, targetContact: stepTargetContact(step) });
+      record(input.result, {
+        source: 'training',
+        mode: 'lesson',
+        lessonId,
+        targetContact: stepTargetContact(step),
+        targetToken: stepTargetToken(step),
+      });
     }
     const durationMs =
       input.kind !== 'result' ? null : input.result.kind === 'emergency_cancelled' ? input.result.elapsedMs : input.result.durationMs;

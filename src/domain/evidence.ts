@@ -1,6 +1,7 @@
 /**
  * Evidence labels. Every number, status or behaviour in the app carries one,
- * because no wearable ring exists and nothing has been physically measured.
+ * because no wearable ring exists. The only hardware is an unvalidated bench
+ * prototype, so even Measured records are early bench readings.
  */
 
 export type EvidenceSource = 'simulated' | 'measured' | 'design_target' | 'design_intent' | 'not_available';
@@ -17,7 +18,8 @@ export const EVIDENCE: Readonly<Record<EvidenceSource, EvidenceLabelInfo>> = {
   },
   measured: {
     label: 'Measured',
-    description: 'Recorded from physical hardware. Nothing currently holds this status.',
+    description:
+      'Recorded from a connected Tactiq bench prototype. The prototype has not been validated, so treat these as early bench readings, not proven performance.',
   },
   design_target: {
     label: 'Design target',

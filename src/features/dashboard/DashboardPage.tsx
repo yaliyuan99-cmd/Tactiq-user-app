@@ -1,5 +1,6 @@
 /**
- * /dashboard — the overview. At a glance: what to do next, whether the ring
+ * /dashboard — Home (document title and navigation name; the h1 greets the
+ * user by name under a "Home" eyebrow). At a glance: what to do next, whether the ring
  * is reachable, training and calibration progress, the command map and the
  * latest activity. Mobile: one column in that order. lg: the next step and
  * the ring status span the top, then a two-column row (training, calibration),
@@ -14,7 +15,7 @@ import { useCalibration, useTraining } from '@/services/ServicesProvider';
 import { CalibrationSection } from './CalibrationSection';
 import { CommandsSection } from './CommandsSection';
 import { DeviceStatusSection } from './DeviceStatusSection';
-import { DASHBOARD_EYEBROW, DASHBOARD_TITLE, dashboardTitle } from './greeting';
+import { DASHBOARD_TITLE, dashboardEyebrow, dashboardTitle } from './greeting';
 import { nextAction } from './nextAction';
 import { NextStepPanel } from './NextStepPanel';
 import { RecentActivitySection } from './RecentActivitySection';
@@ -40,7 +41,7 @@ export default function DashboardPage() {
 
   return (
     <>
-      <PageHeader eyebrow={DASHBOARD_EYEBROW} title={dashboardTitle(user?.displayName, now)} />
+      <PageHeader eyebrow={dashboardEyebrow(user?.displayName)} title={dashboardTitle(user?.displayName, now)} />
       <div className="grid grid-cols-1 gap-5 sm:gap-6 lg:grid-cols-5">
         <NextStepPanel action={action} className="lg:col-span-5" />
         <DeviceStatusSection now={now} className="lg:col-span-5" />

@@ -9,6 +9,7 @@ import { LessonHeading } from './LessonHeading';
 import { runTotals } from './lessonRun';
 import { RunStats } from './RunStats';
 import { StepFeedbackPanel } from './StepFeedbackPanel';
+import { lessonStatusLabel } from './trainingWords';
 import type { LessonRun } from './useLessonRun';
 
 export interface LessonPracticeProps {
@@ -113,7 +114,8 @@ export function LessonPractice({ run, headingLevel, onExit }: LessonPracticeProp
             <Button variant="ghost" leadingIcon={<LogOut className="h-4 w-4" />} onClick={onExit}>
               Exit lesson
             </Button>
-            <p className="text-sm text-muted-foreground">Leaving keeps this lesson marked In progress.</p>
+            {/* Replaying a completed lesson keeps it Completed; otherwise starting a run made it In progress. */}
+            <p className="text-sm text-muted-foreground">Leaving keeps this lesson marked {lessonStatusLabel(run.progress.status)}.</p>
           </>
         )}
       </div>

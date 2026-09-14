@@ -30,7 +30,7 @@ export default tseslint.config(
     rules: { 'react-refresh/only-export-components': 'off' },
   },
   {
-    // Playwright fixtures call a function named \`use\`; it is not a React hook.
+    // Playwright fixtures call a function named "use"; it is not a React hook.
     files: ['e2e/**/*.ts', 'playwright.config.ts'],
     rules: { 'react-hooks/rules-of-hooks': 'off' },
   },

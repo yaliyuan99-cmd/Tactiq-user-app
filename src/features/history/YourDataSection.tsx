@@ -1,9 +1,9 @@
 import { useState } from 'react';
 import { FileJson, FileSpreadsheet, Trash2 } from 'lucide-react';
 import { Button, ConfirmDialog } from '@/components';
+import { datedFilename, downloadTextFile } from '@/lib/download';
 import { useFeedback } from '@/services/feedback/FeedbackProvider';
 import { useHistory } from '@/services/ServicesProvider';
-import { EXPORT_CONTENT_TYPES, activityFilename, downloadTextFile, type ActivityExportFormat } from './download';
 import { HISTORY_HEADING_IDS } from './historyIds';
 import { plural } from './wording';
 
@@ -11,6 +11,13 @@ export interface YourDataSectionProps {
   /** Called after every record has been cleared. */
   readonly onCleared: () => void;
 }
+
+type ActivityExportFormat = 'json' | 'csv';
+
+const EXPORT_CONTENT_TYPES: Readonly<Record<ActivityExportFormat, string>> = {
+  json: 'application/json',
+  csv: 'text/csv;charset=utf-8',
+};
 
 /** Download every record as JSON or CSV, or clear it all after typing "clear". */
 export function YourDataSection({ onCleared }: YourDataSectionProps) {
@@ -21,7 +28,8 @@ export function YourDataSection({ onCleared }: YourDataSectionProps) {
 
   const download = (format: ActivityExportFormat) => {
     const content = format === 'json' ? history.exportJson() : history.exportCsv();
-    const filename = activityFilename(format);
+    // "tactiq-activity-2026-09-15.csv", using the local calendar date.
+    const filename = datedFilename('tactiq-activity', format);
     downloadTextFile(content, filename, EXPORT_CONTENT_TYPES[format]);
     announce(`Download started: ${filename}.`);
   };

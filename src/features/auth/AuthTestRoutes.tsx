@@ -11,6 +11,14 @@ function LandedAt() {
   return <p>{`Landed at ${location.pathname}${location.search}`}</p>;
 }
 
+/** Exposes the current path, search and router state (as JSON) to tests. */
+export function LocationStateProbe() {
+  const { pathname, search, state } = useLocation();
+  return (
+    <div hidden data-testid="location-state" data-location={`${pathname}${search}`} data-state={JSON.stringify(state ?? null)} />
+  );
+}
+
 export function AuthTestRoutes() {
   return (
     <Routes>

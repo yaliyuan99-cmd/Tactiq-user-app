@@ -1,4 +1,4 @@
-import { dashboardTitle, firstName, partOfDay } from './greeting';
+import { DASHBOARD_EYEBROW, DASHBOARD_TITLE, dashboardEyebrow, dashboardTitle, firstName, partOfDay } from './greeting';
 
 function at(hour: number, minute = 0): Date {
   return new Date(2026, 8, 15, hour, minute);
@@ -39,8 +39,21 @@ describe('dashboardTitle', () => {
     expect(dashboardTitle('Alex', at(20))).toBe('Good evening, Alex');
   });
 
-  it('falls back to Overview when there is no user', () => {
-    expect(dashboardTitle(null, at(9))).toBe('Overview');
-    expect(dashboardTitle('', at(9))).toBe('Overview');
+  it('falls back to Home when there is no user', () => {
+    expect(dashboardTitle(null, at(9))).toBe('Home');
+    expect(dashboardTitle('', at(9))).toBe('Home');
+  });
+});
+
+describe('dashboard page name', () => {
+  it('is Home, matching the navigation', () => {
+    expect(DASHBOARD_TITLE).toBe('Home');
+    expect(DASHBOARD_EYEBROW).toBe('Home');
+  });
+
+  it('shows the Home eyebrow above a greeting only, never above a Home h1', () => {
+    expect(dashboardEyebrow('Alex Morgan')).toBe('Home');
+    expect(dashboardEyebrow(null)).toBeUndefined();
+    expect(dashboardEyebrow('   ')).toBeUndefined();
   });
 });

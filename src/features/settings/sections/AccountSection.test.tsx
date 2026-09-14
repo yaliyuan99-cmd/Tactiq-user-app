@@ -7,7 +7,7 @@ import { SUPABASE_MESSAGES } from '@/services/auth/supabaseErrors';
 import { AuthError, type AuthService, type AuthUser } from '@/services/auth/types';
 import { MemoryStorageAdapter, STORAGE_KEYS, type StorageAdapter } from '@/services/storage/StorageAdapter';
 import { TEST_USER, act, render, screen, userEvent, waitFor, within } from '@/test/renderApp';
-import { SIGN_IN_STUB, politeRegion, renderSettings } from '../testing/renderSettings';
+import { SIGN_IN_STUB, politeRegion, renderSettings, signInState } from '../testing/renderSettings';
 import { AccountSection } from './AccountSection';
 
 function storedAccounts(storage: StorageAdapter): LocalAccountRecord[] {
@@ -65,6 +65,8 @@ describe('AccountSection in Demo Mode', () => {
     expect(await screen.findByRole('heading', { level: 1, name: SIGN_IN_STUB })).toBeInTheDocument();
     expect(storedAccounts(storage)).toHaveLength(0);
     expect(storage.get(STORAGE_KEYS.preferences)).not.toBeNull();
+    // The rest of the local data stays, so sign-in is not told that data was deleted.
+    expect(signInState()).toEqual({ signedOut: true });
   });
 });
 

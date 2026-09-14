@@ -6,10 +6,14 @@ import { Logo, SkipLink } from '@/components';
 import { useAuth } from '@/services/auth/AuthProvider';
 
 /**
- * Frame for onboarding and the top-level "Page not found" (screens without the
- * app navigation). It provides the skip link, a banner with the logo (plus
- * Help once signed in) and the main landmark with a centred container, so
- * those pages render only their content.
+ * Frame for the top-level "Page not found" (and the "/" redirect), screens
+ * without the app navigation. It provides the skip link, a banner with the
+ * logo (plus Help once signed in) and the main landmark with a centred
+ * container, so those pages render only their content.
+ *
+ * Onboarding is deliberately not rendered here: OnboardingLayout draws its own
+ * skip link, banner and main, and nesting it would give the page two main
+ * landmarks and two skip links.
  */
 export function PublicLayout() {
   const { user } = useAuth();

@@ -1,4 +1,3 @@
-import { DEFAULT_PREFERENCES, type UserPreferences } from '@/domain/models';
 import { COMMAND_WINDOW_LONG_MS, COMMAND_WINDOW_MS } from '@/domain/timing';
 import {
   LONGER_TIME_DESCRIPTION,
@@ -7,7 +6,6 @@ import {
   handPreviewCaption,
   longerTimeAnnouncement,
   plural,
-  preferencesAfterReset,
   switchAnnouncement,
 } from './settingsOptions';
 import { SETTINGS_SECTIONS, settingsHeadingId, settingsSectionTitle } from './settingsSections';
@@ -33,26 +31,6 @@ describe('settings wording', () => {
     expect(handPreviewCaption('left')).toBe('Preview: left hand, palm facing you.');
     expect(plural(1, 'point')).toBe('1 point');
     expect(plural(3, 'point')).toBe('3 points');
-  });
-});
-
-describe('preferencesAfterReset', () => {
-  it('restores every default but keeps onboarding progress', () => {
-    const current: UserPreferences = {
-      ...DEFAULT_PREFERENCES,
-      theme: 'dark',
-      textSize: 'larger',
-      contrast: 'high',
-      reducedMotion: true,
-      audioAnnouncements: true,
-      visualConfirmation: false,
-      hapticFeedback: false,
-      longerInteractionTime: true,
-      hand: 'left',
-      onboardingCompleted: true,
-      onboardingStep: 6,
-    };
-    expect(preferencesAfterReset(current)).toEqual({ ...DEFAULT_PREFERENCES, onboardingCompleted: true, onboardingStep: 6 });
   });
 });
 

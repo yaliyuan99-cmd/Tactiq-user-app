@@ -2,7 +2,7 @@ import { act, render, screen, waitFor } from '@testing-library/react';
 import { renderWithProviders } from '@/test/render';
 import { DEFAULT_PREFERENCES, type UserPreferences } from '@/domain/models';
 import { STORAGE_KEYS } from '@/services/storage/StorageAdapter';
-import { SPEECH_RATE, useFeedback } from './FeedbackProvider';
+import { ANNOUNCE_FALLBACK_MS, SPEECH_RATE, useFeedback } from './FeedbackProvider';
 import { type FeedbackContextValue } from './types';
 
 const captured: { current: FeedbackContextValue | null } = { current: null };
@@ -36,11 +36,60 @@ function installVibration(result = true) {
   return vibrate;
 }
 
+const originalRequestAnimationFrame = Object.getOwnPropertyDescriptor(window, 'requestAnimationFrame');
+const originalCancelAnimationFrame = Object.getOwnPropertyDescriptor(window, 'cancelAnimationFrame');
+
+function restoreProperty(name: string, descriptor: PropertyDescriptor | undefined) {
+  if (descriptor) Object.defineProperty(window, name, descriptor);
+  else Reflect.deleteProperty(window, name);
+}
+
+/**
+ * Replaces requestAnimationFrame with a queue the test runs by hand (`flush`),
+ * or that never runs at all, as in a hidden or background tab.
+ */
+function stubAnimationFrames() {
+  const callbacks = new Map<number, FrameRequestCallback>();
+  let nextId = 1;
+  const request = vi.fn((callback: FrameRequestCallback) => {
+    const id = nextId++;
+    callbacks.set(id, callback);
+    return id;
+  });
+  const cancel = vi.fn((id: number) => {
+    callbacks.delete(id);
+  });
+  Object.defineProperty(window, 'requestAnimationFrame', { configurable: true, writable: true, value: request });
+  Object.defineProperty(window, 'cancelAnimationFrame', { configurable: true, writable: true, value: cancel });
+  return {
+    request,
+    cancel,
+    flush() {
+      const due = [...callbacks.values()];
+      callbacks.clear();
+      due.forEach((callback) => callback(performance.now()));
+    },
+  };
+}
+
+/** Counts writes that put text into a live region (clearing an empty region adds nothing). */
+function watchWrites(region: HTMLElement) {
+  const observer = new MutationObserver(() => {});
+  observer.observe(region, { childList: true, characterData: true, subtree: true });
+  return {
+    writes: () => observer.takeRecords().filter((record) => record.type === 'characterData' || record.addedNodes.length > 0).length,
+    stop: () => observer.disconnect(),
+  };
+}
+
 afterEach(() => {
+  vi.useRealTimers();
   captured.current = null;
   Reflect.deleteProperty(window, 'speechSynthesis');
   Reflect.deleteProperty(window, 'SpeechSynthesisUtterance');
   Reflect.deleteProperty(navigator, 'vibrate');
+  restoreProperty('requestAnimationFrame', originalRequestAnimationFrame);
+  restoreProperty('cancelAnimationFrame', originalCancelAnimationFrame);
 });
 
 describe('FeedbackProvider', () => {
@@ -71,6 +120,146 @@ describe('FeedbackProvider', () => {
     act(() => api().announce('Confirm.'));
     expect(region).toHaveTextContent('');
     await waitFor(() => expect(region).toHaveTextContent('Confirm.'));
+  });
+
+  it('merges two announcements made in the same tick into one live-region update', () => {
+    const frames = stubAnimationFrames();
+    renderWithProviders(<Capture />);
+    const region = screen.getByRole('status');
+    const watcher = watchWrites(region);
+    vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] });
+
+    act(() => {
+      api().announce('Shortcut saved.');
+      api().announce('Commands');
+    });
+    expect(region).toBeEmptyDOMElement();
+    expect(frames.request).toHaveBeenCalledTimes(1);
+
+    act(() => frames.flush());
+    expect(region.textContent).toBe('Shortcut saved. Commands');
+    expect(watcher.writes()).toBe(1);
+
+    // The frame won, so the fallback timeout was cancelled and nothing is written again.
+    expect(vi.getTimerCount()).toBe(0);
+    act(() => vi.advanceTimersByTime(500));
+    expect(region.textContent).toBe('Shortcut saved. Commands');
+    expect(watcher.writes()).toBe(0);
+    watcher.stop();
+  });
+
+  it('keeps the polite and assertive regions separate when both announce in the same tick', () => {
+    const frames = stubAnimationFrames();
+    renderWithProviders(<Capture />);
+    act(() => {
+      api().announce('Emergency simulation started. No message is sent.', { assertive: true });
+      api().announce('Practice');
+    });
+    act(() => frames.flush());
+    expect(screen.getByRole('alert').textContent).toBe('Emergency simulation started. No message is sent.');
+    expect(screen.getByRole('status').textContent).toBe('Practice');
+  });
+
+  it('does not double an identical message announced twice in the same tick', () => {
+    const frames = stubAnimationFrames();
+    renderWithProviders(<Capture />);
+    const region = screen.getByRole('status');
+    const watcher = watchWrites(region);
+    act(() => {
+      api().announce('Saved.');
+      api().announce('Saved.');
+      api().announce('Settings');
+      api().announce('Saved.');
+    });
+    act(() => frames.flush());
+    expect(region.textContent).toBe('Saved. Settings');
+    expect(watcher.writes()).toBe(1);
+    watcher.stop();
+  });
+
+  it('still lands the message via the timeout when animation frames never run (hidden tab)', () => {
+    const frames = stubAnimationFrames();
+    renderWithProviders(<Capture />);
+    const region = screen.getByRole('status');
+    vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] });
+
+    act(() => {
+      api().announce('Ring disconnected.');
+      api().announce('Reconnecting…');
+    });
+    act(() => vi.advanceTimersByTime(ANNOUNCE_FALLBACK_MS - 1));
+    expect(region).toBeEmptyDOMElement();
+    act(() => vi.advanceTimersByTime(1));
+    expect(region.textContent).toBe('Ring disconnected. Reconnecting…');
+    // The timeout won, so the frame request was withdrawn.
+    expect(frames.cancel).toHaveBeenCalledWith(frames.request.mock.results[0]?.value);
+
+    // A later announcement starts a fresh batch: cleared, then written.
+    act(() => api().announce('Connected.'));
+    expect(region).toBeEmptyDOMElement();
+    act(() => vi.advanceTimersByTime(ANNOUNCE_FALLBACK_MS));
+    expect(region.textContent).toBe('Connected.');
+  });
+
+  it('speaks each message once when several announce in the same tick, queued rather than cut off', () => {
+    const synth = installSpeech();
+    const frames = stubAnimationFrames();
+    renderWithProviders(<Capture />, { preferences: { audioAnnouncements: true } });
+    act(() => {
+      api().announce('Shortcut saved.');
+      api().announce('Commands');
+      api().announce('Commands');
+    });
+    expect(synth.speak.mock.calls.map(([utterance]) => (utterance as FakeUtterance).text)).toEqual([
+      'Shortcut saved.',
+      'Commands',
+    ]);
+    // Only the first message interrupts earlier speech; the second queues behind it.
+    expect(synth.cancel).toHaveBeenCalledTimes(1);
+
+    act(() => frames.flush());
+    expect(screen.getByRole('status').textContent).toBe('Shortcut saved. Commands');
+
+    act(() => api().announce('Next.'));
+    expect(synth.cancel).toHaveBeenCalledTimes(2);
+    expect(synth.speak).toHaveBeenCalledTimes(3);
+  });
+
+  it('lets feedback of the same kind in the same tick replace the earlier words, while other messages still merge', () => {
+    const synth = installSpeech();
+    const frames = stubAnimationFrames();
+    renderWithProviders(<Capture />, { preferences: { audioAnnouncements: true } });
+    const region = screen.getByRole('status');
+    act(() => {
+      api().announce('Lesson 2: Confirm and Back');
+      // The ring's own words, then a lesson rewording the same outcome.
+      api().feedback('confirm', 'Confirm.');
+      api().feedback('confirm', 'Correct. Confirm, on the index fingertip.');
+    });
+    act(() => frames.flush());
+    expect(region.textContent).toBe('Lesson 2: Confirm and Back Correct. Confirm, on the index fingertip.');
+    const spoken = synth.speak.mock.calls.map(([utterance]) => (utterance as FakeUtterance).text);
+    expect(spoken).toEqual(['Lesson 2: Confirm and Back', 'Confirm.', 'Correct. Confirm, on the index fingertip.']);
+    // The replacement cuts off the superseded "Confirm." instead of queueing behind it.
+    expect(synth.cancel).toHaveBeenCalledTimes(2);
+
+    // Different kinds are different events: both are kept.
+    act(() => {
+      api().feedback('armed', 'Command window open.');
+      api().feedback('confirm', 'Confirm.');
+    });
+    act(() => frames.flush());
+    expect(region.textContent).toBe('Command window open. Confirm.');
+  });
+
+  it('drops a pending announcement on unmount and writes nothing afterwards', () => {
+    const frames = stubAnimationFrames();
+    const { unmount } = renderWithProviders(<Capture />);
+    act(() => api().announce('Leaving.'));
+    unmount();
+    expect(frames.cancel).toHaveBeenCalled();
+    expect(() => frames.flush()).not.toThrow();
+    expect(document.querySelector('[data-live-announcer]')).toBeNull();
   });
 
   it('speaks only when audio announcements are on', () => {
