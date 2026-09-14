@@ -121,6 +121,10 @@ export interface LessonProgress {
   readonly lastAttemptAt: string | null;
   readonly completedAt: string | null;
   readonly runs: number;
+  /** Attempts in the current (or most recent) run. Zeroed when a run starts or the lesson restarts. */
+  readonly runAttempts?: number;
+  /** Correct attempts in the current (or most recent) run. */
+  readonly runCorrect?: number;
 }
 
 export interface TrainingProgress {

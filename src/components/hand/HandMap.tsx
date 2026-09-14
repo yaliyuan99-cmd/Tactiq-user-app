@@ -1,0 +1,196 @@
+import { useId } from 'react';
+import { CONTACT_POINTS, getContact } from '@/domain/contacts';
+import { cn } from '@/lib/cn';
+import { HoldRing } from '../HoldRing';
+import { HandFigure } from './HandFigure';
+import { HandLegend } from './HandLegend';
+import { contactAccessibleName, contactVisualState, DEFAULT_HOLD_LABEL, type ContactVisualState } from './contactState';
+import { contactPosition } from './geometry';
+import { type HandMapProps } from './types';
+import { useContactPress } from './useContactPress';
+
+/**
+ * Widths at which neighbouring 44px points do not touch (the index, middle and
+ * ring fingertips are about 45 drawing units apart). Narrower containers shrink
+ * the figure; ContactList is the alternative when that happens.
+ */
+const SIZES: Record<NonNullable<HandMapProps['size']>, string> = {
+  sm: 'max-w-[340px]',
+  md: 'max-w-[408px]',
+  lg: 'max-w-[476px]',
+};
+
+const HOLD_RING_SIZE = 76;
+
+function pointClasses(state: ContactVisualState, interactive: boolean, disabled: boolean): string {
+  const filled = state.isActive || state.isShortcut ? 'bg-primary text-primary-foreground' : 'bg-foreground text-background';
+  return cn(
+    // 44 CSS px, deliberately not rem-based: larger text sizes must not make the points collide.
+    'absolute flex h-[44px] min-h-[44px] w-[44px] min-w-[44px] -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full',
+    'font-mono-label font-medium leading-none shadow-card transition-[scale,background-color] duration-[var(--dur-tap)]',
+    filled,
+    state.isActive && 'z-10 scale-110 ring-4 ring-primary/35',
+    state.isFlashing && 'contact-flash',
+    interactive && 'cursor-pointer touch-none select-none [-webkit-touch-callout:none]',
+    interactive && !disabled && !state.isActive && 'hover:scale-105',
+    disabled && 'cursor-not-allowed opacity-60',
+  );
+}
+
+function PointDecorations({ state }: { state: ContactVisualState }) {
+  return (
+    <>
+      {state.isEmergencyCapable && (
+        <span
+          aria-hidden="true"
+          data-emergency-ring=""
+          className="pointer-events-none absolute -inset-[5px] rounded-full border-2 border-dashed border-primary"
+        />
+      )}
+      {state.isTarget && (
+        <span
+          aria-hidden="true"
+          data-target-ring=""
+          className="pointer-events-none absolute -inset-[9px] rounded-full border-[3px] border-primary-strong"
+        />
+      )}
+      {state.isMisread && (
+        <span
+          aria-hidden="true"
+          data-detected-ring=""
+          className="pointer-events-none absolute -inset-[9px] rounded-full border-[3px] border-dashed border-destructive"
+        />
+      )}
+      {(state.isTarget || state.isMisread) && (
+        <span
+          aria-hidden="true"
+          className={cn(
+            'font-mono-label pointer-events-none absolute left-1/2 top-full z-20 mt-3 -translate-x-1/2 whitespace-nowrap rounded-sm border bg-card px-1.5 py-0.5 leading-none',
+            state.isMisread ? 'border-dashed border-destructive text-destructive' : 'border-primary-strong text-primary-strong',
+          )}
+        >
+          {state.isMisread ? 'Detected here' : 'Target'}
+        </span>
+      )}
+    </>
+  );
+}
+
+/**
+ * The signature hand illustration with the eight contact points. The drawing is
+ * decorative; each point is a real button (or a plain span when not
+ * interactive), and a text alternative lists every point.
+ */
+export function HandMap(props: HandMapProps) {
+  const {
+    hand,
+    interactive = true,
+    disabled = false,
+    labelFor,
+    caption,
+    showLegend = false,
+    size = 'md',
+    holdProgress,
+    holdArmed = false,
+    holdLabel = DEFAULT_HOLD_LABEL,
+    activeContact,
+    targetContact,
+    detectedContact,
+    className,
+  } = props;
+  const { getPressProps } = useContactPress(props);
+  const handName = hand === 'left' ? 'Left' : 'Right';
+  const captionId = `hand-map-${useId().replace(/:/g, '')}-caption`;
+  const activePosition = activeContact ? contactPosition(activeContact, hand) : null;
+
+  return (
+    <figure
+      className={cn('mx-auto w-full', SIZES[size], className)}
+      aria-labelledby={caption ? captionId : undefined}
+      aria-label={caption ? undefined : `${handName} hand contact map`}
+      data-hand={hand}
+    >
+      <div className="relative aspect-[3/4] w-full text-foreground">
+        <HandFigure hand={hand} className="absolute inset-0 h-full w-full" />
+
+        {activePosition && typeof holdProgress === 'number' && (
+          <div
+            className="pointer-events-none absolute z-0"
+            style={{
+              left: activePosition.left,
+              top: activePosition.top,
+              transform: `translate(-50%, -${HOLD_RING_SIZE / 2}px)`,
+            }}
+          >
+            <HoldRing progress={holdProgress} armed={holdArmed} size={HOLD_RING_SIZE} label={holdLabel} compact />
+          </div>
+        )}
+
+        {CONTACT_POINTS.map((point) => {
+          const state = contactVisualState(point.key, props);
+          const position = contactPosition(point.key, hand);
+          const style = { left: position.left, top: position.top };
+          const common = {
+            'data-contact': point.key,
+            className: pointClasses(state, interactive, disabled),
+            style,
+          };
+          if (!interactive) {
+            return (
+              <span key={point.key} aria-hidden="true" {...common}>
+                {point.abbreviation}
+                <PointDecorations state={state} />
+              </span>
+            );
+          }
+          return (
+            <button
+              key={point.key}
+              type="button"
+              aria-label={contactAccessibleName(state, labelFor)}
+              aria-pressed={state.isActive}
+              aria-disabled={disabled || undefined}
+              {...common}
+              {...getPressProps(point.key)}
+            >
+              <span aria-hidden="true">{point.abbreviation}</span>
+              <PointDecorations state={state} />
+            </button>
+          );
+        })}
+      </div>
+
+      {showLegend && (
+        <HandLegend
+          className="mt-4"
+          showStates={targetContact !== undefined || detectedContact !== undefined}
+        />
+      )}
+      {caption && (
+        <figcaption id={captionId} className="mt-3 text-center text-sm text-muted-foreground">
+          {caption}
+        </figcaption>
+      )}
+
+      <div className="sr-only">
+        <p>
+          {handName} hand, palm facing you, thumb on the {hand === 'left' ? 'right' : 'left'}. The ring sits on the index
+          finger. Eight contact points:
+        </p>
+        <ul>
+          {CONTACT_POINTS.map((point) => {
+            const state = contactVisualState(point.key, props);
+            return (
+              <li key={point.key}>
+                {getContact(point.key).label}
+                {labelFor ? `: ${labelFor(point.key)}` : ''}
+                {state.isTarget ? ', target' : ''}
+                {state.isMisread ? ', detected here' : ''}
+              </li>
+            );
+          })}
+        </ul>
+      </div>
+    </figure>
+  );
+}
