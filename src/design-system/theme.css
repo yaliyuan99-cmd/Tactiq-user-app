@@ -1,0 +1,398 @@
+@custom-variant dark (&:is(.dark *));
+
+/*
+ * Tactiq design tokens — ported verbatim from the Tactiq website's
+ * "tactile research-journal" system, then extended for an application:
+ * a high-contrast mode, three text sizes, a stronger focus ring and a
+ * small motion vocabulary.
+ *
+ * Materials: warm stone paper, graphite ink, one burnt-orange accent taken
+ * from tactile wayfinding surfaces. Colour is used sparingly: orange for
+ * active contact points, selected commands and primary actions; neutrals
+ * for prose; green / slate / rust reserved for genuine evidence meanings
+ * and always accompanied by text.
+ *
+ * Anchors: stone #F6F4EF · graphite #211E1A · burnt orange #A63A0A.
+ * Contrast (checked): #211E1A on stone 14.9:1 · #5F594E on stone 5.3:1 ·
+ * white on #A63A0A 6.0:1 · #8C3009 on stone 7.5:1.
+ */
+:root {
+  --font-size: 17px;
+  --background: #f6f4ef;
+  --foreground: #211e1a;
+  --card: #fbfaf6;
+  --card-foreground: #211e1a;
+  --popover: #fffefb;
+  --popover-foreground: #211e1a;
+  --primary: #a63a0a;
+  --primary-foreground: #ffffff;
+  --primary-strong: #8c3009;
+  --secondary: #e9e6de;
+  --secondary-foreground: #211e1a;
+  --muted: #eeebe3;
+  --muted-foreground: #5f594e;
+  --accent: #a63a0a;
+  --accent-foreground: #ffffff;
+  --destructive: #b3261e;
+  --destructive-foreground: #ffffff;
+  --border: rgba(33, 30, 26, 0.16);
+  --border-strong: rgba(33, 30, 26, 0.34);
+  --input: rgba(33, 30, 26, 0.22);
+  --input-background: #fffefb;
+  --switch-background: #c9c4b8;
+  --ring: #a63a0a;
+  --focus: #8c3009;
+  --focus-width: 3px;
+  /* Evidence-status system — icons and text always accompany these. */
+  --status-confirmed: #1b6b40;
+  --status-simulation: #44546e;
+  --status-target: #8c3009;
+  --status-future: #5f594e;
+  --chart-1: #a63a0a;
+  --chart-2: #1b6b40;
+  --chart-3: #44546e;
+  --chart-4: #8a6d1f;
+  --radius: 0.5rem;
+  --sidebar: #fbfaf6;
+  --sidebar-foreground: #211e1a;
+  --sidebar-border: rgba(33, 30, 26, 0.16);
+  --shadow-card: 0 1px 2px rgba(33, 30, 26, 0.05);
+  --shadow-raised: 0 6px 20px rgba(33, 30, 26, 0.1);
+  --ease-settle: cubic-bezier(0.16, 1, 0.3, 1);
+  --dur-tap: 90ms;
+  --dur-move: 180ms;
+  --dur-enter: 320ms;
+}
+
+/* Body copy stays at or above 16px on small screens. */
+@media (max-width: 640px) {
+  :root {
+    --font-size: 16px;
+  }
+}
+
+/* Text-size preference (Settings → Text size). */
+[data-text-size='large'] {
+  --font-size: 19px;
+}
+[data-text-size='larger'] {
+  --font-size: 21px;
+}
+
+.dark {
+  --background: #1b1916;
+  --foreground: #ece8e0;
+  --card: #242119;
+  --card-foreground: #ece8e0;
+  --popover: #242119;
+  --popover-foreground: #ece8e0;
+  --primary: #d3591d;
+  --primary-foreground: #ffffff;
+  --primary-strong: #e8813f;
+  --secondary: #2e2a22;
+  --secondary-foreground: #ece8e0;
+  --muted: #2e2a22;
+  --muted-foreground: #aca596;
+  --accent: #d3591d;
+  --accent-foreground: #ffffff;
+  --destructive: #e0564c;
+  --destructive-foreground: #ffffff;
+  --border: rgba(236, 232, 224, 0.16);
+  --border-strong: rgba(236, 232, 224, 0.36);
+  --input: rgba(236, 232, 224, 0.2);
+  --input-background: #27231b;
+  --switch-background: #4c4638;
+  --ring: #e8813f;
+  --focus: #ffa06a;
+  --status-confirmed: #4cb07a;
+  --status-simulation: #93a5c2;
+  --status-target: #e8813f;
+  --status-future: #aca596;
+  --chart-1: #e8813f;
+  --chart-2: #4cb07a;
+  --chart-3: #93a5c2;
+  --chart-4: #c2a44a;
+  --sidebar: #242119;
+  --sidebar-foreground: #ece8e0;
+  --sidebar-border: rgba(236, 232, 224, 0.16);
+  --shadow-card: 0 1px 2px rgba(0, 0, 0, 0.3);
+  --shadow-raised: 0 8px 24px rgba(0, 0, 0, 0.45);
+}
+
+/* Increased-contrast preference: darker ink, stronger borders, deeper accent. */
+[data-contrast='high'] {
+  --background: #fffdf9;
+  --foreground: #111009;
+  --card: #ffffff;
+  --card-foreground: #111009;
+  --popover: #ffffff;
+  --popover-foreground: #111009;
+  --primary: #7a2a05;
+  --primary-strong: #5e1f02;
+  --secondary: #e6e2d8;
+  --muted: #f0ede6;
+  --muted-foreground: #2f2b25;
+  --destructive: #8f1a13;
+  --border: rgba(17, 16, 9, 0.7);
+  --border-strong: rgba(17, 16, 9, 0.9);
+  --input: rgba(17, 16, 9, 0.8);
+  --status-confirmed: #0f4d2c;
+  --status-simulation: #2c3a52;
+  --status-target: #5e1f02;
+  --status-future: #3a362f;
+  --focus: #000000;
+  --focus-width: 4px;
+}
+.dark[data-contrast='high'] {
+  --background: #000000;
+  --foreground: #ffffff;
+  --card: #0d0c0a;
+  --card-foreground: #ffffff;
+  --popover: #0d0c0a;
+  --popover-foreground: #ffffff;
+  --primary: #ff9a5c;
+  --primary-foreground: #000000;
+  --primary-strong: #ffb98a;
+  --secondary: #262320;
+  --muted: #1a1815;
+  --muted-foreground: #e6e2da;
+  --destructive: #ff7b70;
+  --border: rgba(255, 255, 255, 0.7);
+  --border-strong: rgba(255, 255, 255, 0.9);
+  --input: rgba(255, 255, 255, 0.8);
+  --input-background: #000000;
+  --status-confirmed: #7fe0a8;
+  --status-simulation: #b9c8e6;
+  --status-target: #ffb98a;
+  --status-future: #e6e2da;
+  --focus: #ffffff;
+  --focus-width: 4px;
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-primary-strong: var(--primary-strong);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-border: var(--border);
+  --color-border-strong: var(--border-strong);
+  --color-input: var(--input);
+  --color-input-background: var(--input-background);
+  --color-switch-background: var(--switch-background);
+  --color-ring: var(--ring);
+  --color-focus: var(--focus);
+  --color-status-confirmed: var(--status-confirmed);
+  --color-status-simulation: var(--status-simulation);
+  --color-status-target: var(--status-target);
+  --color-status-future: var(--status-future);
+  --color-chart-1: var(--chart-1);
+  --color-chart-2: var(--chart-2);
+  --color-chart-3: var(--chart-3);
+  --color-chart-4: var(--chart-4);
+  --color-sidebar: var(--sidebar);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar-border: var(--sidebar-border);
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+  --shadow-card: var(--shadow-card);
+  --shadow-raised: var(--shadow-raised);
+  --ease-settle: var(--ease-settle);
+}
+
+@layer base {
+  * {
+    border-color: var(--border);
+  }
+
+  html {
+    font-size: var(--font-size);
+    -webkit-text-size-adjust: 100%;
+    accent-color: var(--primary);
+    caret-color: var(--primary);
+  }
+
+  body {
+    background: var(--background);
+    color: var(--foreground);
+    font-family: var(--font-sans);
+    line-height: 1.6;
+    min-height: 100dvh;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  /* Large headings carry a restrained editorial serif; smaller headings stay
+     on the body sans at a firm weight. Sentence case throughout. */
+  h1,
+  h2 {
+    font-family: var(--font-serif);
+    font-weight: 600;
+    text-wrap: balance;
+  }
+  h1 {
+    font-size: var(--text-3xl);
+    letter-spacing: -0.01em;
+    line-height: 1.15;
+  }
+  h2 {
+    font-size: var(--text-xl);
+    letter-spacing: -0.005em;
+    line-height: 1.25;
+  }
+  h3 {
+    font-size: var(--text-lg);
+    font-weight: 700;
+    line-height: 1.35;
+  }
+  h4 {
+    font-weight: 700;
+    line-height: 1.45;
+  }
+
+  p {
+    text-wrap: pretty;
+  }
+
+  a {
+    text-underline-offset: 0.18em;
+    text-decoration-thickness: 0.06em;
+  }
+
+  /* Strong, consistent keyboard focus everywhere. Never remove without replacing. */
+  :focus-visible {
+    outline: var(--focus-width) solid var(--focus);
+    outline-offset: 2px;
+    border-radius: 3px;
+  }
+
+  ::selection {
+    background: color-mix(in srgb, var(--primary) 22%, transparent);
+    color: var(--foreground);
+  }
+
+  /* Measurements and identifiers line up in columns. */
+  :where(td, th, time, code, kbd, samp, output) {
+    font-variant-numeric: tabular-nums;
+  }
+
+  kbd {
+    font-family: var(--font-mono);
+    font-size: 0.85em;
+    padding: 0.1em 0.4em;
+    border: 1px solid var(--border-strong);
+    border-bottom-width: 2px;
+    border-radius: 4px;
+    background: color-mix(in srgb, var(--foreground) 5%, transparent);
+  }
+
+  /* Reduced motion: strip non-essential animation and transitions globally.
+     Content must remain complete — nothing is visibility-gated on motion.
+     `.force-reduced-motion` mirrors the media query for users who enable the
+     app-level setting regardless of their OS preference. */
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+      scroll-behavior: auto !important;
+    }
+  }
+  .force-reduced-motion *,
+  .force-reduced-motion *::before,
+  .force-reduced-motion *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+
+  @media (prefers-reduced-motion: no-preference) {
+    html:not(.force-reduced-motion) {
+      scroll-behavior: smooth;
+    }
+  }
+}
+
+@layer utilities {
+  /* Small labels: measurements, evidence tags, eyebrows. */
+  .font-mono-label {
+    font-family: var(--font-mono);
+    font-size: 0.78rem;
+    letter-spacing: 0.02em;
+    font-variant-numeric: tabular-nums;
+  }
+
+  /* WCAG 2.2 target size — every interactive control is at least 44×44 CSS px. */
+  .target-44 {
+    min-width: 2.75rem;
+    min-height: 2.75rem;
+  }
+
+  /* Skip link: visually hidden until focused, then pinned top-left. */
+  .skip-link {
+    position: absolute;
+    left: 1rem;
+    top: -100px;
+    z-index: 100;
+    padding: 0.75rem 1rem;
+    background: var(--foreground);
+    color: var(--background);
+    border-radius: var(--radius-md);
+    font-weight: 600;
+    transition: top var(--dur-tap);
+  }
+  .skip-link:focus,
+  .skip-link:focus-visible {
+    top: 1rem;
+    outline: var(--focus-width) solid var(--focus);
+    outline-offset: 3px;
+  }
+}
+
+/* One purposeful entrance: transform only, never opacity, so content is
+   always fully visible even if the animation never runs. */
+@keyframes enter-rise {
+  from {
+    transform: translateY(10px);
+  }
+  to {
+    transform: translateY(0);
+  }
+}
+@media (prefers-reduced-motion: no-preference) {
+  html:not(.force-reduced-motion) .animate-enter-rise {
+    animation: enter-rise var(--dur-enter) var(--ease-settle);
+  }
+}
+
+/* Visual confirmation flash on a contact point (Settings → Visual confirmation).
+   Decorative: the text and live region carry the meaning. */
+@keyframes contact-flash {
+  0% {
+    box-shadow: 0 0 0 0 color-mix(in srgb, var(--primary) 55%, transparent);
+  }
+  100% {
+    box-shadow: 0 0 0 14px transparent;
+  }
+}
+@media (prefers-reduced-motion: no-preference) {
+  html:not(.force-reduced-motion) .contact-flash {
+    animation: contact-flash 0.6s ease-out;
+  }
+}

@@ -1,0 +1,24 @@
+# Dependencies
+node_modules/
+
+# Build output
+dist/
+dist-ssr/
+
+# Environment / secrets — never commit real keys
+.env
+.env.local
+.env.*.local
+
+# Test artefacts
+coverage/
+playwright-report/
+test-results/
+blob-report/
+
+# Editor / OS
+.DS_Store
+*.log
+.vscode/
+.idea/
+.netlify/
