@@ -1,0 +1,126 @@
+import { Link } from 'react-router';
+import { Timer, TimerOff } from 'lucide-react';
+import { Button, ProgressBar } from '@/components';
+import { ROUTES } from '@/app/routes';
+import { COMMAND_WINDOW_LONG_MS, COMMAND_WINDOW_MS } from '@/domain/timing';
+import { cn } from '@/lib/cn';
+import { usePreferences } from '@/services/preferences/PreferencesProvider';
+import type { RingController } from './useRing';
+
+export interface SqueezeControlProps {
+  readonly ring: RingController;
+  /** Shows the squeeze button as unavailable (for example once a lesson is finished). */
+  readonly disabled?: boolean;
+  readonly className?: string;
+}
+
+const LINK_CLASSES = 'font-medium text-primary-strong underline';
+
+/** "2.4" normally; whole seconds, rounded up, when reduced motion is on so the text changes less often. */
+function remainingText(ms: number, reducedMotion: boolean): string {
+  return reducedMotion ? String(Math.ceil(ms / 1000)) : (ms / 1000).toFixed(1);
+}
+
+function WindowState({ ring, reducedMotion }: { ring: RingController; reducedMotion: boolean }) {
+  if (!ring.armed || ring.remainingMs === null) {
+    return (
+      <p className="flex items-start gap-2">
+        <TimerOff className="mt-1 h-4 w-4 shrink-0 text-muted-foreground" aria-hidden="true" />
+        <span>
+          {ring.canOperate
+            ? 'Command window closed. Squeeze to open it.'
+            : 'Command window closed. Squeeze the ring to open it.'}
+        </span>
+      </p>
+    );
+  }
+  const seconds = remainingText(ring.remainingMs, reducedMotion);
+  const step = reducedMotion ? Math.ceil(ring.remainingMs / 1000) * 1000 : ring.remainingMs;
+  return (
+    <div className="grid gap-2">
+      <p className="flex items-start gap-2 font-medium">
+        <Timer className="mt-1 h-4 w-4 shrink-0 text-primary-strong" aria-hidden="true" />
+        <span>
+          {ring.pressingContact
+            ? 'Command window open · held open while a point is pressed'
+            : `Command window open · ${seconds} s left`}
+        </span>
+      </p>
+      <ProgressBar
+        label="Command window time left"
+        value={Math.min(step, ring.windowMs)}
+        max={ring.windowMs}
+        showValueText={false}
+        valueText={`${seconds} seconds left`}
+      />
+    </div>
+  );
+}
+
+/** How to get more time — worded truthfully for the simulated ring and for a bench ring. */
+function TimeHint({ canOperate, longerTime }: { canOperate: boolean; longerTime: boolean }) {
+  if (!canOperate) {
+    return (
+      <p className="text-sm text-muted-foreground">
+        Time left is the app’s estimate. The bench ring keeps its own {COMMAND_WINDOW_MS / 1000}-second window, so{' '}
+        <Link to={ROUTES.settings} className={LINK_CLASSES}>
+          Longer interaction time
+        </Link>{' '}
+        only changes practice in Demo Mode.
+      </p>
+    );
+  }
+  if (longerTime) {
+    return (
+      <p className="text-sm text-muted-foreground">
+        Longer interaction time is on, so the window stays open for {COMMAND_WINDOW_LONG_MS / 1000} seconds.{' '}
+        <Link to={ROUTES.settings} className={LINK_CLASSES}>
+          Change this in Settings
+        </Link>
+      </p>
+    );
+  }
+  return (
+    <p className="text-sm text-muted-foreground">
+      Need more time? Turn on{' '}
+      <Link to={ROUTES.settings} className={LINK_CLASSES}>
+        Longer interaction time in Settings
+      </Link>
+      .
+    </p>
+  );
+}
+
+/**
+ * Opens the command window. In Demo Mode it is a large button that squeezes
+ * the simulated ring; with a hardware ring it explains the physical squeeze.
+ * Nothing here is a live region: useRing announces window changes.
+ */
+export function SqueezeControl({ ring, disabled = false, className }: SqueezeControlProps) {
+  const { preferences, prefersReducedMotion } = usePreferences();
+
+  return (
+    <div className={cn('grid gap-3', className)} data-armed={ring.armed || undefined}>
+      {ring.canOperate ? (
+        <Button size="lg" fullWidth onClick={ring.squeeze} aria-disabled={disabled || undefined}>
+          Squeeze the ring
+        </Button>
+      ) : (
+        <p className="font-medium">Squeeze the physical ring to open the command window.</p>
+      )}
+
+      {!ring.canOperate && !ring.canReceive && (
+        <p className="text-sm">
+          No ring is connected, so no commands can arrive yet.{' '}
+          <Link to={ROUTES.connect} className={LINK_CLASSES}>
+            Connect a ring
+          </Link>
+        </p>
+      )}
+
+      <WindowState ring={ring} reducedMotion={prefersReducedMotion} />
+
+      <TimeHint canOperate={ring.canOperate} longerTime={preferences.longerInteractionTime} />
+    </div>
+  );
+}

@@ -1,0 +1,39 @@
+import { Link, useLocation } from 'react-router';
+import { cn } from '@/lib/cn';
+import { navCurrent, PRIMARY_NAV_ITEMS } from './navItems';
+
+/** Fixed bottom bar below lg: the five primary destinations, icon above label. */
+export function MobileNav() {
+  const { pathname } = useLocation();
+  return (
+    <nav
+      aria-label="Main"
+      data-testid="mobile-nav"
+      className="fixed inset-x-0 bottom-0 z-30 border-t border-border bg-background pb-[env(safe-area-inset-bottom)] lg:hidden"
+    >
+      <ul className="mx-auto grid max-w-xl grid-cols-5">
+        {PRIMARY_NAV_ITEMS.map((item) => {
+          const current = navCurrent(item.to, pathname, item.exact);
+          const Icon = item.icon;
+          return (
+            <li key={item.id} className="min-w-0">
+              <Link
+                to={item.to}
+                aria-current={current}
+                className={cn(
+                  'relative flex min-h-14 flex-col items-center justify-center gap-0.5 px-0 py-1.5 text-center text-[length:min(0.75rem,12px)] leading-tight no-underline hyphens-auto break-words',
+                  current
+                    ? 'font-semibold text-primary-strong before:absolute before:inset-x-3 before:top-0 before:h-1 before:rounded-b-full before:bg-primary'
+                    : 'text-muted-foreground hover:text-foreground',
+                )}
+              >
+                <Icon className="h-5 w-5 shrink-0" aria-hidden="true" />
+                <span className="max-w-full">{item.label}</span>
+              </Link>
+            </li>
+          );
+        })}
+      </ul>
+    </nav>
+  );
+}

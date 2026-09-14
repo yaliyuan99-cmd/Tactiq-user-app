@@ -1,67 +1,105 @@
-/* PLACEHOLDER shell — replaced by the app-shell implementation. Keeps every route reachable meanwhile. */
-import { lazy, Suspense, useMemo } from 'react';
-import { BrowserRouter, Navigate, Outlet, Route, Routes } from 'react-router';
-import { AppProviders } from './AppProviders';
-import { ROUTES } from './routes';
+/**
+ * The application root: router, providers, error boundary and route table.
+ *
+ * Route tree
+ *   BareLayout (main landmark only; the auth pages draw their own layout)
+ *     AuthRoute            sign-in, sign-up, forgot-password (users already signed in go to ?next= or the dashboard)
+ *     /reset-password      reachable signed in or out (recovery links sign the user in)
+ *   PublicLayout (skip link, logo banner with Help once signed in, main)
+ *     /                    RootRedirect → dashboard or sign-in
+ *     ProtectedRoute       /onboarding
+ *     *                    Page not found
+ *   ProtectedRoute → OnboardingGate → AppShell (top bar, navigation, main)
+ *     /dashboard, connect, calibrate, train, train/:lessonId, simulator,
+ *     commands, history, settings, help, and * (Page not found inside the shell)
+ *
+ * Every page is rendered through RoutePage: its own Suspense boundary with an
+ * accessible "Loading…" status, plus RouteFocus for focus and announcements.
+ */
+import { useState } from 'react';
+import { BrowserRouter, Route, Routes } from 'react-router';
 import { LocalStorageAdapter } from '@/services/storage/StorageAdapter';
+import { AppProviders } from './AppProviders';
+import { RouteErrorBoundary } from './ErrorBoundary';
+import * as Pages from './lazyPages';
+import { ROUTES } from './routes';
+import { AuthRoute } from './routing/AuthRoute';
+import { BareLayout } from './routing/BareLayout';
+import { OnboardingGate } from './routing/OnboardingGate';
+import { ProtectedRoute } from './routing/ProtectedRoute';
+import { PublicLayout } from './routing/PublicLayout';
+import { RootRedirect } from './routing/RootRedirect';
+import { RoutePage } from './routing/RoutePage';
+import { AppShell } from './shell/AppShell';
+import { RouteFocusProvider } from './shell/RouteFocus';
 
-const SignInPage = lazy(() => import('@/features/auth/SignInPage'));
-const SignUpPage = lazy(() => import('@/features/auth/SignUpPage'));
-const ForgotPasswordPage = lazy(() => import('@/features/auth/ForgotPasswordPage'));
-const ResetPasswordPage = lazy(() => import('@/features/auth/ResetPasswordPage'));
-const OnboardingPage = lazy(() => import('@/features/onboarding/OnboardingPage'));
-const DashboardPage = lazy(() => import('@/features/dashboard/DashboardPage'));
-const ConnectPage = lazy(() => import('@/features/connect/ConnectPage'));
-const CalibratePage = lazy(() => import('@/features/calibrate/CalibratePage'));
-const TrainPage = lazy(() => import('@/features/train/TrainPage'));
-const LessonPage = lazy(() => import('@/features/train/LessonPage'));
-const SimulatorPage = lazy(() => import('@/features/simulator/SimulatorPage'));
-const CommandsPage = lazy(() => import('@/features/commands/CommandsPage'));
-const HistoryPage = lazy(() => import('@/features/history/HistoryPage'));
-const SettingsPage = lazy(() => import('@/features/settings/SettingsPage'));
-const HelpPage = lazy(() => import('@/features/help/HelpPage'));
+/** "/dashboard/train" → "train": child paths derived from ROUTES so they never drift. */
+function dashboardChild(path: string): string {
+  return path.slice(ROUTES.dashboard.length + 1);
+}
 
 export function AppRoutes() {
   return (
-    <Suspense fallback={<p role="status">Loading…</p>}>
-      <Routes>
-        <Route path={ROUTES.root} element={<Navigate to={ROUTES.dashboard} replace />} />
-        <Route path={ROUTES.signIn} element={<SignInPage />} />
-        <Route path={ROUTES.signUp} element={<SignUpPage />} />
-        <Route path={ROUTES.forgotPassword} element={<ForgotPasswordPage />} />
-        <Route path={ROUTES.resetPassword} element={<ResetPasswordPage />} />
-        <Route path={ROUTES.onboarding} element={<OnboardingPage />} />
-        <Route
-          path={ROUTES.dashboard}
-          element={
-            <main id="main-content" className="mx-auto max-w-5xl p-6">
-              <Outlet />
-            </main>
-          }
-        >
-          <Route index element={<DashboardPage />} />
-          <Route path="connect" element={<ConnectPage />} />
-          <Route path="calibrate" element={<CalibratePage />} />
-          <Route path="train" element={<TrainPage />} />
-          <Route path="train/:lessonId" element={<LessonPage />} />
-          <Route path="simulator" element={<SimulatorPage />} />
-          <Route path="commands" element={<CommandsPage />} />
-          <Route path="history" element={<HistoryPage />} />
-          <Route path="settings" element={<SettingsPage />} />
-          <Route path="help" element={<HelpPage />} />
-        </Route>
-      </Routes>
-    </Suspense>
+    <RouteErrorBoundary variant="page">
+      <RouteFocusProvider>
+        <Routes>
+          <Route element={<BareLayout />}>
+            <Route element={<AuthRoute />}>
+              <Route path={ROUTES.signIn} element={<RoutePage page={Pages.SignInPage} />} />
+              <Route path={ROUTES.signUp} element={<RoutePage page={Pages.SignUpPage} />} />
+              <Route path={ROUTES.forgotPassword} element={<RoutePage page={Pages.ForgotPasswordPage} />} />
+            </Route>
+            <Route path={ROUTES.resetPassword} element={<RoutePage page={Pages.ResetPasswordPage} />} />
+          </Route>
+
+          <Route element={<PublicLayout />}>
+            <Route path={ROUTES.root} element={<RootRedirect />} />
+            <Route element={<ProtectedRoute />}>
+              <Route path={ROUTES.onboarding} element={<RoutePage page={Pages.OnboardingPage} />} />
+            </Route>
+            <Route path="*" element={<RoutePage page={Pages.NotFoundPage} />} />
+          </Route>
+
+          <Route element={<ProtectedRoute standalone />}>
+            <Route element={<OnboardingGate />}>
+              <Route path={ROUTES.dashboard} element={<AppShell />}>
+                <Route index element={<RoutePage page={Pages.DashboardPage} />} />
+                <Route path={dashboardChild(ROUTES.connect)} element={<RoutePage page={Pages.ConnectPage} />} />
+                <Route path={dashboardChild(ROUTES.calibrate)} element={<RoutePage page={Pages.CalibratePage} />} />
+                <Route path={dashboardChild(ROUTES.train)} element={<RoutePage page={Pages.TrainPage} />} />
+                <Route path={`${dashboardChild(ROUTES.train)}/:lessonId`} element={<RoutePage page={Pages.LessonPage} />} />
+                <Route path={dashboardChild(ROUTES.simulator)} element={<RoutePage page={Pages.SimulatorPage} />} />
+                <Route path={dashboardChild(ROUTES.commands)} element={<RoutePage page={Pages.CommandsPage} />} />
+                <Route path={dashboardChild(ROUTES.history)} element={<RoutePage page={Pages.HistoryPage} />} />
+                <Route path={dashboardChild(ROUTES.settings)} element={<RoutePage page={Pages.SettingsPage} />} />
+                <Route path={dashboardChild(ROUTES.help)} element={<RoutePage page={Pages.HelpPage} />} />
+                <Route path="*" element={<RoutePage page={Pages.NotFoundPage} />} />
+              </Route>
+            </Route>
+          </Route>
+        </Routes>
+      </RouteFocusProvider>
+    </RouteErrorBoundary>
   );
 }
 
+let appStorage: LocalStorageAdapter | null = null;
+
+/** The browser storage adapter, created once per page load (it registers a cross-tab listener). */
+function getAppStorage(): LocalStorageAdapter {
+  appStorage ??= new LocalStorageAdapter();
+  return appStorage;
+}
+
 export default function App() {
-  const storage = useMemo(() => new LocalStorageAdapter(), []);
+  const [storage] = useState(getAppStorage);
   return (
     <BrowserRouter>
-      <AppProviders storage={storage}>
-        <AppRoutes />
-      </AppProviders>
+      <RouteErrorBoundary variant="page">
+        <AppProviders storage={storage}>
+          <AppRoutes />
+        </AppProviders>
+      </RouteErrorBoundary>
     </BrowserRouter>
   );
 }
