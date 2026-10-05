@@ -16,14 +16,37 @@ export const SPEECH_RATE = 1.05;
 
 const FeedbackContext = createContext<FeedbackContextValue | null>(null);
 
-function detectSpeech(): boolean {
-  return (
-    typeof window !== 'undefined' &&
-    typeof window.speechSynthesis !== 'undefined' &&
-    window.speechSynthesis !== null &&
-    typeof window.SpeechSynthesisUtterance === 'function'
-  );
+function speechApi(): SpeechSynthesis | null {
+  if (typeof window === 'undefined') return null;
+  if (typeof window.speechSynthesis === 'undefined' || window.speechSynthesis === null) return null;
+  if (typeof window.SpeechSynthesisUtterance !== 'function') return null;
+  return window.speechSynthesis;
 }
+
+function detectSpeech(): boolean {
+  return speechApi() !== null;
+}
+
+/** How many voices the browser lists, or null when it does not list any (nothing to go on). */
+function voiceCount(synth: SpeechSynthesis): number | null {
+  if (typeof synth.getVoices !== 'function') return null;
+  try {
+    return synth.getVoices().length;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Voices load asynchronously — headless Chromium listed its first voice about
+ * 1.2 s in — so an empty list is only acted on once the browser has had this
+ * long. voiceschanged keeps the answer right either way, in both directions.
+ */
+export const VOICE_CHECK_MS = 2500;
+
+/** Announced when the browser finishes speaking something the user asked to hear, and when it does not. */
+export const SPEECH_FINISHED = 'The browser finished speaking.';
+export const SPEECH_REFUSED = 'The browser did not speak this time.';
 
 function detectVibration(): boolean {
   return typeof navigator !== 'undefined' && typeof navigator.vibrate === 'function';
@@ -93,7 +116,7 @@ interface AnnouncementBatch {
  */
 export function FeedbackProvider({ children }: { children: ReactNode }) {
   const { preferences } = usePreferences();
-  const [canSpeak] = useState(detectSpeech);
+  const [canSpeak, setCanSpeak] = useState(detectSpeech);
   const [canVibrate] = useState(detectVibration);
   const politeRef = useRef<HTMLDivElement>(null);
   const assertiveRef = useRef<HTMLDivElement>(null);
@@ -103,6 +126,28 @@ export function FeedbackProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     prefsRef.current = preferences;
   }, [preferences]);
+
+  /*
+   * A browser can offer the whole speech API and have no voice installed
+   * (headless Chromium, many Linux builds, some Android WebViews). speak()
+   * then produces silence, so "speech is available" has to mean a voice can
+   * actually be used: the list is checked once it has loaded, and an empty one
+   * turns speech off so the interface says so instead of offering a control
+   * that does nothing. Browsers that do not list voices are left alone.
+   */
+  useEffect(() => {
+    const synth = speechApi();
+    // A browser that does not list its voices tells us nothing: speech stays on.
+    if (!synth || voiceCount(synth) === null) return undefined;
+    const update = () => setCanSpeak((voiceCount(synth) ?? 1) > 0);
+    synth.addEventListener('voiceschanged', update);
+    // An empty list usually means "not loaded yet", so it is only believed after a wait.
+    const timer = voiceCount(synth) === 0 ? setTimeout(update, VOICE_CHECK_MS) : null;
+    return () => {
+      if (timer !== null) clearTimeout(timer);
+      synth.removeEventListener('voiceschanged', update);
+    };
+  }, []);
 
   useEffect(() => {
     const batch = batchRef.current;
@@ -116,9 +161,19 @@ export function FeedbackProvider({ children }: { children: ReactNode }) {
     };
   }, []);
 
+  /**
+   * Speaks one message. `onOutcome` is for speech the user asked for and must
+   * be told about: it reports true once the browser has finished speaking and
+   * false when speech failed or was never possible. Our own cancellations are
+   * not failures, so they report nothing.
+   */
   const utter = useCallback(
-    (text: string, interrupt: boolean) => {
-      if (!canSpeak || !text) return;
+    (text: string, interrupt: boolean, onOutcome?: (spoken: boolean) => void) => {
+      if (!text) return;
+      if (!canSpeak) {
+        onOutcome?.(false);
+        return;
+      }
       try {
         const synth = window.speechSynthesis;
         if (interrupt) synth.cancel();
@@ -126,17 +181,19 @@ export function FeedbackProvider({ children }: { children: ReactNode }) {
         utterance.rate = SPEECH_RATE;
         const lang = typeof document !== 'undefined' ? document.documentElement.lang : '';
         if (lang) utterance.lang = lang;
+        if (onOutcome) {
+          utterance.onend = () => onOutcome(true);
+          utterance.onerror = (event: SpeechSynthesisErrorEvent) => {
+            if (event.error === 'canceled' || event.error === 'interrupted') return;
+            onOutcome(false);
+          };
+        }
         synth.speak(utterance);
-      } catch {}
+      } catch {
+        onOutcome?.(false);
+      }
     },
     [canSpeak],
-  );
-
-  const speak = useCallback(
-    (text: string) => {
-      if (prefsRef.current.audioAnnouncements) utter(text, true);
-    },
-    [utter],
   );
 
   const stopSpeaking = useCallback(() => {
@@ -211,6 +268,20 @@ export function FeedbackProvider({ children }: { children: ReactNode }) {
     (message: string, options?: AnnounceOptions) =>
       enqueue(message, options?.assertive === true, options?.forceSpeech === true, null),
     [enqueue],
+  );
+
+  /**
+   * Speech the user asked to hear. Whether it worked is announced in words, so
+   * someone who cannot hear the voice — or whose browser has none — is not left
+   * guessing at a control that appears to do nothing. With audio announcements
+   * off nothing is attempted: the interface says that is why.
+   */
+  const speak = useCallback(
+    (text: string) => {
+      if (!prefsRef.current.audioAnnouncements) return;
+      utter(text, true, (spoken) => announce(spoken ? SPEECH_FINISHED : SPEECH_REFUSED));
+    },
+    [announce, utter],
   );
 
   const vibrate = useCallback(

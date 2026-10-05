@@ -9,9 +9,12 @@ import {
   intendedCommandLabel,
   joinWithAnd,
   plural,
+  pointSummary,
   recordLabel,
   resultCountMessage,
+  sharedRecordNote,
 } from './wording';
+import { sourceLabel } from './historyParams';
 
 describe('describeOutcome', () => {
   it('words every outcome', () => {
@@ -110,5 +113,54 @@ describe('eventTimeParts', () => {
     expect(parts.day).toContain('15');
     expect(parts.day).not.toContain('2026');
     expect(parts.time).toBe(formatTime(iso));
+  });
+});
+
+describe('pointSummary', () => {
+  it('names one point when the reported point is the one asked for', () => {
+    expect(pointSummary(ev({ targetContact: 'ring_base', detectedContact: 'ring_base' }))).toBe('Ring finger base');
+    expect(pointSummary(ev({ targetContact: 'ring_base', detectedContact: null }))).toBe('Ring finger base');
+  });
+
+  it('names both when they differ', () => {
+    expect(pointSummary(ev({ targetContact: 'ring_base', detectedContact: 'ring_tip' }))).toBe(
+      'Ring finger base, detected Ring fingertip',
+    );
+  });
+
+  it('says so when no point was asked for, and is empty when there is neither', () => {
+    expect(pointSummary(ev({ targetContact: null, detectedContact: 'index_tip' }))).toBe(
+      'Index fingertip (no point asked for)',
+    );
+    expect(pointSummary(ev({ targetContact: null, detectedContact: null }))).toBeNull();
+  });
+});
+
+describe('sharedRecordNote', () => {
+  it('says once what every record in view has in common', () => {
+    const events = [ev({ source: 'simulator', seeded: true }), ev({ source: 'simulator', seeded: true })];
+    expect(sharedRecordNote(events, sourceLabel)).toBe('All 2 shown are Simulator records labelled Sample.');
+  });
+
+  it('mentions only the part that is shared', () => {
+    expect(sharedRecordNote([ev({ source: 'simulator' }), ev({ source: 'simulator', evidence: 'measured' })], sourceLabel)).toBe(
+      'All 2 shown come from Simulator.',
+    );
+    expect(sharedRecordNote([ev({ source: 'simulator' }), ev({ source: 'training' })], sourceLabel)).toBe(
+      'All 2 shown are labelled Simulated.',
+    );
+  });
+
+  it('says nothing when the records differ, or when there is only one', () => {
+    expect(
+      sharedRecordNote([ev({ source: 'simulator' }), ev({ source: 'training', evidence: 'measured' })], sourceLabel),
+    ).toBeNull();
+    expect(sharedRecordNote([ev({ source: 'simulator' })], sourceLabel)).toBeNull();
+  });
+});
+
+describe('intendedCommandLabel', () => {
+  it('names no command for a calibration tap, which prompts a point', () => {
+    expect(intendedCommandLabel(ev({ source: 'calibration', mode: 'calibration', targetContact: 'pinky_base' }))).toBeNull();
   });
 });

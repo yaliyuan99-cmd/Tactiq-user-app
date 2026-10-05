@@ -24,10 +24,12 @@ describe('HistoryPage', () => {
 
   it('sets the title and one h1 with the lede', async () => {
     renderApp(<HistoryPage />, { route: ROUTES.history, storage: storageWith(standardEvents()) });
-    expect(await screen.findByRole('heading', { level: 1, name: 'Activity' })).toHaveAttribute('id', 'page-title');
+    // The sidebar and the More dialog call this page History, so the h1, the
+    // document title and the route announcement say History too.
+    expect(await screen.findByRole('heading', { level: 1, name: 'History' })).toHaveAttribute('id', 'page-title');
     expect(screen.getAllByRole('heading', { level: 1 })).toHaveLength(1);
-    expect(document.title).toBe('Activity · Tactiq');
-    expect(screen.getByText(/These are simulated results from this app, not measurements of a ring\./)).toBeInTheDocument();
+    expect(document.title).toBe('History · Tactiq');
+    expect(screen.getByText(/Each record is labelled Simulated, or Measured/)).toBeInTheDocument();
     expect(screen.queryByText('Loading activity…')).not.toBeInTheDocument();
   });
 
@@ -46,19 +48,19 @@ describe('HistoryPage', () => {
 
     expect(screen.getByRole('radio', { name: 'Last 7 days' })).toBeChecked();
     expect(summaryValue('Attempts')).toBe('8');
-    expect(summaryValue('Successful detections')).toBe('4');
-    expect(summaryValue('Misclassifications')).toBe('2');
+    expect(summaryValue('Correct attempts')).toBe('4');
+    expect(summaryValue('Wrong point or command')).toBe('2');
     expect(summaryValue('Rejected presses')).toBe('2');
     expect(summaryValue('Most-practised command')).toBe('Next');
     expect(summaryValue('Emergency simulations')).toBe('1 completed, 1 cancelled');
 
     const summary = screen.getByRole('region', { name: 'Summary' });
     expect(within(summary).getByText(EMERGENCY_SIMULATION_NOTICE)).toBeInTheDocument();
-    expect(within(summary).getByText('Recognised as the command you aimed for: 4 of 8 (50%).')).toBeInTheDocument();
+    expect(within(summary).getByText('You gave the command that was asked for: 4 of 8 (50%).')).toBeInTheDocument();
     expect(within(summary).getByText('Simulated')).toBeInTheDocument();
   });
 
-  it('puts a text summary before the bars and the performance table, never a rate without its count', async () => {
+  it('puts a text summary before the bars, never a rate without its count, and no second table of the same figures', async () => {
     renderApp(<HistoryPage />, { route: ROUTES.history, storage: storageWith(standardEvents()) });
     const section = await screen.findByRole('region', { name: 'By command' });
 
@@ -66,10 +68,11 @@ describe('HistoryPage', () => {
       'Next was practised most, 6 attempts, 3 recognised. Dismiss / Back was recognised least often, 0 of 1 (0%). ' +
       'Undo, Read / Repeat, Previous, Shortcut 1 and Shortcut 2 have no attempts in this range.';
     const paragraph = within(section).getByText(sentence);
-    const list = within(section).getByRole('list', { name: 'Recognition by command' });
-    const table = within(section).getByRole('table', { name: 'Performance by command' });
+    const list = within(section).getByRole('list', { name: 'Recognised attempts by command, with counts and rate' });
     expect(paragraph.compareDocumentPosition(list) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
-    expect(list.compareDocumentPosition(table) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    // The bars already carry label, counts and rate in text, so the table that
+    // repeated every one of those figures underneath them is gone.
+    expect(within(section).queryByRole('table')).not.toBeInTheDocument();
 
     const items = within(list).getAllByRole('listitem');
     expect(items).toHaveLength(8);
@@ -77,14 +80,7 @@ describe('HistoryPage', () => {
     expect(nextItem).toHaveTextContent('3 of 6 (50%)');
     const undoItem = items.find((item) => item.textContent?.startsWith('Undo'));
     expect(undoItem).toHaveTextContent('No attempts');
-
-    const headers = within(table).getAllByRole('columnheader').map((th) => th.textContent);
-    expect(headers).toEqual(['Command', 'Attempts', 'Recognised', 'Rate']);
-    const nextRow = within(table).getByRole('row', { name: /^Next/ });
-    expect(within(nextRow).getAllByRole('cell').map((td) => td.textContent)).toEqual(['6', '3', '50%']);
-    const undoRow = within(table).getByRole('row', { name: /^Undo/ });
-    expect(within(undoRow).getAllByRole('cell').map((td) => td.textContent)).toEqual(['0', '0', '—No attempts']);
-    expect(within(table).queryByRole('row', { name: /^Emergency/ })).not.toBeInTheDocument();
+    expect(items.some((item) => item.textContent?.startsWith('Emergency'))).toBe(false);
   });
 
   it('explains emergency holds instead of a per-command rate when Emergency is chosen', async () => {
@@ -105,7 +101,9 @@ describe('HistoryPage', () => {
     renderApp(<HistoryPage />, { route: ROUTES.history, storage: storageWith(standardEvents()) });
     const table = await screen.findByRole('table', { name: 'Newest first, showing 10 of 10' });
     const headers = within(table).getAllByRole('columnheader').map((th) => th.textContent);
-    expect(headers).toEqual(['Time', 'Source', 'Target', 'Detected', 'Command', 'Result', 'Label']);
+    // Target and Detected are one column: they agree on most records, and below
+    // sm every column costs its own line.
+    expect(headers).toEqual(['Time', 'Source', 'Point', 'Command', 'Result', 'Label']);
 
     const rows = within(table).getAllByRole('row').slice(1);
     expect(rows).toHaveLength(10);
@@ -116,14 +114,12 @@ describe('HistoryPage', () => {
     expect(within(first).getByRole('rowheader')).toHaveTextContent(`${day}, ${time}`);
 
     const mismatch = rows[3];
-    expect(mismatch && within(mismatch).getAllByRole('cell').map((td) => td.textContent)).toEqual([
-      'Simulator',
-      'Middle finger base',
-      'Ring finger base',
-      'Next',
-      'Detected as Previous',
-      'Simulated',
-    ]);
+    expect(mismatch && within(mismatch).getAllByRole('cell')).toHaveLength(5);
+    expect(mismatch).toHaveTextContent('Simulator');
+    expect(mismatch).toHaveTextContent('Middle finger base, detected Ring finger base');
+    expect(mismatch).toHaveTextContent('Next');
+    expect(mismatch).toHaveTextContent('Detected as Previous');
+    expect(mismatch).toHaveTextContent('Simulated');
     expect(within(table).getByText('Too long — ignored')).toBeInTheDocument();
     expect(within(table).getByText('Window closed')).toBeInTheDocument();
     expect(within(table).getByText('Emergency hold completed (simulated)')).toBeInTheDocument();
@@ -145,14 +141,71 @@ describe('HistoryPage', () => {
     expect(within(summary).getByText('Simulated — includes some Measured ring records')).toBeInTheDocument();
     const recent = screen.getByRole('table', { name: 'Newest first, showing 11 of 11' });
     const ringRow = within(recent).getAllByRole('row')[1];
-    expect(ringRow && within(ringRow).getAllByRole('cell').map((td) => td.textContent)).toEqual([
-      'Ring',
-      '—None',
-      'Index fingertip',
-      'Confirm',
-      'Recognised',
-      'Measured',
-    ]);
+    expect(ringRow && within(ringRow).getAllByRole('cell')).toHaveLength(5);
+    expect(ringRow).toHaveTextContent('Ring');
+    expect(ringRow).toHaveTextContent('Index fingertip (no point asked for)');
+    expect(ringRow).toHaveTextContent('Confirm');
+    expect(ringRow).toHaveTextContent('Recognised');
+    expect(ringRow).toHaveTextContent('Measured');
+  });
+
+  it('says Measured in the banner, Summary and By command when every record came from a ring', async () => {
+    const measured = [0, 1, 2].map((minutes) =>
+      makeGestureEvent({
+        source: 'simulator',
+        mode: 'device',
+        at: new Date(TEST_NOW.getTime() - (minutes + 1) * 60_000).toISOString(),
+        targetContact: 'index_tip',
+        detectedContact: 'index_tip',
+        token: 'confirm',
+        evidence: 'measured',
+      }),
+    );
+    renderApp(<HistoryPage />, { route: ROUTES.history, storage: storageWith(measured) });
+
+    // The page never calls these simulated: the rows below are labelled Measured.
+    await screen.findByRole('region', { name: 'Summary' });
+    expect(screen.getAllByText('Measured — on an unvalidated bench prototype')).toHaveLength(3);
+    expect(screen.queryByText(/Every figure here comes from practice with the simulated ring/)).not.toBeInTheDocument();
+    expect(
+      screen.getByText('Every figure here was recorded on a connected bench ring, which has not been validated.'),
+    ).toBeInTheDocument();
+  });
+
+  it('tags a sample-only view Sample rather than Simulated', async () => {
+    const samples = [0, 1].map((minutes) =>
+      makeGestureEvent({
+        at: new Date(TEST_NOW.getTime() - (minutes + 1) * 60_000).toISOString(),
+        seeded: true,
+        targetContact: 'index_tip',
+        detectedContact: 'index_tip',
+        token: 'confirm',
+      }),
+    );
+    renderApp(<HistoryPage />, { route: ROUTES.history, storage: storageWith(samples) });
+    const summary = await screen.findByRole('region', { name: 'Summary' });
+    expect(within(summary).getByText('Sample')).toBeInTheDocument();
+    expect(within(summary).queryByText('Simulated')).not.toBeInTheDocument();
+    expect(
+      screen.getByText('Every figure here comes from sample records added for Demo Mode, not from your own practice.'),
+    ).toBeInTheDocument();
+  });
+
+  it('names the point, not a command, for a calibration tap', async () => {
+    const calibration = makeGestureEvent({
+      source: 'calibration',
+      mode: 'calibration',
+      at: new Date(TEST_NOW.getTime() - 60_000).toISOString(),
+      targetContact: 'pinky_base',
+      detectedContact: 'pinky_base',
+      token: 'quick_action_2',
+    });
+    renderApp(<HistoryPage />, { route: ROUTES.history, storage: storageWith([calibration]) });
+    const table = await screen.findByRole('table', { name: 'Newest first, showing 1 of 1' });
+    const row = within(table).getAllByRole('row')[1];
+    expect(row).toHaveTextContent('Pinky finger base');
+    // Calibration asks for a point; it must not read as if Shortcut 2 fired.
+    expect(row).not.toHaveTextContent('Shortcut 2');
   });
 
   it('shows 25 more at a time and moves focus to the first new row', async () => {

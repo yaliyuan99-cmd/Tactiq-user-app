@@ -24,7 +24,7 @@ export function createFakeSupabaseAuth(sessionUser: AuthUser | null = null) {
     signIn: vi.fn<AuthService['signIn']>(async () => SUPABASE_TEST_USER),
     signUp: vi.fn<AuthService['signUp']>(async () => SUPABASE_TEST_USER),
     signOut: vi.fn<AuthService['signOut']>(async () => {}),
-    continueAsGuest: vi.fn<AuthService['continueAsGuest']>(async () => SUPABASE_TEST_USER),
+    continueAsGuest: vi.fn<AuthService['continueAsGuest']>(async () => ({ user: SUPABASE_TEST_USER, created: true })),
     requestPasswordReset: vi.fn<AuthService['requestPasswordReset']>(async () => ({
       delivered: true,
       message: 'If that email has an account, a reset link is on its way.',

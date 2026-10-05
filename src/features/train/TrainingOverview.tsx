@@ -4,7 +4,9 @@ import { ROUTES, lessonRoute } from '@/app/routes';
 import { ButtonLink, EvidenceLabel, ProgressBar, VisuallyHidden } from '@/components';
 import { getLesson, type LessonId } from '@/domain/lessons';
 import type { LessonStatus, TrainingSummary } from '@/domain/models';
+import { evidenceForDevice } from '@/features/practice';
 import { formatPercent } from '@/lib/time';
+import { useDevice } from '@/services/device/DeviceProvider';
 
 export interface TrainingOverviewProps {
   readonly summary: TrainingSummary;
@@ -17,6 +19,8 @@ const HEADING_ID = 'training-overview-heading';
 /** Lessons completed, attempts and accuracy (Simulated), and the lesson to do next. */
 export function TrainingOverview({ summary, recommended, recommendedStatus }: TrainingOverviewProps) {
   const lesson = recommended ? getLesson(recommended) : null;
+  // Training totals carry no provenance, so with a ring connected the label is a limitation, not a claim.
+  const measured = evidenceForDevice(useDevice().state) === 'measured';
 
   return (
     <section aria-labelledby={HEADING_ID} className="rounded-lg border border-border bg-card p-5 shadow-card sm:p-6">
@@ -45,7 +49,11 @@ export function TrainingOverview({ summary, recommended, recommendedStatus }: Tr
           </dl>
           <p className="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-muted-foreground">
             <EvidenceLabel kind="simulated" />
-            <span>Attempts and accuracy come from lessons in this app, not from a ring.</span>
+            <span>
+              {measured
+                ? 'Attempts and accuracy come from lessons in this app. Lessons do not record which attempts came from a ring, so every one is labelled Simulated.'
+                : 'Attempts and accuracy come from lessons in this app, not from a ring.'}
+            </span>
           </p>
         </div>
 

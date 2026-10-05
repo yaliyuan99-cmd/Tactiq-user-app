@@ -81,12 +81,14 @@ describe('LocalDemoAuthService', () => {
     expect(user.email).toBe('ada@example.com');
   });
 
-  it('reuses one guest profile', async () => {
+  it('reuses one guest profile, and only reports the first one as new', async () => {
     const first = await service.continueAsGuest();
-    expect(first).toMatchObject({ email: GUEST_EMAIL, displayName: 'Guest', provider: 'demo' });
+    expect(first.user).toMatchObject({ email: GUEST_EMAIL, displayName: 'Guest', provider: 'demo' });
+    expect(first.created).toBe(true);
     await service.signOut();
     const second = await service.continueAsGuest();
-    expect(second.id).toBe(first.id);
+    expect(second.user.id).toBe(first.user.id);
+    expect(second.created).toBe(false);
     expect(storage.get<unknown[]>(STORAGE_KEYS.authAccounts)).toHaveLength(1);
   });
 

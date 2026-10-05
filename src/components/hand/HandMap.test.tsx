@@ -173,6 +173,37 @@ describe('HandMap', () => {
     });
   });
 
+  it('pins the narrowest figure its fixed 44px points fit in, which callers must honour', () => {
+    const keys = Object.keys(CONTACT_COORDINATES) as (keyof typeof CONTACT_COORDINATES)[];
+    let closest = Number.POSITIVE_INFINITY;
+    keys.forEach((a, i) =>
+      keys.slice(i + 1).forEach((b) => {
+        closest = Math.min(
+          closest,
+          Math.hypot(
+            CONTACT_COORDINATES[a].cx - CONTACT_COORDINATES[b].cx,
+            CONTACT_COORDINATES[a].cy - CONTACT_COORDINATES[b].cy,
+          ),
+        );
+      }),
+    );
+    // Ring and pinky finger bases, the closest pair, in the drawing's 300 units.
+    expect(closest).toBeCloseTo(36.88, 2);
+
+    const minFigureWidth = Math.ceil((44 * HAND_VIEWBOX_WIDTH) / closest);
+    expect(minFigureWidth).toBe(358);
+
+    /** How much two neighbouring 44px points overlap at this figure width; 0 or less is clear. */
+    const overlap = (figureWidth: number) => 44 - (closest * figureWidth) / HAND_VIEWBOX_WIDTH;
+    expect(overlap(minFigureWidth)).toBeLessThanOrEqual(0);
+    expect(overlap(408)).toBeLessThanOrEqual(0);
+    // Phone widths leave the figure around 300-340px, where a tap meant for
+    // "Ring finger base, Previous" could land on "Pinky finger base, Shortcut 2";
+    // a caller with this little room must render ContactList instead.
+    expect(overlap(301)).toBeGreaterThan(0);
+    expect(overlap(340)).toBeGreaterThan(0);
+  });
+
   it('sizes decorative points relative to the figure so neighbours never overlap at a 280px container', () => {
     const { container } = render(<HandMap hand="right" interactive={false} size="sm" />);
     const points = Array.from(container.querySelectorAll<HTMLElement>('[data-contact]'));

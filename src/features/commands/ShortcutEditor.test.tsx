@@ -1,6 +1,7 @@
 import { MemoryStorageAdapter, STORAGE_KEYS } from '@/services/storage/StorageAdapter';
 import { act, renderApp, screen, userEvent, waitFor, within } from '@/test/renderApp';
 import CommandsPage from './CommandsPage';
+import { NOTHING_TO_SAVE_ANNOUNCEMENT } from './shortcutDraft';
 import { NOT_PERSISTED_NOTE } from './ShortcutResult';
 
 /** Renders the page and lets the provider stack finish restoring the session. */
@@ -28,6 +29,24 @@ describe('Shortcut editor', () => {
     expect(screen.queryByRole('button', { name: 'Restore defaults' })).toBeNull();
     expect(screen.getByText('Both shortcuts use the defaults.')).toBeInTheDocument();
     expect(preview()).not.toHaveAttribute('aria-live');
+  });
+
+  it('says so when Save is activated with nothing to save, and returns focus to the choices', async () => {
+    const user = userEvent.setup();
+    await renderPage();
+    // aria-disabled keeps the button operable, so activating it must produce
+    // something perceivable rather than silently doing nothing.
+    expect(saveButton()).toHaveAttribute('aria-disabled', 'true');
+    await user.click(saveButton());
+
+    await waitFor(() => expect(politeRegion()).toHaveTextContent(NOTHING_TO_SAVE_ANNOUNCEMENT));
+    const notice = screen.getByText('Nothing to save').closest('[role="status"]');
+    expect(notice).toHaveTextContent(NOTHING_TO_SAVE_ANNOUNCEMENT);
+    expect(within(group1()).getByRole('radio', { name: 'Play or pause media' })).toHaveFocus();
+
+    // Choosing something clears the notice again.
+    await user.click(within(group1()).getByRole('radio', { name: 'Announce the time' }));
+    expect(screen.queryByText('Nothing to save')).toBeNull();
   });
 
   it('previews a change to Shortcut 1, enables Save and shows the unsaved notice', async () => {
@@ -63,7 +82,7 @@ describe('Shortcut editor', () => {
     const user = userEvent.setup();
     const storage = new MemoryStorageAdapter();
     const { unmount } = await renderPage(storage);
-    await user.click(within(group1()).getByRole('radio', { name: 'Toggle the flashlight' }));
+    await user.click(within(group1()).getByRole('radio', { name: 'Turn the torch on or off' }));
     await user.click(within(group2()).getByRole('radio', { name: 'Nothing assigned' }));
     expect(within(preview()).getAllByRole('listitem')).toHaveLength(2);
     await user.click(saveButton());
@@ -71,7 +90,7 @@ describe('Shortcut editor', () => {
     await waitFor(() => expect(politeRegion()).toHaveTextContent('Shortcuts saved.'));
     const success = screen.getAllByRole('status').find((el) => el.textContent?.includes('Shortcuts saved'));
     if (!success) throw new Error('success callout missing');
-    expect(success).toHaveTextContent('Shortcut 1: Toggle the flashlight');
+    expect(success).toHaveTextContent('Shortcut 1: Turn the torch on or off');
     expect(success).toHaveTextContent('Shortcut 2: Nothing assigned');
 
     expect(storage.get(STORAGE_KEYS.commandMapping)).toMatchObject({
@@ -82,12 +101,12 @@ describe('Shortcut editor', () => {
     expect(screen.queryByText('Not saved yet')).toBeNull();
     const shortcutRow = screen
       .getAllByRole('rowheader')
-      .find((th) => th.textContent?.startsWith('Shortcut 1'));
-    expect(shortcutRow).toHaveTextContent('Toggle the flashlight');
+      .find((th) => th.textContent?.includes('Shortcut 1'));
+    expect(shortcutRow).toHaveTextContent('Turn the torch on or off');
 
     unmount();
     await renderPage(storage);
-    expect(within(group1()).getByRole('radio', { name: 'Toggle the flashlight' })).toBeChecked();
+    expect(within(group1()).getByRole('radio', { name: 'Turn the torch on or off' })).toBeChecked();
     expect(within(group2()).getByRole('radio', { name: 'Nothing assigned' })).toBeChecked();
     expect(screen.getByText(/^Last changed /)).toBeInTheDocument();
   });
@@ -101,20 +120,20 @@ describe('Shortcut editor', () => {
     }
     const user = userEvent.setup();
     await renderPage(new RefusingStorage());
-    await user.click(within(group1()).getByRole('radio', { name: 'Toggle the flashlight' }));
+    await user.click(within(group1()).getByRole('radio', { name: 'Turn the torch on or off' }));
     await user.click(saveButton());
 
     await waitFor(() => expect(politeRegion()).toHaveTextContent(`Shortcuts saved. ${NOT_PERSISTED_NOTE}`));
     const result = screen.getAllByRole('status').find((el) => el.textContent?.includes('Shortcuts saved'));
-    expect(result).toHaveTextContent('Shortcut 1: Toggle the flashlight');
+    expect(result).toHaveTextContent('Shortcut 1: Turn the torch on or off');
     expect(result).toHaveTextContent(NOT_PERSISTED_NOTE);
-    expect(within(group1()).getByRole('radio', { name: 'Toggle the flashlight' })).toBeChecked();
+    expect(within(group1()).getByRole('radio', { name: 'Turn the torch on or off' })).toBeChecked();
   });
 
   it('does not mention storage when the save was stored', async () => {
     const user = userEvent.setup();
     await renderPage();
-    await user.click(within(group2()).getByRole('radio', { name: 'Toggle the flashlight' }));
+    await user.click(within(group2()).getByRole('radio', { name: 'Turn the torch on or off' }));
     await user.click(saveButton());
     await waitFor(() => expect(politeRegion()).toHaveTextContent('Shortcuts saved.'));
     expect(screen.queryByText(NOT_PERSISTED_NOTE)).toBeNull();
@@ -145,7 +164,7 @@ describe('Shortcut editor', () => {
     await renderPage(storage);
     expect(within(group1()).getByRole('radio', { name: 'Open the voice assistant' })).toBeChecked();
 
-    await user.click(within(group2()).getByRole('radio', { name: 'Toggle the flashlight' }));
+    await user.click(within(group2()).getByRole('radio', { name: 'Turn the torch on or off' }));
     await user.click(screen.getByRole('button', { name: 'Restore defaults' }));
     const dialog = screen.getByRole('dialog', { name: 'Restore default shortcuts?' });
     expect(dialog).toHaveTextContent('Shortcut 1: Play or pause media');
@@ -154,7 +173,7 @@ describe('Shortcut editor', () => {
 
     await user.click(within(dialog).getByRole('button', { name: 'Cancel' }));
     expect(screen.queryByRole('dialog')).toBeNull();
-    expect(within(group2()).getByRole('radio', { name: 'Toggle the flashlight' })).toBeChecked();
+    expect(within(group2()).getByRole('radio', { name: 'Turn the torch on or off' })).toBeChecked();
 
     await user.click(screen.getByRole('button', { name: 'Restore defaults' }));
     await user.click(within(screen.getByRole('dialog')).getByRole('button', { name: 'Restore defaults' }));

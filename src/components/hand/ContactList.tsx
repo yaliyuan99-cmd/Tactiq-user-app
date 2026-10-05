@@ -15,20 +15,30 @@ function Swatch({ state }: { state: ContactVisualState }) {
   );
 }
 
-function Badges({ state }: { state: ContactVisualState }) {
-  if (!state.isTarget && !state.isMisread) return null;
+/**
+ * At most one chip per row: a point that is the target is never also a misread
+ * (see contactVisualState). While any row carries one, every row keeps the
+ * chip's column, so the targeted row is not the only one whose label is
+ * narrowed — otherwise that row, the one the user must read, wrapped
+ * mid-phrase while its neighbours stayed on one line, and the list jumped as
+ * the target moved. Under 480 px a column would leave too little for the
+ * label, so there the chip sits under it rather than taking width from it.
+ */
+function Badge({ state, reserved }: { state: ContactVisualState; reserved: boolean }) {
+  const label = state.isTarget ? 'Target' : state.isMisread ? 'Detected here' : null;
+  if (!label) {
+    // An empty placeholder in the stacked layout would add a blank line to all eight rows.
+    return reserved ? <span aria-hidden="true" className="hidden min-[480px]:block" /> : null;
+  }
   return (
-    <span aria-hidden="true" className="flex shrink-0 flex-wrap justify-end gap-1.5">
-      {state.isTarget && (
-        <span className="font-mono-label rounded-sm border border-primary-strong px-1.5 py-0.5 text-primary-strong">
-          Target
-        </span>
+    <span
+      aria-hidden="true"
+      className={cn(
+        'font-mono-label w-fit justify-self-start whitespace-nowrap rounded-sm border px-1.5 py-0.5 min-[480px]:justify-self-end',
+        state.isMisread ? 'border-dashed border-destructive text-destructive' : 'border-primary-strong text-primary-strong',
       )}
-      {state.isMisread && (
-        <span className="font-mono-label rounded-sm border border-dashed border-destructive px-1.5 py-0.5 text-destructive">
-          Detected here
-        </span>
-      )}
+    >
+      {label}
     </span>
   );
 }
@@ -63,6 +73,9 @@ export function ContactList(props: ContactListProps) {
   } = props;
   const captionId = `contact-list-${useId().replace(/:/g, '')}`;
   const { getPressProps } = useContactPress(props);
+  const rows = CONTACT_POINTS.map((point) => ({ point, state: contactVisualState(point.key, props) }));
+  /** Only while a chip is on screen: without one the rows need no second column. */
+  const reserveBadgeColumn = rows.some(({ state }) => state.isTarget || state.isMisread);
 
   return (
     <div className={className}>
@@ -72,10 +85,12 @@ export function ContactList(props: ContactListProps) {
         </p>
       )}
       <ul className="grid gap-2" aria-labelledby={caption ? captionId : undefined}>
-        {CONTACT_POINTS.map((point) => {
-          const state = contactVisualState(point.key, props);
+        {rows.map(({ point, state }) => {
           const rowClasses = cn(
-            'flex min-h-12 w-full min-w-0 flex-1 items-center justify-between gap-3 rounded-md border px-4 py-2.5 text-left',
+            'grid min-h-12 w-full min-w-0 flex-1 items-center gap-x-3 gap-y-1.5 rounded-md border px-4 py-2.5 text-left',
+            reserveBadgeColumn
+              ? 'grid-cols-[minmax(0,1fr)] min-[480px]:grid-cols-[minmax(0,1fr)_7.25rem]'
+              : 'grid-cols-[minmax(0,1fr)]',
             state.isActive ? 'border-primary bg-secondary ring-2 ring-primary' : 'border-border bg-card',
             state.isFlashing && 'contact-flash',
           );
@@ -88,7 +103,7 @@ export function ContactList(props: ContactListProps) {
                   {!interactive && stateWords(state) && <span className="sr-only">{stateWords(state)}</span>}
                 </span>
               </span>
-              <Badges state={state} />
+              <Badge state={state} reserved={reserveBadgeColumn} />
             </>
           );
           return (

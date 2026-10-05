@@ -4,7 +4,8 @@
  */
 import type { RadioOption } from '@/components';
 import { type ContrastPreference, type Hand, type TextSize, type ThemePreference } from '@/domain/models';
-import { COMMAND_WINDOW_LONG_MS, COMMAND_WINDOW_MS, type TimingFact } from '@/domain/timing';
+import { COMMAND_WINDOW_LONG_MS, COMMAND_WINDOW_MS, formatMs, type TimingFact } from '@/domain/timing';
+import type { DeviceMode } from '@/services/device/types';
 
 export const THEME_LABELS: Readonly<Record<ThemePreference, string>> = { light: 'Light', dark: 'Dark', system: 'System' };
 export const TEXT_SIZE_LABELS: Readonly<Record<TextSize, string>> = { default: 'Default', large: 'Large', larger: 'Larger' };
@@ -62,11 +63,19 @@ export function commandWindowMsFor(longerInteractionTime: boolean): number {
   return longerInteractionTime ? COMMAND_WINDOW_LONG_MS : COMMAND_WINDOW_MS;
 }
 
-export const LONGER_TIME_DESCRIPTION = `Keeps the command window open for ${wholeSeconds(COMMAND_WINDOW_LONG_MS)} seconds instead of ${wholeSeconds(COMMAND_WINDOW_MS)}.`;
+export const LONGER_TIME_DESCRIPTION = `Keeps the simulated ring’s command window open for ${wholeSeconds(COMMAND_WINDOW_LONG_MS)} seconds instead of ${wholeSeconds(COMMAND_WINDOW_MS)}.`;
+
+/** Which ring the window shown above applies to, for the mode the app is in. */
+export function commandWindowExplanation(mode: DeviceMode): string {
+  if (mode === 'hardware') {
+    return `You are set to use a Bluetooth bench ring, and its firmware fixes the window at ${formatMs(COMMAND_WINDOW_MS)}. Longer interaction time changes only the simulated ring in Demo Mode.`;
+  }
+  return `This is the simulated ring’s window. A connected bench ring keeps its firmware’s ${formatMs(COMMAND_WINDOW_MS)} window, which this setting does not change.`;
+}
 
 export function longerTimeAnnouncement(on: boolean): string {
   const seconds = wholeSeconds(commandWindowMsFor(on));
-  return `Longer interaction time ${on ? 'on' : 'off'}. The command window stays open for ${seconds} seconds.`;
+  return `Longer interaction time ${on ? 'on' : 'off'}. The simulated ring’s command window stays open for ${seconds} seconds.`;
 }
 
 /** "1 point", "3 points". */

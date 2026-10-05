@@ -36,7 +36,7 @@ export function Sidebar() {
   return (
     <div
       data-testid="sidebar"
-      className="hidden lg:sticky lg:top-16 lg:flex lg:h-[calc(100dvh-4rem)] lg:w-64 lg:shrink-0 lg:flex-col lg:overflow-y-auto lg:border-r lg:border-sidebar-border lg:bg-sidebar"
+      className="hidden lg:sticky lg:top-[var(--app-top-bar-height)] lg:flex lg:h-[calc(100dvh-var(--app-top-bar-height))] lg:w-64 lg:shrink-0 lg:flex-col lg:overflow-y-auto lg:border-r lg:border-sidebar-border lg:bg-sidebar"
     >
       <nav aria-label="Main" className="flex-1 px-3 py-4">
         <ul className="grid gap-0.5">

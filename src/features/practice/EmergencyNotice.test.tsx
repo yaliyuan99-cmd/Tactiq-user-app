@@ -9,7 +9,7 @@ describe('EmergencyNotice', () => {
     expect(notice).toBeDefined();
     if (!notice) return;
     expect(notice).toHaveClass('mt-2');
-    expect(within(notice).getByText('Simulation only')).toBeInTheDocument();
+    expect(within(notice).getByText('Emergency hold complete')).toBeInTheDocument();
     expect(within(notice).getByText(EMERGENCY_SIMULATION_NOTICE)).toBeInTheDocument();
     expect(
       within(notice).getByText(

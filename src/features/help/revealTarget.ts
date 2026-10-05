@@ -5,6 +5,21 @@
  */
 import { helpHeadingId, isHelpSectionId } from './helpSections';
 
+/** Marks a Help section's own disclosure, so opening one never opens a nested answer. */
+export const SECTION_DISCLOSURE_ATTR = 'data-help-disclosure';
+
+/**
+ * Opens the disclosure a collapsible Help section keeps its body in, so a link
+ * or address hash into that section shows content rather than a lone heading.
+ * Returns false for a section that is not collapsible.
+ */
+export function openSectionDisclosure(id: string, root: Document = document): boolean {
+  const details = root.getElementById(id)?.querySelector(`details[${SECTION_DISCLOSURE_ATTR}]`);
+  if (!(details instanceof HTMLDetailsElement)) return false;
+  details.open = true;
+  return true;
+}
+
 /**
  * Opens the target if it is a details element and focuses its summary, or
  * focuses the heading of a Help section. Does not scroll. Returns the element
@@ -19,6 +34,7 @@ export function revealHelpTarget(id: string, root: Document = document): HTMLEle
     target.open = true;
     focusTarget = target.querySelector('summary');
   } else if (isHelpSectionId(id)) {
+    openSectionDisclosure(id, root);
     focusTarget = root.getElementById(helpHeadingId(id));
   }
   if (!focusTarget) {

@@ -3,6 +3,7 @@
  * because no wearable ring exists. The only hardware is an unvalidated bench
  * prototype, so even Measured records are early bench readings.
  */
+import { CALIBRATION_TAPS_TOTAL } from './timing';
 
 export type EvidenceSource = 'simulated' | 'measured' | 'design_target' | 'design_intent' | 'not_available';
 
@@ -42,7 +43,12 @@ export interface DesignTarget {
   readonly source: string;
 }
 
-/** The pre-registered acceptance thresholds, quoted from the research material. */
+/**
+ * The pre-registered acceptance thresholds, quoted from the research material.
+ * Only thresholds fixed before testing belong here: a firmware placeholder or a
+ * forecast of a future measurement is a timing fact (see TIMING_FACTS), not a
+ * design target.
+ */
 export const DESIGN_TARGETS: readonly DesignTarget[] = [
   {
     id: 'per_contact_accuracy',
@@ -59,14 +65,8 @@ export const DESIGN_TARGETS: readonly DesignTarget[] = [
   {
     id: 'calibration_time',
     label: 'Guided calibration',
-    target: 'About 30 seconds per user',
+    target: `About 30 seconds per user. This app’s practice routine asks for ${CALIBRATION_TAPS_TOTAL} taps and takes longer than the target.`,
     source: 'AUSSEF paper, Algorithm 2',
-  },
-  {
-    id: 'gate_hold',
-    label: 'Squeeze hold before the window opens',
-    target: '150 ms placeholder now; expected to settle between 200 and 350 ms after bench measurement',
-    source: 'AUSSEF paper §6.9; bench firmware GATE_TAU_MS',
   },
 ];
 

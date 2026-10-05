@@ -24,7 +24,7 @@ export const DEVICE_ERRORS: Readonly<Record<DeviceErrorCode, DeviceError>> = {
   not_found: {
     code: 'not_found',
     message: 'No ring was chosen.',
-    hint: 'Make sure the ring is powered and advertising, then try again.',
+    hint: 'Make sure the ring is switched on and visible to Bluetooth, then try again.',
   },
   connection_failed: {
     code: 'connection_failed',

@@ -13,6 +13,7 @@ import { getContact, type ContactKey } from '@/domain/contacts';
 import { EMERGENCY_SIMULATION_NOTICE } from '@/domain/evidence';
 import type { LessonStep } from '@/domain/lessons';
 import { describeGate, describeRingResult, formatSeconds, type RingResult } from '@/features/practice/ringResults';
+import { spokenCommandLabel } from '@/features/practice/spokenWords';
 import type { FeedbackKind } from '@/services/feedback/types';
 
 /** How long a correct answer stays on screen before the next step appears. */
@@ -27,7 +28,11 @@ export interface StepEvaluation {
   readonly correct: boolean;
   /** The on-screen words, without the "Correct" verdict (the panel shows that as its own line). */
   readonly message: string;
-  /** What is announced: the verdict and message, plus the emergency notice when a hold completed. */
+  /**
+   * What is announced: the verdict and message, plus the emergency notice when
+   * a hold completed. Command names use their spoken labels, so a screen
+   * reader never reads "Dismiss slash Back".
+   */
   readonly announcement: string;
   /** Mirrors the ring's own feedback kind, so the lesson's words replace the ring's rather than repeat them. */
   readonly feedbackKind: FeedbackKind;
@@ -41,18 +46,27 @@ function place(contact: ContactKey): string {
   return getContact(contact).label.toLowerCase();
 }
 
-/** "Confirm on the index fingertip", or what to do for a hold step. */
-export function targetPhrase(step: LessonStep): string {
+function phrase(step: LessonStep, tapLabel: (step: Extract<LessonStep, { kind: 'tap' }>) => string): string {
   switch (step.kind) {
     case 'squeeze':
       return 'squeeze the ring to open the command window';
     case 'tap':
-      return `${getCommand(step.token).label} on the ${place(step.contact)}`;
+      return `${tapLabel(step)} on the ${place(step.contact)}`;
     case 'hold':
       return step.expect === 'cancel'
         ? `start the hold on the ${place(step.contact)}, then let go before five seconds`
         : `hold the ${place(step.contact)} for the full five seconds`;
   }
+}
+
+/** "Confirm on the index fingertip", or what to do for a hold step. For the screen. */
+export function targetPhrase(step: LessonStep): string {
+  return phrase(step, (tap) => getCommand(tap.token).label);
+}
+
+/** The same, read aloud: "Dismiss or Back on the index finger base". */
+export function spokenTargetPhrase(step: LessonStep): string {
+  return phrase(step, (tap) => getCommand(tap.token).spokenLabel);
 }
 
 /** The contact a step asks for, or null for a squeeze. */
@@ -88,10 +102,16 @@ function evaluation(
   correct: boolean,
   message: string,
   feedbackKind: FeedbackKind,
-  extra: { detectedContact?: ContactKey | null; emergencyCompleted?: boolean } = {},
+  extra: {
+    detectedContact?: ContactKey | null;
+    emergencyCompleted?: boolean;
+    /** The message with spoken command labels, when it names a command. */
+    spokenMessage?: string;
+  } = {},
 ): StepEvaluation {
   const emergencyCompleted = extra.emergencyCompleted ?? false;
-  const spoken = correct ? `Correct. ${message}` : message;
+  const body = extra.spokenMessage ?? message;
+  const spoken = correct ? `Correct. ${body}` : body;
   return {
     correct,
     message,
@@ -105,23 +125,36 @@ function evaluation(
 /** Results that are not the target command, judged the same way on tap and hold steps. */
 function wrongResult(step: Exclude<LessonStep, { kind: 'squeeze' }>, result: RingResult, mapping: ShortcutMapping): StepEvaluation {
   const target = targetPhrase(step);
+  const spokenTarget = spokenTargetPhrase(step);
   const description = describeRingResult(result, mapping);
   switch (result.kind) {
     case 'command': {
-      const label = commandLabelWithShortcut(getCommand(result.token), mapping);
-      return evaluation(false, `That was ${label}, on the ${place(result.contact)}. Try again: ${target}.`, description.feedbackKind, {
-        detectedContact: result.contact === step.contact ? null : result.contact,
-      });
+      const command = getCommand(result.token);
+      const where = place(result.contact);
+      return evaluation(
+        false,
+        `That was ${commandLabelWithShortcut(command, mapping)}, on the ${where}. Try again: ${target}.`,
+        description.feedbackKind,
+        {
+          detectedContact: result.contact === step.contact ? null : result.contact,
+          spokenMessage: `That was ${spokenCommandLabel(command, mapping)}, on the ${where}. Try again: ${spokenTarget}.`,
+        },
+      );
     }
     case 'emergency':
       return evaluation(
         false,
         `The hold reached five seconds, which is the emergency hold. Try again: a brief tap for ${target}.`,
         description.feedbackKind,
-        { emergencyCompleted: true },
+        {
+          emergencyCompleted: true,
+          spokenMessage: `The hold reached five seconds, which is the emergency hold. Try again: a brief tap for ${spokenTarget}.`,
+        },
       );
     case 'emergency_cancelled':
-      return evaluation(false, `${description.message} Try again: a brief tap for ${target}.`, description.feedbackKind);
+      return evaluation(false, `${description.message} Try again: a brief tap for ${target}.`, description.feedbackKind, {
+        spokenMessage: `${description.message} Try again: a brief tap for ${spokenTarget}.`,
+      });
     case 'rejected':
       return evaluation(false, description.message, description.feedbackKind);
   }
@@ -140,10 +173,17 @@ function evaluateHold(step: Extract<LessonStep, { kind: 'hold' }>, result: RingR
       : evaluation(false, `You let go after ${formatSeconds(result.elapsedMs)} seconds. Hold for the full five seconds.`, kind);
   }
   if (result.kind === 'command') {
-    const label = commandLabelWithShortcut(getCommand(result.token), mapping);
-    return evaluation(false, `That was ${label}, on the ${place(result.contact)}. Try again: ${targetPhrase(step)}.`, kind, {
-      detectedContact: result.contact === step.contact ? null : result.contact,
-    });
+    const command = getCommand(result.token);
+    const where = place(result.contact);
+    return evaluation(
+      false,
+      `That was ${commandLabelWithShortcut(command, mapping)}, on the ${where}. Try again: ${targetPhrase(step)}.`,
+      kind,
+      {
+        detectedContact: result.contact === step.contact ? null : result.contact,
+        spokenMessage: `That was ${spokenCommandLabel(command, mapping)}, on the ${where}. Try again: ${spokenTargetPhrase(step)}.`,
+      },
+    );
   }
   return evaluation(false, describeRingResult(result, mapping).message, kind);
 }
@@ -165,8 +205,14 @@ export function evaluateStep(
   const { result } = input;
   if (step.kind === 'hold') return evaluateHold(step, result, mapping);
   if (result.kind === 'command' && result.contact === step.contact) {
-    const label = commandLabelWithShortcut(getCommand(result.token), mapping);
-    return evaluation(true, `${label}, on the ${place(result.contact)}.`, describeRingResult(result, mapping).feedbackKind);
+    const command = getCommand(result.token);
+    const where = place(result.contact);
+    return evaluation(
+      true,
+      `${commandLabelWithShortcut(command, mapping)}, on the ${where}.`,
+      describeRingResult(result, mapping).feedbackKind,
+      { spokenMessage: `${spokenCommandLabel(command, mapping)}, on the ${where}.` },
+    );
   }
   return wrongResult(step, result, mapping);
 }

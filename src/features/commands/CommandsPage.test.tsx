@@ -1,4 +1,5 @@
 import { SHORTCUT_ACTIONS } from '@/domain/commands';
+import { FakeRingAdapter } from '@/features/settings/testing/FakeRingAdapter';
 import { act, renderApp, screen, userEvent, within } from '@/test/renderApp';
 import CommandsPage from './CommandsPage';
 
@@ -62,18 +63,18 @@ describe('CommandsPage', () => {
     expect(rows).toHaveLength(9);
 
     const byCommand = (name: string) => {
-      const row = rows.find((r) => within(r).getByRole('rowheader').textContent?.startsWith(name));
+      const row = rows.find((r) => within(r).getByRole('rowheader').textContent?.includes(name));
       if (!row) throw new Error(`No row for ${name}`);
       return row;
     };
     const confirm = byCommand('Confirm');
     expect(confirm).toHaveTextContent('Index fingertip');
     expect(confirm).toHaveTextContent('Brief tap');
-    expect(within(confirm).getAllByRole('cell').at(-1)).toHaveTextContent(/^Fixed$/);
+    expect(within(confirm).getAllByRole('cell').at(-1)).toHaveTextContent(/^(Status)?Fixed$/);
 
     const shortcut1 = byCommand('Shortcut 1');
     expect(within(shortcut1).getByRole('rowheader')).toHaveTextContent('Shortcut 1Play or pause media');
-    expect(within(shortcut1).getAllByRole('cell').at(-1)).toHaveTextContent(/^Customisable$/);
+    expect(within(shortcut1).getAllByRole('cell').at(-1)).toHaveTextContent(/^(Status)?Customisable$/);
 
     const emergency = byCommand('Emergency');
     expect(emergency).toHaveTextContent('Pinky fingertip');
@@ -105,7 +106,7 @@ describe('CommandsPage', () => {
     await user.click(undoSummary);
     expect(undo.open).toBe(true);
     expect(undo).toHaveTextContent('Design intent');
-    expect(undo).toHaveTextContent('One strong click');
+    expect(undo).toHaveTextContent('One firm click');
     expect(undo).toHaveTextContent('App-dependent; not guaranteed');
     expect(within(undo).getByText('Not guaranteed on every phone')).toBeInTheDocument();
 
@@ -161,5 +162,25 @@ describe('CommandsPage', () => {
     expect(screen.getByText('These are the defaults. You have not changed them yet.')).toBeInTheDocument();
     await user.click(screen.getByRole('button', { name: 'Change shortcuts' }));
     expect(screen.getByRole('heading', { level: 2, name: 'Your shortcuts' })).toHaveFocus();
+  });
+  it('states the window the app is actually using, not the preference, with a ring connected', async () => {
+    // Longer interaction time is on, but a connected bench ring keeps its
+    // firmware's 3 s window — a user who trusted "6 s" would miss the window.
+    await renderPage({
+      preferences: { longerInteractionTime: true },
+      deviceMode: 'hardware',
+      deviceAdapter: new FakeRingAdapter({ status: 'connected' }),
+    });
+    const section = screen.getByRole('region', { name: 'All nine commands' });
+    expect(section).toHaveTextContent('Your bench ring’s window is 3 s, fixed by its firmware.');
+    expect(section).toHaveTextContent('Longer interaction time only changes the simulated ring in Demo Mode.');
+    expect(section).not.toHaveTextContent('Your window is 6 s');
+    expect(section).not.toHaveTextContent('Switch on Longer interaction time');
+  });
+
+  it('offers the six-second tip only in Demo Mode', async () => {
+    await renderPage({ preferences: { longerInteractionTime: false } });
+    const section = screen.getByRole('region', { name: 'All nine commands' });
+    expect(section).toHaveTextContent('Your window is 3 s. Switch on Longer interaction time for 6 s.');
   });
 });

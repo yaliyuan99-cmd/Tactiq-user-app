@@ -1,4 +1,5 @@
 import type { UserPreferences } from '@/domain/models';
+import { PREFERENCES_REPLACED_NOTE } from '@/services/preferences/PreferencesProvider';
 import { MemoryStorageAdapter, STORAGE_KEYS, type StorageAdapter } from '@/services/storage/StorageAdapter';
 import { screen, userEvent, waitFor, within } from '@/test/renderApp';
 import { SETTINGS_SECTIONS } from './settingsSections';
@@ -13,6 +14,23 @@ class RefusingStorage extends MemoryStorageAdapter {
   failing = false;
   override set<T>(key: string, value: T): boolean {
     if (this.failing) return false;
+    return super.set(key, value);
+  }
+}
+
+/**
+ * Starts with one unusable field in the stored preferences, as an older or
+ * hand-edited store may hold. The corruption is injected into the first write
+ * (the test seeding); every later write is kept as given, so saving puts it
+ * right the way a real store would.
+ */
+class StorageWithBadTheme extends MemoryStorageAdapter {
+  private injected = false;
+  override set<T>(key: string, value: T): boolean {
+    if (key === STORAGE_KEYS.preferences && !this.injected) {
+      this.injected = true;
+      return super.set(key, { ...(value as UserPreferences), theme: 'rainbow' } as unknown as T);
+    }
     return super.set(key, value);
   }
 }
@@ -111,6 +129,19 @@ describe('SettingsPage', () => {
 
     await user.keyboard('{Enter}');
     expect(document.documentElement).not.toHaveClass('force-reduced-motion');
+  });
+
+  it('says which settings were put back to their defaults, and stops saying it once they are saved', async () => {
+    const user = userEvent.setup();
+    await renderSettings({ storage: new StorageWithBadTheme() });
+
+    expect(screen.getByText('Some settings were reset')).toBeInTheDocument();
+    expect(screen.getByText(PREFERENCES_REPLACED_NOTE)).toBeInTheDocument();
+    // The unusable value is not in force: the default is.
+    expect(screen.getByRole('radio', { name: 'System' })).toBeChecked();
+
+    await user.click(screen.getByRole('radio', { name: 'Dark' }));
+    expect(screen.queryByText('Some settings were reset')).not.toBeInTheDocument();
   });
 
   it('warns when the browser refuses to save preferences', async () => {

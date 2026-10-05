@@ -2,9 +2,9 @@ import { Link } from 'react-router';
 import { Timer, TimerOff } from 'lucide-react';
 import { Button, ProgressBar } from '@/components';
 import { ROUTES } from '@/app/routes';
-import { COMMAND_WINDOW_LONG_MS, COMMAND_WINDOW_MS } from '@/domain/timing';
 import { cn } from '@/lib/cn';
 import { usePreferences } from '@/services/preferences/PreferencesProvider';
+import { windowSeconds } from './ringResults';
 import type { RingController } from './useRing';
 
 export interface SqueezeControlProps {
@@ -57,12 +57,17 @@ function WindowState({ ring, reducedMotion }: { ring: RingController; reducedMot
   );
 }
 
-/** How to get more time — worded truthfully for the simulated ring and for a bench ring. */
-function TimeHint({ canOperate, longerTime }: { canOperate: boolean; longerTime: boolean }) {
-  if (!canOperate) {
+/**
+ * How to get more time. Every stated length is the window the device is
+ * actually using (`state.commandWindowMs`), and Longer interaction time is
+ * only mentioned as being in effect in Demo Mode: the bench firmware's window
+ * is fixed, so the preference changes nothing while a ring is connected.
+ */
+function TimeHint({ ring, longerTime }: { ring: RingController; longerTime: boolean }) {
+  if (!ring.isDemo) {
     return (
       <p className="text-sm text-muted-foreground">
-        Time left is the app’s estimate. The bench ring keeps its own {COMMAND_WINDOW_MS / 1000}-second window, so{' '}
+        Time left is the app’s estimate. The bench ring keeps its own {windowSeconds(ring.windowMs)}-second window, so{' '}
         <Link to={ROUTES.settings} className={LINK_CLASSES}>
           Longer interaction time
         </Link>{' '}
@@ -73,7 +78,7 @@ function TimeHint({ canOperate, longerTime }: { canOperate: boolean; longerTime:
   if (longerTime) {
     return (
       <p className="text-sm text-muted-foreground">
-        Longer interaction time is on, so the window stays open for {COMMAND_WINDOW_LONG_MS / 1000} seconds.{' '}
+        Longer interaction time is on, so the window stays open for {windowSeconds(ring.windowMs)} seconds.{' '}
         <Link to={ROUTES.settings} className={LINK_CLASSES}>
           Change this in Settings
         </Link>
@@ -120,7 +125,7 @@ export function SqueezeControl({ ring, disabled = false, className }: SqueezeCon
 
       <WindowState ring={ring} reducedMotion={prefersReducedMotion} />
 
-      <TimeHint canOperate={ring.canOperate} longerTime={preferences.longerInteractionTime} />
+      <TimeHint ring={ring} longerTime={preferences.longerInteractionTime} />
     </div>
   );
 }

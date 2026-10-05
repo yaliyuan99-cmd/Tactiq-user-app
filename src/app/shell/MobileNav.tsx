@@ -2,7 +2,13 @@ import { Link, useLocation } from 'react-router';
 import { cn } from '@/lib/cn';
 import { navCurrent, PRIMARY_NAV_ITEMS } from './navItems';
 
-/** Fixed bottom bar below lg: the five primary destinations, icon above label. */
+/**
+ * Fixed bottom bar below lg: the five primary destinations, icon above label.
+ *
+ * Its height is --app-bottom-bar-height (see src/design-system/theme.css),
+ * which is also the scroll padding that keeps a focused control from ending up
+ * behind this bar.
+ */
 export function MobileNav() {
   const { pathname } = useLocation();
   return (
@@ -21,7 +27,7 @@ export function MobileNav() {
                 to={item.to}
                 aria-current={current}
                 className={cn(
-                  'relative flex min-h-14 flex-col items-center justify-center gap-0.5 px-0 py-1.5 text-center text-[length:min(0.75rem,12px)] leading-tight no-underline hyphens-auto break-words',
+                  'relative flex min-h-[var(--app-bottom-bar-height)] flex-col items-center justify-center gap-0.5 px-0 py-1.5 text-center text-[length:min(0.75rem,12px)] leading-tight no-underline hyphens-auto break-words',
                   current
                     ? 'font-semibold text-primary-strong before:absolute before:inset-x-3 before:top-0 before:h-1 before:rounded-b-full before:bg-primary'
                     : 'text-muted-foreground hover:text-foreground',

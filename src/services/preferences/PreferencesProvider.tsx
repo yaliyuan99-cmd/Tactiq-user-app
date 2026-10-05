@@ -1,6 +1,17 @@
-import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from 'react';
+import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { DEFAULT_PREFERENCES, type UserPreferences } from '@/domain/models';
 import { STORAGE_KEYS, type StorageAdapter } from '@/services/storage/StorageAdapter';
+import { NO_RECOVERY, readStoredPreferences, type PreferencesRecovery } from './storedPreferences';
+
+export type { PreferencesRecovery } from './storedPreferences';
+
+/** Shown on Settings when some stored preferences had to be replaced by their defaults. */
+export const PREFERENCES_REPLACED_NOTE =
+  'Some saved settings could not be read and were set back to the defaults. Check the options below.';
+
+/** Shown when nothing stored could be read, so the defaults are in force and setup looks unfinished. */
+export const PREFERENCES_UNREADABLE_NOTE =
+  'Your saved settings could not be read, so Tactiq is using the defaults. Setup choices you had made are not being used.';
 
 export interface PreferencesContextValue {
   readonly preferences: UserPreferences;
@@ -17,14 +28,25 @@ export interface PreferencesContextValue {
   readonly prefersReducedMotion: boolean;
   /** False when the browser refused to persist (e.g. private mode). */
   readonly persisted: boolean;
+  /**
+   * What had to be put right when the stored preferences were read. Settings
+   * shows `PREFERENCES_REPLACED_NOTE` while `replacedFields` is not empty, and
+   * onboarding shows `PREFERENCES_UNREADABLE_NOTE` when `unreadable` is why
+   * setup looks unfinished. Both clear as soon as preferences are saved again.
+   */
+  readonly recovery: PreferencesRecovery;
 }
 
 const PreferencesContext = createContext<PreferencesContextValue | null>(null);
 
+/**
+ * The stored preferences, validated field by field. Keeps a stored value only
+ * when it passes its own type or enum check, so one bad field can neither
+ * discard the rest nor reach a renderer. Use `readStoredPreferences` when you
+ * also need to know what was replaced.
+ */
 export function loadPreferences(storage: StorageAdapter): UserPreferences {
-  const stored = storage.get<Partial<UserPreferences>>(STORAGE_KEYS.preferences);
-  if (!stored || typeof stored !== 'object') return DEFAULT_PREFERENCES;
-  return { ...DEFAULT_PREFERENCES, ...stored, version: 1 };
+  return readStoredPreferences(storage).preferences;
 }
 
 /** The defaults, keeping onboarding progress from `current`. What `reset()` stores. */
@@ -59,7 +81,16 @@ export function applyPreferencesToDocument(prefs: UserPreferences, systemDark: b
 }
 
 export function PreferencesProvider({ storage, children }: { storage: StorageAdapter; children: ReactNode }) {
-  const [preferences, setPreferences] = useState<UserPreferences>(() => loadPreferences(storage));
+  const [stored, setStored] = useState(() => readStoredPreferences(storage));
+  const preferences = stored.preferences;
+  /**
+   * The preferences a change should be applied to. Kept beside the state so a
+   * patch can be built without a state updater: `storage.set` tells every
+   * other service, synchronously, and React runs updaters during render, where
+   * a subscriber's re-render would be a state update during someone else's
+   * render.
+   */
+  const latest = useRef(preferences);
   const [systemDark, setSystemDark] = useState<boolean>(systemPrefersDark);
   const [systemReduced, setSystemReduced] = useState<boolean>(systemPrefersReducedMotion);
   const [persisted, setPersisted] = useState(true);
@@ -82,7 +113,10 @@ export function PreferencesProvider({ storage, children }: { storage: StorageAda
   useEffect(
     () =>
       storage.subscribe((key) => {
-        if (key === STORAGE_KEYS.preferences) setPreferences(loadPreferences(storage));
+        if (key !== STORAGE_KEYS.preferences) return;
+        const next = readStoredPreferences(storage);
+        latest.current = next.preferences;
+        setStored(next);
       }),
     [storage],
   );
@@ -91,24 +125,26 @@ export function PreferencesProvider({ storage, children }: { storage: StorageAda
     applyPreferencesToDocument(preferences, systemDark);
   }, [preferences, systemDark]);
 
-  const update = useCallback(
-    (patch: Partial<UserPreferences>) => {
-      setPreferences((prev) => {
-        const next: UserPreferences = { ...prev, ...patch, version: 1 };
-        setPersisted(storage.set(STORAGE_KEYS.preferences, next));
-        return next;
-      });
+  const apply = useCallback(
+    (next: UserPreferences) => {
+      latest.current = next;
+      // What is stored now is what is on screen, so nothing is left to warn about.
+      setStored({ preferences: next, ...NO_RECOVERY });
+      setPersisted(storage.set(STORAGE_KEYS.preferences, next));
     },
     [storage],
   );
 
+  const update = useCallback(
+    (patch: Partial<UserPreferences>) => {
+      apply({ ...latest.current, ...patch, version: 1 });
+    },
+    [apply],
+  );
+
   const reset = useCallback(() => {
-    setPreferences((prev) => {
-      const next = resetPreferences(prev);
-      setPersisted(storage.set(STORAGE_KEYS.preferences, next));
-      return next;
-    });
-  }, [storage]);
+    apply(resetPreferences(latest.current));
+  }, [apply]);
 
   const value = useMemo<PreferencesContextValue>(
     () => ({
@@ -118,8 +154,9 @@ export function PreferencesProvider({ storage, children }: { storage: StorageAda
       resolvedTheme: preferences.theme === 'system' ? (systemDark ? 'dark' : 'light') : preferences.theme,
       prefersReducedMotion: preferences.reducedMotion || systemReduced,
       persisted,
+      recovery: { replacedFields: stored.replacedFields, unreadable: stored.unreadable },
     }),
-    [preferences, update, reset, systemDark, systemReduced, persisted],
+    [preferences, stored, update, reset, systemDark, systemReduced, persisted],
   );
 
   return <PreferencesContext.Provider value={value}>{children}</PreferencesContext.Provider>;

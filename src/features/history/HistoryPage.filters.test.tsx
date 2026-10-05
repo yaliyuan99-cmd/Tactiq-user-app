@@ -45,12 +45,13 @@ describe('HistoryPage filters', () => {
     expect(within(command).getAllByRole('option')).toHaveLength(10);
     expect(command).toHaveValue('all');
     const source = within(form).getByRole('combobox', { name: 'Source' });
+    // No "Ring" option: nothing records source 'device', so it always came back
+    // empty. A bench ring's records are labelled Measured in Recent attempts.
     expect(within(source).getAllByRole('option').map((o) => o.textContent)).toEqual([
       'All sources',
       'Simulator',
       'Lessons',
       'Calibration',
-      'Ring',
     ]);
   });
 
@@ -67,7 +68,7 @@ describe('HistoryPage filters', () => {
 
     await user.click(screen.getByRole('radio', { name: 'All time' }));
     expect(summaryValue('Attempts')).toBe('10');
-    expect(summaryValue('Successful detections')).toBe('6');
+    expect(summaryValue('Correct attempts')).toBe('6');
     expect(await polite().findByText('Showing 10 attempts and 2 emergency holds.')).toBeInTheDocument();
   });
 
@@ -90,7 +91,7 @@ describe('HistoryPage filters', () => {
     await user.selectOptions(screen.getByRole('combobox', { name: 'Command' }), 'Dismiss / Back');
     expect(screen.getByTestId('location')).toHaveTextContent('command=back');
     expect(summaryValue('Attempts')).toBe('1');
-    expect(summaryValue('Misclassifications')).toBe('1');
+    expect(summaryValue('Wrong point or command')).toBe('1');
     expect(await polite().findByText('Showing 1 attempt.')).toBeInTheDocument();
     const byCommand = screen.getByRole('region', { name: 'By command' });
     expect(within(byCommand).getByText('Dismiss / Back: 1 attempt, 0 recognised.')).toBeInTheDocument();

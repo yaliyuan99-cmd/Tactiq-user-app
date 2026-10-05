@@ -3,6 +3,7 @@ import {
   type AuthMode,
   type AuthService,
   type AuthUser,
+  type GuestResult,
   type PasswordResetRequestResult,
   type SignInInput,
   type SignUpInput,
@@ -134,7 +135,7 @@ export class SupabaseAuthService implements AuthService {
     if (local.error) throw mapSupabaseError(local.error);
   }
 
-  async continueAsGuest(): Promise<AuthUser> {
+  async continueAsGuest(): Promise<GuestResult> {
     throw new AuthError('unavailable', SUPABASE_MESSAGES.guestUnavailable);
   }
 

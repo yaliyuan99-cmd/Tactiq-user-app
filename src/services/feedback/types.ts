@@ -27,11 +27,17 @@ export interface FeedbackContextValue {
   announce(message: string, options?: AnnounceOptions): void;
   /** Announce + speak + vibrate pattern for a ring event, respecting preferences. */
   feedback(kind: FeedbackKind, message: string): void;
+  /**
+   * Speaks text the user asked to hear, when audio announcements are on, and
+   * announces in words whether the browser spoke it, so a control that cannot
+   * work never looks as though it did nothing.
+   */
   speak(text: string): void;
   stopSpeaking(): void;
   /** Returns false when vibration is unavailable or switched off. */
   vibrate(pattern: number | number[]): boolean;
   readonly canVibrate: boolean;
+  /** False when the browser has no speech API, or lists no voice to speak with. */
   readonly canSpeak: boolean;
 }
 

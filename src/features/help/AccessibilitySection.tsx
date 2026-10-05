@@ -11,6 +11,7 @@ export function AccessibilitySection() {
   return (
     <HelpSection
       id="accessibility"
+      collapsible
       lede="Tactiq is designed to be used without sight, with a keyboard, a screen reader or a switch, and at any text size."
     >
       <HelpSubsection title="Keyboard">

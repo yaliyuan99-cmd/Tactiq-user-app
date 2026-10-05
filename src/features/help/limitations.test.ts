@@ -12,7 +12,7 @@ describe('project limitations', () => {
       'No finished wearable ring exists.',
       'The bench firmware has never run on a finished ring.',
       'No physical performance has been validated.',
-      'Every result in this app is simulated.',
+      'No result in this app shows how a finished ring would perform.',
       'Design targets are not achievements.',
       'The app never shows a ring battery level.',
       'Shortcuts and Undo depend on the phone.',

@@ -9,10 +9,11 @@ import {
   type ShortcutMapping,
 } from '@/domain/commands';
 import { getContact } from '@/domain/contacts';
-import { COMMAND_WINDOW_LONG_MS, COMMAND_WINDOW_MS, EMERGENCY_HOLD_MS, TAP_MAX_MS, formatMs } from '@/domain/timing';
+import { EMERGENCY_HOLD_MS, TAP_MAX_MS, formatMs } from '@/domain/timing';
+import { useDevice } from '@/services/device/DeviceProvider';
 import { CommandFeedbackList } from './CommandFeedbackList';
 import { CommandStatus } from './CommandStatus';
-import { touchLabel } from './commandPresentation';
+import { commandWindowNote, touchLabel } from './commandPresentation';
 
 const HEADING_ID = 'all-commands-heading';
 const FEEDBACK_HEADING_ID = 'command-feedback-heading';
@@ -62,17 +63,18 @@ export interface CommandTableSectionProps {
 
 /** The nine commands as a table, then the feedback each one is designed to give. */
 export function CommandTableSection({ mapping, longerInteractionTime }: CommandTableSectionProps) {
-  const windowMs = longerInteractionTime ? COMMAND_WINDOW_LONG_MS : COMMAND_WINDOW_MS;
+  // The window the app is actually using: a connected bench ring keeps its
+  // firmware's window, which "Longer interaction time" cannot change.
+  const { state } = useDevice();
+  const note = commandWindowNote({ mode: state.mode, windowMs: state.commandWindowMs, longerInteractionTime });
   return (
     <section aria-labelledby={HEADING_ID}>
       <h2 id={HEADING_ID}>All nine commands</h2>
       <div className="mt-2 max-w-3xl space-y-2 text-muted-foreground">
         <p>
-          Every command starts with a squeeze of the ring, which opens a command window. Your window is{' '}
-          <strong className="font-semibold text-foreground">{formatMs(windowMs)}</strong>
-          {longerInteractionTime
-            ? ' because Longer interaction time is on.'
-            : `. Switch on Longer interaction time for ${formatMs(COMMAND_WINDOW_LONG_MS)}.`}{' '}
+          Every command starts with a squeeze of the ring, which opens a command window. {note.lead}{' '}
+          <strong className="font-semibold text-foreground">{note.value}</strong>
+          {note.tail}{' '}
           <Link to={ROUTES.settings} className="font-medium text-primary-strong underline">
             Change it in Settings
           </Link>

@@ -8,10 +8,14 @@ export interface EmergencyNoticeProps {
   readonly className?: string;
 }
 
-/** Shown whenever an emergency hold completes. The wording is fixed and must not be softened or removed. */
+/**
+ * Shown whenever an emergency hold completes. The sentence is fixed and must
+ * not be softened or removed. The title says what happened rather than
+ * repeating the sentence, which read as "Simulation only. Simulation only — …".
+ */
 export function EmergencyNotice({ className }: EmergencyNoticeProps) {
   return (
-    <Callout kind="warning" role="status" title="Simulation only" className={className}>
+    <Callout kind="warning" role="status" title="Emergency hold complete" className={className}>
       <p>{EMERGENCY_SIMULATION_NOTICE}</p>
       <p className="mt-1">{EMERGENCY_NOTICE_DETAIL}</p>
     </Callout>

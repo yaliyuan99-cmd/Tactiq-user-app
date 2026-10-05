@@ -21,7 +21,12 @@ export function SettingsSection({ id, intro, children, className }: SettingsSect
     <section
       id={id}
       aria-labelledby={headingId}
-      className={cn('rounded-lg border border-border bg-card p-5 text-card-foreground shadow-card sm:p-6', className)}
+      className={cn(
+        // min-w-0: as a grid item the section would otherwise be at least as wide
+        // as its widest content, pushing the whole page sideways at 320 px.
+        'min-w-0 rounded-lg border border-border bg-card p-5 text-card-foreground shadow-card sm:p-6',
+        className,
+      )}
     >
       <h2 id={headingId} tabIndex={-1}>
         {settingsSectionTitle(id)}
@@ -31,6 +36,14 @@ export function SettingsSection({ id, intro, children, className }: SettingsSect
     </section>
   );
 }
+
+/**
+ * Class for a SwitchField row inside a section. The label takes a 10rem flex
+ * basis and the row is allowed to wrap, so at 320 px with Larger text the
+ * switch drops under its label instead of pushing the page sideways
+ * (WCAG 1.4.10 Reflow). At ordinary widths the row still reads as one line.
+ */
+export const WRAPPING_SWITCH_ROW = 'flex-wrap [&>div:first-child]:flex-1 [&>div:first-child]:basis-40';
 
 /** A thin rule between groups of controls inside a section. */
 export function SettingsDivider() {

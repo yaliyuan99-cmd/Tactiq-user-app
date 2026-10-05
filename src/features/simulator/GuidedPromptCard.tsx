@@ -9,6 +9,12 @@ import type { GuidedPractice } from './useGuidedPractice';
 export interface GuidedPromptCardProps {
   readonly guided: GuidedPractice;
   readonly evidence: HistoryEvidence;
+  /**
+   * Whether the five-second hold button is on the page. It only exists for the
+   * simulated ring, so the Emergency hint must not offer it to someone holding
+   * a bench ring. Default true.
+   */
+  readonly showHoldButton?: boolean;
   readonly className?: string;
 }
 
@@ -18,12 +24,12 @@ const VERDICT_STYLES: Readonly<Record<GuidedVerdict, { Icon: LucideIcon; tone: s
   not_recognised: { Icon: CircleAlert, tone: 'text-status-target' },
 };
 
-function TargetHint({ target }: { target: GuidedPractice['target'] }) {
+function TargetHint({ target, showHoldButton }: { target: GuidedPractice['target']; showHoldButton: boolean }) {
   if (target === 'emergency') {
     return (
       <p className="mt-2 text-sm text-muted-foreground">
-        Hold the pinky fingertip for five full seconds, or use the five-second hold button. Letting go early cancels it. This
-        is a simulation: nothing is sent.
+        Hold the pinky fingertip for five full seconds{showHoldButton ? ', or use the five-second hold button' : ''}. Letting
+        go early cancels it. This is a simulation: nothing is sent.
       </p>
     );
   }
@@ -38,7 +44,7 @@ function TargetHint({ target }: { target: GuidedPractice['target'] }) {
 }
 
 /** Guided practice: the command to find, ways to hear it again or skip it, and how the last attempt went. */
-export function GuidedPromptCard({ guided, evidence, className }: GuidedPromptCardProps) {
+export function GuidedPromptCard({ guided, evidence, showHoldButton = true, className }: GuidedPromptCardProps) {
   const words = describeTarget(guided.target);
   const { feedback } = guided;
   const verdict = feedback ? VERDICT_STYLES[feedback.verdict] : null;
@@ -58,7 +64,7 @@ export function GuidedPromptCard({ guided, evidence, className }: GuidedPromptCa
       <p className="mt-3 text-2xl font-semibold leading-snug" data-target={guided.target}>
         {words.visible}
       </p>
-      <TargetHint target={guided.target} />
+      <TargetHint target={guided.target} showHoldButton={showHoldButton} />
 
       <div className="mt-4 flex flex-wrap gap-2">
         <Button

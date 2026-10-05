@@ -37,6 +37,16 @@ export class AuthError extends Error {
   }
 }
 
+/**
+ * The outcome of "Continue as a guest". `created` is false when the browser's
+ * one guest profile already existed, so a returning guest keeps their own
+ * progress while a brand-new one starts setup from the beginning.
+ */
+export interface GuestResult {
+  readonly user: AuthUser;
+  readonly created: boolean;
+}
+
 export interface SignInInput {
   readonly email: string;
   /** Required in Supabase mode; ignored in Demo Mode. */
@@ -66,8 +76,11 @@ export interface AuthService {
   signIn(input: SignInInput): Promise<AuthUser>;
   signUp(input: SignUpInput): Promise<AuthUser>;
   signOut(): Promise<void>;
-  /** Demo Mode only: creates a local guest profile without a form. Supabase mode throws 'unavailable'. */
-  continueAsGuest(): Promise<AuthUser>;
+  /**
+   * Demo Mode only: opens the browser's guest profile, creating it the first
+   * time. Supabase mode throws 'unavailable'.
+   */
+  continueAsGuest(): Promise<GuestResult>;
   requestPasswordReset(email: string): Promise<PasswordResetRequestResult>;
   /** Supabase mode: completes the recovery flow opened from the email link. Demo Mode throws 'unavailable'. */
   completePasswordReset(newPassword: string): Promise<void>;

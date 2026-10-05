@@ -1,4 +1,12 @@
-import { HISTORY_CSV_COLUMNS, HISTORY_EXPORT_NOTE, csvField, eventsToCsv, eventsToJson } from './export';
+import {
+  HISTORY_CSV_COLUMNS,
+  HISTORY_EXPORT_NOTE_SIMULATED,
+  HISTORY_EXPORT_NOTE_WITH_MEASURED,
+  csvField,
+  eventsToCsv,
+  eventsToJson,
+  historyExportNote,
+} from './export';
 import { makeGestureEvent } from './testing';
 
 describe('csvField', () => {
@@ -77,6 +85,22 @@ describe('eventsToCsv', () => {
   });
 });
 
+describe('historyExportNote', () => {
+  it('calls the records simulated only when none of them was measured', () => {
+    expect(historyExportNote([])).toBe(HISTORY_EXPORT_NOTE_SIMULATED);
+    expect(historyExportNote([makeGestureEvent(), makeGestureEvent({ id: 'b' })])).toBe(HISTORY_EXPORT_NOTE_SIMULATED);
+    expect(HISTORY_EXPORT_NOTE_SIMULATED).toBe('Simulated practice records from the Tactiq user app. Not hardware measurements.');
+  });
+
+  it('drops the "not hardware measurements" claim as soon as one record was measured', () => {
+    const mixed = [makeGestureEvent(), makeGestureEvent({ id: 'bench', evidence: 'measured' })];
+    expect(historyExportNote(mixed)).toBe(HISTORY_EXPORT_NOTE_WITH_MEASURED);
+    expect(historyExportNote([makeGestureEvent({ id: 'bench', evidence: 'measured' })])).toBe(HISTORY_EXPORT_NOTE_WITH_MEASURED);
+    expect(HISTORY_EXPORT_NOTE_WITH_MEASURED).not.toMatch(/Not hardware measurements/);
+    expect(HISTORY_EXPORT_NOTE_WITH_MEASURED).toMatch(/has not been validated/);
+  });
+});
+
 describe('eventsToJson', () => {
   it('wraps events with the format, version, time and a plain note', () => {
     const event = makeGestureEvent();
@@ -85,11 +109,16 @@ describe('eventsToJson', () => {
       format: 'tactiq.history',
       version: 1,
       exportedAt: '2026-09-15T04:30:00.000Z',
-      note: HISTORY_EXPORT_NOTE,
+      note: HISTORY_EXPORT_NOTE_SIMULATED,
       events: [event],
     });
-    expect(HISTORY_EXPORT_NOTE).toBe('Simulated practice records from the Tactiq user app. Not hardware measurements.');
     expect(json).toContain('\n  "format": "tactiq.history"');
+  });
+
+  it('notes the bench prototype when the file contains a measured record', () => {
+    const measured = makeGestureEvent({ id: 'bench', evidence: 'measured' });
+    const parsed = JSON.parse(eventsToJson([makeGestureEvent(), measured], '2026-09-15T04:30:00.000Z')) as { note: string };
+    expect(parsed.note).toBe(HISTORY_EXPORT_NOTE_WITH_MEASURED);
   });
 
   it('includes targetToken when a record has one', () => {

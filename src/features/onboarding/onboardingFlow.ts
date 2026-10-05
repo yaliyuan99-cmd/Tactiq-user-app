@@ -42,6 +42,16 @@ export function stepSavePatch(savedStep: number, index: number): Pick<UserPrefer
   return next === savedStep ? null : { onboardingStep: next };
 }
 
+/**
+ * Onboarding progress for a profile that has just been created. Preferences
+ * live once per browser, not per profile, so a new profile starts setup at the
+ * first step instead of resuming where the previous person stopped.
+ */
+export const NEW_PROFILE_SETUP_PATCH: Pick<UserPreferences, 'onboardingCompleted' | 'onboardingStep'> = {
+  onboardingCompleted: false,
+  onboardingStep: 0,
+};
+
 /** "Skip setup": leave the flow, keep the furthest step so the dashboard can offer "Resume setup". */
 export const SKIP_SETUP_PATCH: Pick<UserPreferences, 'onboardingCompleted'> = { onboardingCompleted: true };
 
@@ -82,6 +92,12 @@ export interface StepControls {
   readonly showSkip: boolean;
   readonly continueLabel: string;
   readonly continueAction: ContinueAction;
+  /**
+   * How loud the continue control is. 'secondary' on the first-lesson step,
+   * whose embedded lesson owns the filled "Start lesson" button: two filled
+   * buttons would not say which action the step is asking for.
+   */
+  readonly continueVariant: 'primary' | 'secondary';
   /** "Skip setup" in the top bar; hidden on the last step, where nothing is left to skip. */
   readonly showSkipSetup: boolean;
 }
@@ -97,6 +113,7 @@ export function stepControls(index: number): StepControls {
     showSkip: step.optional && !isCalibration,
     continueLabel: isLast ? 'Go to the dashboard' : isCalibration ? 'Calibrate after setup' : 'Continue',
     continueAction: isLast ? 'finish' : 'next',
+    continueVariant: step.id === 'first_lesson' ? 'secondary' : 'primary',
     showSkipSetup: !isLast,
   };
 }
@@ -112,9 +129,14 @@ export function wholeSeconds(ms: number): number {
   return Math.round(ms / 1000);
 }
 
-/** Seconds the command window stays open in this app. */
-export function commandWindowSeconds(longerInteractionTime: boolean): number {
-  return wholeSeconds(longerInteractionTime ? COMMAND_WINDOW_LONG_MS : COMMAND_WINDOW_MS);
+/**
+ * Seconds the command window stays open. "Longer interaction time" is an app
+ * preference, so it only lengthens the simulated ring's window; a Bluetooth
+ * bench ring keeps the firmware window of COMMAND_WINDOW_MS.
+ */
+export function commandWindowSeconds(longerInteractionTime: boolean, deviceMode: DeviceMode = 'demo'): number {
+  const longer = longerInteractionTime && deviceMode === 'demo';
+  return wholeSeconds(longer ? COMMAND_WINDOW_LONG_MS : COMMAND_WINDOW_MS);
 }
 
 /** "Text size set to Larger." */
@@ -127,8 +149,15 @@ export function switchAnnouncement(setting: string, on: boolean): string {
   return `${setting} ${on ? 'on' : 'off'}.`;
 }
 
-export function longerTimeAnnouncement(on: boolean): string {
-  return `Longer interaction time ${on ? 'on' : 'off'}. The command window stays open for ${commandWindowSeconds(on)} seconds.`;
+/** "Longer interaction time on. The command window stays open for 6 seconds." */
+export function longerTimeAnnouncement(on: boolean, deviceMode: DeviceMode = 'demo'): string {
+  const setting = `Longer interaction time ${on ? 'on' : 'off'}.`;
+  if (on && deviceMode === 'hardware') {
+    return `${setting} It applies to Demo Mode, so the Bluetooth bench ring keeps its own ${commandWindowSeconds(
+      false,
+    )}-second window.`;
+  }
+  return `${setting} The command window stays open for ${commandWindowSeconds(on, deviceMode)} seconds.`;
 }
 
 /** Ends a sentence with a full stop unless it already ends in punctuation ("Searching…"). */
@@ -162,6 +191,16 @@ function trimEllipsis(text: string): string {
   return text.replace(/…$/, '');
 }
 
+/** Says which ring the six seconds belong to, so the summary is true in both modes. */
+function longerTimeSummary(on: boolean, deviceMode: DeviceMode): string {
+  if (on && deviceMode === 'hardware') {
+    return `On — it applies to Demo Mode, so the Bluetooth bench ring keeps its own ${commandWindowSeconds(
+      false,
+    )}-second window`;
+  }
+  return `${on ? 'On' : 'Off'} — the command window stays open for ${commandWindowSeconds(on, deviceMode)} seconds`;
+}
+
 export function summariseChoices(input: ChoiceSummaryInput): readonly ChoiceSummaryItem[] {
   const ring =
     input.deviceMode === 'demo'
@@ -175,9 +214,7 @@ export function summariseChoices(input: ChoiceSummaryInput): readonly ChoiceSumm
     {
       id: 'longer_time',
       label: 'Longer interaction time',
-      value: `${input.longerInteractionTime ? 'On' : 'Off'} — the command window stays open for ${commandWindowSeconds(
-        input.longerInteractionTime,
-      )} seconds`,
+      value: longerTimeSummary(input.longerInteractionTime, input.deviceMode),
     },
   ];
 }

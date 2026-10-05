@@ -97,6 +97,10 @@ describe('HelpPage troubleshooting', () => {
     await renderHelpPage();
     screen.getByRole('link', { name: 'Change accessibility and feedback settings' }).focus();
 
+    // Accessibility is a collapsible section, so its last tab stop is its own
+    // "Back to contents" link; the next one is the first troubleshooting answer.
+    await user.tab();
+    expect(document.activeElement).toHaveAccessibleName('Back to contents');
     await user.tab();
     const first = TROUBLESHOOTING_ENTRIES[0];
     if (!first) throw new Error('No entries');

@@ -71,11 +71,7 @@ test.describe('Commands', () => {
 
   test('command map row headers are named by the command alone, without the stacked-layout label', async ({
     signedInPage: page,
-  }, testInfo) => {
-    test.fixme(
-      testInfo.project.name === 'mobile-chromium',
-      'FINDING: DataTable stacked-layout ::before labels leak into cell and row header names on phones',
-    );
+  }) => {
     const errors = trackConsoleErrors(page);
     await openPage(page, '/dashboard/commands');
     const table = page.getByRole('table', { name: 'Command map' });
@@ -142,7 +138,7 @@ test.describe('Commands', () => {
     const main = page.getByRole('main');
 
     await expect(main.getByText('Both shortcuts use the defaults.')).toBeVisible();
-    await main.getByRole('group', { name: SHORTCUT_2 }).getByRole('radio', { name: 'Toggle the flashlight' }).check();
+    await main.getByRole('group', { name: SHORTCUT_2 }).getByRole('radio', { name: 'Turn the torch on or off' }).check();
     await main.getByRole('button', { name: 'Save shortcuts' }).click();
     await expect(politeAnnouncer(page)).toHaveText('Shortcuts saved.');
 
@@ -155,7 +151,7 @@ test.describe('Commands', () => {
     // Cancelling changes nothing.
     await dialog.getByRole('button', { name: 'Cancel' }).click();
     await expect(dialog).toBeHidden();
-    await expect(main.getByRole('group', { name: SHORTCUT_2 }).getByRole('radio', { name: 'Toggle the flashlight' })).toBeChecked();
+    await expect(main.getByRole('group', { name: SHORTCUT_2 }).getByRole('radio', { name: 'Turn the torch on or off' })).toBeChecked();
 
     await main.getByRole('button', { name: 'Restore defaults' }).click();
     await page.getByRole('dialog', { name: 'Restore default shortcuts?' }).getByRole('button', { name: 'Restore defaults' }).click();
@@ -185,7 +181,7 @@ test.describe('Shortcut in the simulator', () => {
     const errors = trackConsoleErrors(page);
     await openPage(page, '/dashboard/commands');
     const main = page.getByRole('main');
-    await main.getByRole('group', { name: SHORTCUT_1 }).getByRole('radio', { name: 'Toggle the flashlight' }).check();
+    await main.getByRole('group', { name: SHORTCUT_1 }).getByRole('radio', { name: 'Turn the torch on or off' }).check();
     await main.getByRole('button', { name: 'Save shortcuts' }).click();
     await expect(politeAnnouncer(page)).toHaveText('Shortcuts saved.');
 
@@ -194,13 +190,15 @@ test.describe('Shortcut in the simulator', () => {
     await chooseFreePractice(page);
 
     const pinkyTip = contactButton(page, 'Pinky fingertip');
-    await expect(pinkyTip).toHaveAccessibleName(/Shortcut 1: Toggle the flashlight/);
+    await expect(pinkyTip).toHaveAccessibleName(/Shortcut 1: Turn the torch on or off/);
 
     await squeezeRing(page);
     await pinkyTip.click();
 
-    await expect(politeAnnouncer(page)).toContainText('Shortcut 1: Toggle the flashlight. Flashlight on.');
-    await expect(page.getByRole('main').getByText('Shortcut 1: Toggle the flashlight', { exact: true }).first()).toBeVisible();
+    await expect(politeAnnouncer(page)).toContainText('Shortcut 1: Turn the torch on or off. Simulated: Torch on.');
+    await expect(
+      page.getByRole('main').getByText('Shortcut 1: Turn the torch on or off', { exact: true }).first(),
+    ).toBeVisible();
     // The emergency hold was not triggered by a brief tap.
     await expect(assertiveAnnouncer(page)).not.toContainText('Emergency');
 
@@ -219,7 +217,7 @@ test.describe('History', () => {
     const errors = trackConsoleErrors(page);
     await seedHistory(page, THREE_EVENTS);
     await openPage(page, '/dashboard/history');
-    await expect(page.getByRole('heading', { level: 1, name: 'Activity' })).toBeVisible();
+    await expect(page.getByRole('heading', { level: 1, name: 'History' })).toBeVisible();
 
     const main = page.getByRole('main');
     const range = main.getByRole('group', { name: 'Range' });
@@ -365,7 +363,7 @@ test.describe('History', () => {
     await expect(main.getByRole('heading', { name: 'No activity yet' })).toBeVisible();
     await expect(politeAnnouncer(page)).toContainText('Activity cleared.');
     // The button that was pressed has gone, so focus moves to the page title.
-    await expect(page.getByRole('heading', { level: 1, name: 'Activity' })).toBeFocused();
+    await expect(page.getByRole('heading', { level: 1, name: 'History' })).toBeFocused();
     await expect(main.getByRole('table')).toHaveCount(0);
 
     await reloadPage(page);
@@ -396,7 +394,7 @@ test.describe('History', () => {
     await expect(politeAnnouncer(page)).toContainText(/Removed \d+ sample records?\./);
     await expect(main.getByRole('heading', { name: 'No activity yet' })).toBeVisible();
     await expect(main.getByRole('button', { name: 'Remove sample records' })).toHaveCount(0);
-    await expect(page.getByRole('heading', { level: 1, name: 'Activity' })).toBeFocused();
+    await expect(page.getByRole('heading', { level: 1, name: 'History' })).toBeFocused();
 
     // Samples are not written again.
     await reloadPage(page);
@@ -532,13 +530,13 @@ test.describe('Settings', () => {
     const longer = main.getByRole('switch', { name: 'Longer interaction time' });
 
     await expect(longer).toHaveAttribute('aria-checked', 'false');
-    await expect(main.getByText('Command window in this app: 3 s')).toBeVisible();
+    await expect(main.getByText('Command window in use now: 3 s')).toBeVisible();
     await longer.click();
     await expect(longer).toHaveAttribute('aria-checked', 'true');
     await expect(politeAnnouncer(page)).toHaveText(
-      'Longer interaction time on. The command window stays open for 6 seconds.',
+      'Longer interaction time on. The simulated ring\u2019s command window stays open for 6 seconds.',
     );
-    await expect(main.getByText('Command window in this app: 6 s')).toBeVisible();
+    await expect(main.getByText('Command window in use now: 6 s')).toBeVisible();
 
     await reloadPage(page);
     await expect(page.getByRole('main').getByRole('switch', { name: 'Longer interaction time' })).toHaveAttribute(
@@ -640,7 +638,6 @@ test.describe('Settings', () => {
   });
 
   test('sign-in confirms that local data was deleted, not only that the user signed out', async ({ signedInPage: page }) => {
-    test.fixme(true, 'FINDING: Sign-in ignores dataDeleted and never confirms the local data was deleted');
     await openPage(page, '/dashboard/settings');
     await page.getByRole('main').getByRole('button', { name: 'Delete all local data' }).click();
     const dialog = page.getByRole('dialog', { name: 'Delete all local data?' });
@@ -903,7 +900,11 @@ test.describe('Help', () => {
     const secondSummary = section.locator('summary', { hasText: 'The Bluetooth window shows no ring' });
     await secondSummary.focus();
     await page.keyboard.press('Space');
-    await expect(section.getByText('The window only lists nearby devices that are advertising.', { exact: false })).toBeVisible();
+    await expect(
+      section.getByText('The window only lists nearby devices that are switched on and visible to Bluetooth.', {
+        exact: false,
+      }),
+    ).toBeVisible();
 
     expect(errors).toEqual([]);
   });

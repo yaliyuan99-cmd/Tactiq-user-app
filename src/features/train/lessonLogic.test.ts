@@ -78,7 +78,8 @@ describe('evaluateStep: tap steps', () => {
     expect(evaluate(confirmStep, tap('back', 'index_base'))).toMatchObject({
       correct: false,
       message: 'That was Dismiss / Back, on the index finger base. Try again: Confirm on the index fingertip.',
-      announcement: 'That was Dismiss / Back, on the index finger base. Try again: Confirm on the index fingertip.',
+      // Spoken label: a screen reader would read the display slash as "Dismiss slash Back".
+      announcement: 'That was Dismiss or Back, on the index finger base. Try again: Confirm on the index fingertip.',
       feedbackKind: 'confirm',
       detectedContact: 'index_base',
     });
@@ -90,7 +91,7 @@ describe('evaluateStep: tap steps', () => {
       quick_action_2: 'toggle_flashlight',
     });
     expect(evaluation?.message).toBe(
-      'That was Shortcut 2: Toggle the flashlight, on the pinky finger base. Try again: Confirm on the index fingertip.',
+      'That was Shortcut 2: Turn the torch on or off, on the pinky finger base. Try again: Confirm on the index fingertip.',
     );
     expect(evaluate(shortcutStep, tap('quick_action_1', 'pinky_tip')).message).toBe(
       'Shortcut 1: Play or pause media, on the pinky fingertip.',

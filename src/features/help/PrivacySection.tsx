@@ -11,10 +11,10 @@ export function PrivacySection() {
   const lede =
     mode === 'supabase'
       ? 'Your sign-in details are handled by Tactiq’s account service. Everything else — settings, calibration, lesson progress, shortcuts and activity — is stored in this browser on this device.'
-      : 'In Demo Mode, everything is stored in this browser on this device: your profile, settings, calibration, lesson progress, shortcuts and activity. None of it is sent to a server.';
+      : 'With a local profile, everything is stored in this browser on this device: your profile, settings, calibration, lesson progress, shortcuts and activity. None of it is sent to a server.';
 
   return (
-    <HelpSection id="privacy" lede={lede}>
+    <HelpSection id="privacy" collapsible lede={lede}>
       <HelpSubsection title="No analytics">
         <p className="max-w-prose">
           Tactiq has no analytics, advertising or tracking. The app’s fonts load from Google Fonts, which receives an
@@ -30,7 +30,7 @@ export function PrivacySection() {
           </li>
           <li>
             In Settings, under Privacy and your data, download everything Tactiq keeps, reset your preferences or delete all
-            local data. A Demo Mode profile can be deleted under Account.
+            local data. A local profile can be deleted under Account.
           </li>
           <li>
             Clearing this site’s data in your browser’s settings also removes everything. This cannot be undone, so download

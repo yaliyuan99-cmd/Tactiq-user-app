@@ -1,7 +1,7 @@
 import { SwitchField } from '@/components';
 import { useFeedback } from '@/services/feedback/FeedbackProvider';
 import { usePreferences } from '@/services/preferences/PreferencesProvider';
-import { SettingsDivider, SettingsSection } from '../SettingsSection';
+import { SettingsDivider, SettingsSection, WRAPPING_SWITCH_ROW } from '../SettingsSection';
 import { switchAnnouncement } from '../settingsOptions';
 import { SpeechSample, VibrationSample } from './FeedbackTryouts';
 
@@ -21,6 +21,7 @@ export function FeedbackSection() {
     >
       <div className="grid gap-3">
         <SwitchField
+          containerClassName={WRAPPING_SWITCH_ROW}
           label="Audio announcements"
           description={AUDIO_DESCRIPTION}
           checked={preferences.audioAnnouncements}
@@ -36,6 +37,7 @@ export function FeedbackSection() {
       <SettingsDivider />
 
       <SwitchField
+        containerClassName={WRAPPING_SWITCH_ROW}
         label="Visual confirmation"
         description={VISUAL_DESCRIPTION}
         checked={preferences.visualConfirmation}
@@ -49,6 +51,7 @@ export function FeedbackSection() {
 
       <div className="grid gap-3">
         <SwitchField
+          containerClassName={WRAPPING_SWITCH_ROW}
           label="Haptic feedback"
           description={HAPTIC_DESCRIPTION}
           checked={preferences.hapticFeedback}

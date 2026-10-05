@@ -249,7 +249,6 @@ test.describe('Sign up and onboarding', () => {
   });
 
   test('a second new profile in the same browser starts setup at step 1', async ({ newUserPage: page }) => {
-    test.fixme(true, 'FINDING: A new profile created after another profile finished setup skips onboarding and lands on "All set"');
     const errors = trackConsoleErrors(page);
     // First person: creates a profile and finishes setup straight away.
     await createDemoProfile(page, ROBIN);
@@ -520,7 +519,6 @@ test.describe('The next parameter stays on this site', () => {
 
   for (const next of dotSegmentNext) {
     test(`next=${next} falls back instead of passing on a //host path`, async ({ newUserPage: page }) => {
-      test.fixme(true, 'FINDING: safeNextPath accepts dot-segment paths that normalise to a protocol-relative //host');
       const errors = trackConsoleErrors(page);
       await page.goto(`/sign-in?next=${encodeURIComponent(next)}`);
       await expect(page.getByRole('heading', { level: 1, name: 'Sign in' })).toBeVisible();

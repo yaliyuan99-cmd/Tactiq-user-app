@@ -60,6 +60,7 @@ export function StepFrame({ index, headingRef, onBack, onSkip, onContinue, child
             </Button>
           )}
           <Button
+            variant={controls.continueVariant}
             trailingIcon={controls.continueAction === 'next' ? <ArrowRight className="h-4 w-4" /> : undefined}
             onClick={onContinue}
           >

@@ -1,5 +1,6 @@
 import { DataTable, EvidenceLabel, type DataTableColumn } from '@/components';
 import { DESIGN_TARGETS, type DesignTarget } from '@/domain/evidence';
+import { SOURCE_GLOSSARY } from './helpContent';
 import { HelpSection, HelpSubsection } from './HelpSection';
 import { LIMITATIONS } from './limitations';
 
@@ -14,6 +15,7 @@ export function LimitationsSection() {
   return (
     <HelpSection
       id="limitations"
+      collapsible
       lede="Tactiq is a research concept. This is plainly what exists today, and what does not."
     >
       <ul className="grid max-w-prose list-disc gap-4 pl-6 marker:text-muted-foreground">
@@ -49,6 +51,7 @@ export function LimitationsSection() {
           emptyMessage="No design targets."
           dense
         />
+        <p className="max-w-prose text-sm text-muted-foreground">{SOURCE_GLOSSARY}</p>
       </HelpSubsection>
     </HelpSection>
   );

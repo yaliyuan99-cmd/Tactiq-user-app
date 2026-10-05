@@ -1,12 +1,26 @@
 /**
- * History exports. Both formats say plainly that the records are simulated
- * practice, not hardware measurements.
+ * History exports. The JSON note names the evidence that is actually in the
+ * file: practice from the simulated ring is called simulated, and a file that
+ * holds records from a connected bench prototype never claims otherwise.
  */
 import type { GestureEvent } from '@/domain/models';
 
 export const HISTORY_EXPORT_FORMAT = 'tactiq.history';
 export const HISTORY_EXPORT_VERSION = 1;
-export const HISTORY_EXPORT_NOTE = 'Simulated practice records from the Tactiq user app. Not hardware measurements.';
+
+/** Note for a file whose records all came from this app's simulated ring. */
+export const HISTORY_EXPORT_NOTE_SIMULATED = 'Simulated practice records from the Tactiq user app. Not hardware measurements.';
+
+/** Note for a file holding at least one record recorded from a connected bench prototype. */
+export const HISTORY_EXPORT_NOTE_WITH_MEASURED =
+  'Practice records from the Tactiq user app. Each record’s evidence field says whether it was simulated by this app or measured on a Tactiq bench prototype, which has not been validated.';
+
+/** The note that matches the records being exported. */
+export function historyExportNote(events: readonly GestureEvent[]): string {
+  return events.some((event) => event.evidence === 'measured')
+    ? HISTORY_EXPORT_NOTE_WITH_MEASURED
+    : HISTORY_EXPORT_NOTE_SIMULATED;
+}
 
 /**
  * CSV column order. New columns are appended at the end so existing
@@ -59,7 +73,7 @@ export function eventsToJson(events: readonly GestureEvent[], exportedAt: string
     format: HISTORY_EXPORT_FORMAT,
     version: HISTORY_EXPORT_VERSION,
     exportedAt,
-    note: HISTORY_EXPORT_NOTE,
+    note: historyExportNote(events),
     events,
   };
   return JSON.stringify(payload, null, 2);

@@ -1,5 +1,5 @@
 import { forwardRef, useEffect, useId, useRef, useState, type FormEvent } from 'react';
-import { Button, Callout, EvidenceLabel, RadioGroupField, type RadioOption } from '@/components';
+import { Button, Callout, EvidenceLabel, RadioGroupField, buttonClasses, type RadioOption } from '@/components';
 import {
   SHORTCUT_ACTIONS,
   SHORTCUT_TOKENS,
@@ -12,6 +12,7 @@ import { ShortcutPreview } from './ShortcutPreview';
 import { NOT_PERSISTED_NOTE, ShortcutResult, type ShortcutResultState } from './ShortcutResult';
 import {
   DISCARDED_ANNOUNCEMENT,
+  NOTHING_TO_SAVE_ANNOUNCEMENT,
   RESTORED_ANNOUNCEMENT,
   SAVED_ANNOUNCEMENT,
   SHORTCUT_LEGENDS,
@@ -46,6 +47,7 @@ export const ShortcutEditor = forwardRef<HTMLHeadingElement, ShortcutEditorProps
   const { announce } = useFeedback();
   const previewBodyId = `shortcut-preview-${useId().replace(/:/g, '')}`;
   const previewHeadingRef = useRef<HTMLHeadingElement>(null);
+  const formRef = useRef<HTMLFormElement>(null);
   const focusPreviewNext = useRef(false);
   const [result, setResult] = useState<ShortcutResultState | null>(null);
   const [confirmOpen, setConfirmOpen] = useState(false);
@@ -69,7 +71,15 @@ export const ShortcutEditor = forwardRef<HTMLHeadingElement, ShortcutEditorProps
 
   const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    if (!draft.dirty) return;
+    // aria-disabled keeps this button focusable, so activating it has to produce
+    // something perceivable rather than nothing at all.
+    if (!draft.dirty) {
+      setResult({ kind: 'nothing', message: NOTHING_TO_SAVE_ANNOUNCEMENT });
+      announce(NOTHING_TO_SAVE_ANNOUNCEMENT);
+      // Back to where a change is made, so the button never leads nowhere.
+      formRef.current?.querySelector<HTMLElement>(`input[name="shortcut-${SHORTCUT_TOKENS[0]}"]:checked`)?.focus();
+      return;
+    }
     try {
       settle('saved', draft.save(), SAVED_ANNOUNCEMENT);
     } catch (error) {
@@ -106,7 +116,7 @@ export const ShortcutEditor = forwardRef<HTMLHeadingElement, ShortcutEditorProps
         {EMERGENCY_REMINDER}
       </Callout>
 
-      <form className="mt-6 grid grid-cols-1 gap-6" onSubmit={handleSubmit} noValidate>
+      <form ref={formRef} className="mt-6 grid grid-cols-1 gap-6" onSubmit={handleSubmit} noValidate>
         <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
           {SHORTCUT_TOKENS.map((token) => (
             <RadioGroupField<ShortcutActionId>
@@ -130,9 +140,14 @@ export const ShortcutEditor = forwardRef<HTMLHeadingElement, ShortcutEditorProps
         )}
 
         <div className="flex flex-wrap items-center gap-3">
-          <Button type="submit" aria-disabled={!draft.dirty || undefined} aria-describedby={previewBodyId}>
+          {/* A plain submit button, not <Button>: that component swallows the
+              click while aria-disabled is set, which would leave activating this
+              one with nothing to say. aria-disabled (not disabled) keeps it
+              focusable and announced as dimmed, and handleSubmit explains the
+              no-op. */}
+          <button type="submit" className={buttonClasses()} aria-disabled={!draft.dirty || undefined} aria-describedby={previewBodyId}>
             Save shortcuts
-          </Button>
+          </button>
           {draft.dirty && (
             <Button variant="secondary" onClick={handleDiscard}>
               Discard changes

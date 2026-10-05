@@ -20,7 +20,7 @@ import { useSimulatorSession } from './useSimulatorSession';
 import { WhatWouldHappenPanel } from './WhatWouldHappenPanel';
 
 export const SIMULATOR_LEDE =
-  'Practise the nine commands with a simulated ring. Squeeze to open the command window, then tap a point.';
+  'Practise the nine commands. Squeeze to open the command window, then tap a point.';
 
 export const DEMO_MODE_ANNOUNCEMENT = 'Demo Mode is on. The simulated ring is ready.';
 
@@ -88,7 +88,7 @@ export default function SimulatorPage({ random }: SimulatorPageProps) {
       <div className="grid grid-cols-1 gap-8 xl:grid-cols-2 xl:gap-6 xl:grid-rows-[auto_1fr] xl:items-start">
         <div className="min-w-0 xl:col-start-2 xl:row-start-1">
           {isGuided ? (
-            <GuidedPromptCard guided={guided} evidence={evidence} />
+            <GuidedPromptCard guided={guided} evidence={evidence} showHoldButton={ring.canOperate} />
           ) : (
             <WhatWouldHappenPanel token={session.lastCommand} mapping={mapping} />
           )}

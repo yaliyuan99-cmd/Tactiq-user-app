@@ -3,7 +3,8 @@
  * a lesson can never claim a contact carries a command it does not.
  */
 import { type ContactKey } from './contacts';
-import { type CommandToken, resolveCommand } from './commands';
+import { type CommandToken, getCommand, resolveCommand } from './commands';
+import { hapticPhrase } from './haptics';
 import { EMERGENCY_HOLD_MS } from './timing';
 
 export const LESSON_IDS = [
@@ -46,7 +47,7 @@ function tap(contact: ContactKey, instruction?: string): LessonStep {
     kind: 'tap',
     contact,
     token: command.token,
-    instruction: instruction ?? `Squeeze, then tap the ${contactPhrase(contact)} for ${command.label}.`,
+    instruction: instruction ?? `Squeeze, then tap the ${contactPhrase(contact)} for ${command.spokenLabel}.`,
   };
 }
 
@@ -62,8 +63,8 @@ export const LESSONS: readonly Lesson[] = [
     title: 'Squeeze to activate',
     summary: 'Open the command window on purpose, so ordinary hand movement never fires a command.',
     explanation: [
-      'The ring stays asleep until you squeeze its body. A short, deliberate squeeze opens a command window for about three seconds.',
-      'In the design, the ring gives one sharp tick when the window opens. If you do nothing, it closes again quietly.',
+      'The ring stays asleep until you squeeze its body. A short, deliberate squeeze opens a short command window.',
+      `In the design, the ring gives ${hapticPhrase('armed')} when the window opens. If you do nothing, it closes again quietly.`,
       'This lesson only practises the squeeze. Nothing happens on the phone yet.',
     ],
     steps: [
@@ -98,7 +99,7 @@ export const LESSONS: readonly Lesson[] = [
     title: 'Next, Previous and Read',
     summary: 'Move through a list without a swipe, and hear an item again.',
     explanation: [
-      'Next is the base of the middle finger. Previous is the base of the ring finger. Read / Repeat is the ring fingertip.',
+      `Next is the base of the middle finger. Previous is the base of the ring finger. ${getCommand('read').spokenLabel} is the ring fingertip.`,
       'These three replace the swipes screen-reader users repeat hundreds of times a day.',
       'Bases are for moving. The ring fingertip re-reads what is focused.',
     ],
@@ -132,7 +133,7 @@ export const LESSONS: readonly Lesson[] = [
     summary: 'Learn the one command that is separated by time, and how to cancel it.',
     explanation: [
       'Emergency is a five-second hold on the pinky fingertip. A brief tap there is Shortcut 1; only a sustained hold is Emergency.',
-      'In the design, the ring pulses once at two seconds so you know the hold is being counted, then gives a long alert at five seconds.',
+      `In the design, the ring pulses once at two seconds so you know the hold is being counted, then gives ${hapticPhrase('emergency')} at five seconds.`,
       'Letting go before five seconds cancels it with no alert. This lesson practises both cancelling and completing. It is a simulation: no emergency message is ever sent from this app.',
     ],
     steps: [

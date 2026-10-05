@@ -1,4 +1,4 @@
-import { useCallback, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { ContactList, HandMap, type ContactMapStateProps } from '@/components';
 import { getContact, type ContactKey } from '@/domain/contacts';
 import type { Hand } from '@/domain/models';
@@ -6,6 +6,7 @@ import { cn } from '@/lib/cn';
 import { usePreferences } from '@/services/preferences/PreferencesProvider';
 import { EmergencyHoldButton } from './EmergencyHoldButton';
 import { EmergencyNotice } from './EmergencyNotice';
+import { HAND_VIEW_TOO_NARROW_NOTE, handViewFits } from './handViewFit';
 import { initialPracticeView, resultContact, storePracticeView, type PracticeView } from './practiceView';
 import { describeRingResult } from './ringResults';
 import { SqueezeControl } from './SqueezeControl';
@@ -40,6 +41,9 @@ export interface PracticeSurfaceProps {
 
 export const KEYBOARD_HINT =
   'Tab to a point, then press Enter or Space. Hold Enter or Space on the pinky fingertip for the emergency hold.';
+
+/** The panel a practice surface sits on: a card from the small breakpoint up, edge to edge on narrow phones where every pixel of width helps the points. */
+export const PRACTICE_PANEL_CLASSES = 'sm:rounded-lg sm:border sm:border-border sm:bg-card sm:p-6 sm:shadow-card';
 
 /**
  * Everything a user needs to operate the ring on one screen: the squeeze
@@ -81,6 +85,24 @@ export function PracticeSurface({
   };
 
   const operable = ring.canOperate;
+
+  // The hand drawing scales with this column while its interactive points stay 44 px, so
+  // below handViewFits() neighbouring points would overlap: the list is used instead.
+  const pointsRef = useRef<HTMLDivElement>(null);
+  const [pointsWidth, setPointsWidth] = useState<number | null>(null);
+  useEffect(() => {
+    const element = pointsRef.current;
+    if (!element || typeof ResizeObserver !== 'function') return undefined;
+    const observer = new ResizeObserver((entries) => {
+      const width = entries[entries.length - 1]?.contentRect.width;
+      if (typeof width === 'number' && width > 0) setPointsWidth(width);
+    });
+    observer.observe(element);
+    return () => observer.disconnect();
+  }, []);
+  const tooNarrowForHand = operable && pointsWidth !== null && !handViewFits(pointsWidth);
+  const shownView: PracticeView = view === 'hand' && tooNarrowForHand ? 'list' : view;
+
   const lastContact = resultContact(ring.lastResult);
   const holdingPinky = ring.pressingContact === 'pinky_tip';
   const mapState: ContactMapStateProps = {
@@ -101,16 +123,32 @@ export function PracticeSurface({
   const lastDescription = ring.lastResult ? describeRingResult(ring.lastResult, mapping) : null;
   const showNotice = showEmergencyNotice && ring.lastResult?.kind === 'emergency';
   const showHold = showEmergencyHold && operable;
+  /** Row 2 of the left column. Without it the desktop grid is one row, so the squeeze card is not stretched to the height of the hand. */
+  const hasSecondRow = showNotice || showHold;
 
   return (
     <div className={cn('@container', className)}>
-      <div className="grid grid-cols-[minmax(0,1fr)] gap-6 @3xl:grid-cols-[minmax(0,1fr)_minmax(0,1.15fr)] @3xl:grid-rows-[auto_1fr] @3xl:items-start">
+      <div
+        className={cn(
+          'grid grid-cols-[minmax(0,1fr)] gap-6 @3xl:grid-cols-[minmax(0,1fr)_minmax(0,1.15fr)] @3xl:items-start',
+          hasSecondRow && '@3xl:grid-rows-[auto_1fr]',
+        )}
+      >
         <SqueezeControl ring={ring} disabled={disabled} className="@3xl:col-start-1 @3xl:row-start-1" />
 
-        <div className="grid min-w-0 gap-4 @3xl:col-start-2 @3xl:row-span-2 @3xl:row-start-1">
+        <div
+          ref={pointsRef}
+          className={cn(
+            'grid min-w-0 grid-cols-[minmax(0,1fr)] gap-4 @3xl:col-start-2 @3xl:row-start-1',
+            hasSecondRow && '@3xl:row-span-2',
+          )}
+        >
           <ViewSwitch value={view} onChange={changeView} />
+          {view === 'hand' && tooNarrowForHand && (
+            <p className="text-sm text-muted-foreground">{HAND_VIEW_TOO_NARROW_NOTE}</p>
+          )}
           {operable && <p className="text-sm text-muted-foreground">{KEYBOARD_HINT}</p>}
-          {view === 'hand' ? <HandMap hand={hand} size="md" {...mapState} /> : <ContactList {...mapState} />}
+          {shownView === 'hand' ? <HandMap hand={hand} size="md" {...mapState} /> : <ContactList {...mapState} />}
           {!operable && (
             <p className="font-medium">
               {lastContact ? `Last detected point: ${getContact(lastContact).label}` : 'No point detected yet.'}
@@ -124,8 +162,8 @@ export function PracticeSurface({
           )}
         </div>
 
-        {(showNotice || showHold) && (
-          <div className="grid min-w-0 gap-4 @3xl:col-start-1 @3xl:row-start-2">
+        {hasSecondRow && (
+          <div className="grid min-w-0 grid-cols-[minmax(0,1fr)] gap-4 @3xl:col-start-1 @3xl:row-start-2">
             {showNotice && <EmergencyNotice />}
             {showHold && <EmergencyHoldButton ring={ring} disabled={disabled} />}
           </div>

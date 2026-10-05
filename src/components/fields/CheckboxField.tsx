@@ -21,7 +21,14 @@ export const CheckboxField = forwardRef<HTMLInputElement, CheckboxFieldProps>(fu
   const invalid = hasContent(error);
   return (
     <div className={cn('w-full', containerClassName)}>
-      <div className="flex items-start gap-3">
+      {/*
+        One label around the 44 px box and the text, so the whole row operates the
+        checkbox: the box alone is 21 px, and a span around it only looks like a
+        target (WCAG 2.2 target size, and our own 44 px rule in theme.css).
+        The hint and the error stay outside the label — they are referenced with
+        aria-describedby and must not join the accessible name.
+      */}
+      <label htmlFor={id} className="flex w-full cursor-pointer items-start gap-3">
         <span className="target-44 inline-flex shrink-0 items-center justify-center">
           <input
             ref={ref}
@@ -33,14 +40,13 @@ export const CheckboxField = forwardRef<HTMLInputElement, CheckboxFieldProps>(fu
             {...rest}
           />
         </span>
-        <div className="min-w-0 pt-2.5">
-          <label htmlFor={id} className="block cursor-pointer font-medium leading-snug">
-            {label}
-          </label>
-          <FieldHint id={hintId}>{hint}</FieldHint>
-        </div>
+        <span className="min-w-0 pt-2.5 font-medium leading-snug">{label}</span>
+      </label>
+      {/* Indented to the label text: 2.75rem box + 0.75rem gap. */}
+      <div className="pl-14">
+        <FieldHint id={hintId}>{hint}</FieldHint>
+        <FieldError id={errorId}>{error}</FieldError>
       </div>
-      <FieldError id={errorId}>{error}</FieldError>
     </div>
   );
 });

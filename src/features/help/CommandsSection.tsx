@@ -9,6 +9,7 @@ export function CommandsSection() {
   return (
     <HelpSection
       id="commands"
+      collapsible
       lede="Eight contact points carry nine commands. Seven are fixed; you can customise Shortcut 1 and Shortcut 2."
     >
       <ul role="list" aria-label="Contact points and their commands" className="max-w-3xl divide-y divide-border rounded-lg border border-border bg-card">

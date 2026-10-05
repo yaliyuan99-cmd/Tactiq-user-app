@@ -4,9 +4,7 @@ import { Button, Callout } from '@/components';
 import { getLesson } from '@/domain/lessons';
 import { LessonRunner } from '@/features/train/LessonRunner';
 import { useDevice } from '@/services/device/DeviceProvider';
-import { usePreferences } from '@/services/preferences/PreferencesProvider';
 import { LESSON_DONE, LESSON_LEFT, RESTART_LESSON_LABEL } from '../onboardingCopy';
-import { commandWindowSeconds } from '../onboardingFlow';
 import { StepLede } from './StepSection';
 
 const FIRST_LESSON = getLesson('squeeze_to_activate');
@@ -18,14 +16,12 @@ export interface FirstLessonStepProps {
 }
 
 export function FirstLessonStep({ completed, onComplete }: FirstLessonStepProps) {
-  const { preferences } = usePreferences();
   const { state } = useDevice();
   const [left, setLeft] = useState(false);
   const [run, setRun] = useState(0);
   const restartRef = useRef<HTMLButtonElement>(null);
   const lessonRef = useRef<HTMLDivElement>(null);
   const shownRun = useRef(run);
-  const seconds = commandWindowSeconds(preferences.longerInteractionTime);
 
   // Leaving the lesson removes the control that had focus, so focus goes to the way back in.
   useEffect(() => {
@@ -49,14 +45,11 @@ export function FirstLessonStep({ completed, onComplete }: FirstLessonStepProps)
       <StepLede>
         Try lesson {FIRST_LESSON.number}, {FIRST_LESSON.title}. {FIRST_LESSON.summary}
       </StepLede>
+      {/* The lesson card below states the command window, so this step does not repeat it. */}
       <p className="max-w-prose">
         {state.mode === 'demo'
-          ? `In Demo Mode, a Squeeze button stands in for the ring. After a squeeze the command window stays open for ${seconds} seconds.`
-          : `With a Bluetooth bench ring, squeeze the ring itself. Its command window stays open for ${commandWindowSeconds(false)} seconds.`}{' '}
-        {!preferences.longerInteractionTime &&
-          `Need more time? Switch on Longer interaction time in Accessibility preferences or Settings for ${commandWindowSeconds(
-            true,
-          )} seconds in Demo Mode.`}
+          ? 'In Demo Mode, a Squeeze button stands in for the ring.'
+          : 'With a Bluetooth bench ring, squeeze the ring itself.'}
       </p>
 
       {left ? (

@@ -42,7 +42,7 @@ describe('LessonPage', () => {
     expect(screen.getByRole('link', { name: 'All lessons' })).toHaveAttribute('href', '/dashboard/train');
     expect(screen.getByRole('heading', { level: 2, name: 'How this lesson works' })).toBeInTheDocument();
     expect(screen.getByText(/Confirm lives on the index fingertip/)).toBeInTheDocument();
-    expect(screen.getByText('You will practise').nextElementSibling).toHaveTextContent('Confirm and Dismiss / Back');
+    expect(screen.getByText('You will practise').nextElementSibling).toHaveTextContent('Confirm and Dismiss or Back');
     expect(screen.getByText('Steps').nextElementSibling).toHaveTextContent('5');
     expect(screen.getByText(/Each squeeze opens the command window for 3 seconds\./)).toBeInTheDocument();
     expect(screen.getByRole('link', { name: 'Turn on Longer interaction time in Settings' })).toHaveAttribute(
@@ -75,7 +75,7 @@ describe('LessonPage', () => {
 
     advance(ADVANCE_DELAY_MS);
     const second = stepHeading(2, 5);
-    expect(second).toHaveTextContent('Squeeze, then tap the index finger base for Dismiss / Back.');
+    expect(second).toHaveTextContent('Squeeze, then tap the index finger base for Dismiss or Back.');
     expect(second).toHaveFocus();
     expect(feedbackPanel()).toHaveTextContent('Waiting for an attempt');
   });
@@ -101,12 +101,14 @@ describe('LessonPage', () => {
     await squeeze(user);
     await tapPoint(user, INDEX_BASE);
 
-    const message = 'That was Dismiss / Back, on the index finger base. Try again: Confirm on the index fingertip.';
+    const onScreen = 'That was Dismiss / Back, on the index finger base. Try again: Confirm on the index fingertip.';
+    // The announcement carries the spoken label, so a screen reader never reads "Dismiss slash Back".
+    const announced = 'That was Dismiss or Back, on the index finger base. Try again: Confirm on the index fingertip.';
     expect(feedbackPanel()).toHaveTextContent('Not yet');
-    expect(feedbackPanel()).toHaveTextContent(message);
+    expect(feedbackPanel()).toHaveTextContent(onScreen);
     expect(feedbackPanel()).toHaveTextContent('Attempts on this step: 1');
     expect(within(feedbackPanel()).queryByRole('button')).not.toBeInTheDocument();
-    await waitFor(() => expect(politeRegion()).toHaveTextContent(message));
+    await waitFor(() => expect(politeRegion()).toHaveTextContent(announced));
     expect(runStatsText()).toBe('Attempts: 1 · Correct: 0 · Accuracy: 0%');
     expect(screen.getByRole('button', { name: 'Index finger base, Dismiss / Back, detected here' })).toBeInTheDocument();
 
@@ -167,7 +169,7 @@ describe('LessonPage', () => {
 
     const summaryHeading = screen.getByRole('heading', { level: 2, name: 'Lesson complete' });
     expect(summaryHeading).toHaveFocus();
-    expect(screen.getByText('You found every point, with one retry on Dismiss / Back.')).toBeInTheDocument();
+    expect(screen.getByText('You found every point, with one retry on Dismiss or Back.')).toBeInTheDocument();
     const summary = screen.getByRole('region', { name: 'Lesson complete' });
     const terms = within(summary).getAllByRole('term').map((term) => term.textContent);
     expect(terms).toEqual(['Steps', 'Attempts', 'Correct', 'Accuracy', 'Best accuracy']);

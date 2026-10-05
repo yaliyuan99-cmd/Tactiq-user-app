@@ -24,3 +24,19 @@ describe('EVIDENCE', () => {
     expect(EMERGENCY_SIMULATION_NOTICE).toBe('Simulation only — no emergency message was sent.');
   });
 });
+
+describe('DESIGN_TARGETS', () => {
+  it('holds only thresholds fixed before testing, not firmware placeholders or forecasts', () => {
+    expect(DESIGN_TARGETS.map((target) => target.id)).not.toContain('gate_hold');
+    for (const target of DESIGN_TARGETS) {
+      expect(target.target).not.toMatch(/placeholder|expected to settle/i);
+    }
+  });
+
+  it('says that this app’s calibration routine takes longer than the 30-second target', () => {
+    const calibration = DESIGN_TARGETS.find((target) => target.id === 'calibration_time');
+    expect(calibration?.target).toBe(
+      'About 30 seconds per user. This app’s practice routine asks for 24 taps and takes longer than the target.',
+    );
+  });
+});

@@ -93,7 +93,7 @@ describe('HistoryPage data', () => {
 
       expect(await polite().findByText('Removed 3 sample records.')).toBeInTheDocument();
       expect(screen.getByRole('heading', { level: 2, name: 'No activity yet' })).toBeInTheDocument();
-      expect(screen.getByRole('heading', { level: 1, name: 'Activity' })).toHaveFocus();
+      expect(screen.getByRole('heading', { level: 1, name: 'History' })).toHaveFocus();
       expect(storage.get(STORAGE_KEYS.history)).toEqual([]);
     });
 
@@ -169,7 +169,7 @@ describe('HistoryPage data', () => {
       expect(await polite().findByText('Activity cleared.')).toBeInTheDocument();
       expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
       expect(screen.getByRole('heading', { level: 2, name: 'No activity yet' })).toBeInTheDocument();
-      expect(screen.getByRole('heading', { level: 1, name: 'Activity' })).toHaveFocus();
+      expect(screen.getByRole('heading', { level: 1, name: 'History' })).toHaveFocus();
       expect(storage.get(STORAGE_KEYS.history)).toBeNull();
     });
 

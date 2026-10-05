@@ -1,10 +1,12 @@
 import { useEffect, useId, useRef, useState, type FormEvent } from 'react';
 import { useLocation, useNavigate } from 'react-router';
 import { ROUTES } from '@/app/routes';
-import { isSignedOutLocationState, safeNextPath } from '@/app/routing/redirects';
+import { isDataDeletedLocationState, isSignedOutLocationState, safeNextPath } from '@/app/routing/redirects';
 import { Button, Callout, PageHeader, TextField } from '@/components';
+import { NEW_PROFILE_SETUP_PATCH } from '@/features/onboarding/onboardingFlow';
 import { usePageTitle } from '@/lib/usePageTitle';
 import { useAuth } from '@/services/auth/AuthProvider';
+import { usePreferences } from '@/services/preferences/PreferencesProvider';
 import { toAuthError } from '@/services/auth/validation';
 import { useFeedback } from '@/services/feedback/FeedbackProvider';
 import { AuthLayout } from './AuthLayout';
@@ -22,12 +24,21 @@ import { useFocusRequest } from './useFocusRequest';
 
 type Pending = 'sign-in' | 'guest' | null;
 
-/** Confirmation after signing out, deleting a profile or deleting all local data (all arrive with `{ signedOut: true }`). */
+/** Confirmation after signing out or deleting a profile (both arrive with `{ signedOut: true }`). */
 export const SIGNED_OUT_MESSAGE = 'You have signed out.';
+
+/**
+ * Confirmation after Settings → "Delete all local data", which arrives with
+ * `{ signedOut: true, dataDeleted: true }`. The deletion is the permanent part,
+ * so it is named first and in its own words: this never reads like an ordinary
+ * sign-out.
+ */
+export const DATA_DELETED_MESSAGE = 'All Tactiq data in this browser was deleted, and you have signed out.';
 
 export default function SignInPage() {
   usePageTitle('Sign in');
   const { mode, user, signIn, continueAsGuest } = useAuth();
+  const { update: updatePreferences } = usePreferences();
   const { announce } = useFeedback();
   const navigate = useNavigate();
   const location = useLocation();
@@ -39,7 +50,7 @@ export default function SignInPage() {
   const [errors, setErrors] = useState<FieldErrors<SignInField>>({});
   const [formError, setFormError] = useState<string | null>(null);
   const [pending, setPending] = useState<Pending>(null);
-  const [signedOut, setSignedOut] = useState(false);
+  const [signedOutMessage, setSignedOutMessage] = useState<string | null>(null);
 
   const emailRef = useRef<HTMLInputElement>(null);
   const passwordRef = useRef<HTMLInputElement>(null);
@@ -54,7 +65,7 @@ export default function SignInPage() {
   const { pathname, search, hash, state: locationState } = location;
   useEffect(() => {
     if (!isSignedOutLocationState(locationState)) return;
-    setSignedOut(true);
+    setSignedOutMessage(isDataDeletedLocationState(locationState) ? DATA_DELETED_MESSAGE : SIGNED_OUT_MESSAGE);
     navigate({ pathname, search, hash }, { replace: true, state: null });
   }, [locationState, pathname, search, hash, navigate]);
 
@@ -82,7 +93,7 @@ export default function SignInPage() {
     const found = validateSignIn({ email, password }, mode);
     setErrors(found);
     setFormError(null);
-    setSignedOut(false);
+    setSignedOutMessage(null);
     const firstInvalid = firstInvalidField(SIGN_IN_FIELDS, found);
     if (firstInvalid) {
       requestFocus(fieldRefs[firstInvalid]);
@@ -101,10 +112,14 @@ export default function SignInPage() {
     if (pending) return;
     setErrors({});
     setFormError(null);
-    setSignedOut(false);
+    setSignedOutMessage(null);
     setPending('guest');
     try {
-      await continueAsGuest();
+      // Preferences belong to the browser, not the profile, so a guest profile
+      // created after someone else finished setup would otherwise inherit their
+      // "setup done" and never see onboarding. A returning guest keeps theirs.
+      const { created } = await continueAsGuest();
+      if (created) updatePreferences(NEW_PROFILE_SETUP_PATCH);
       finish('Signed in as a guest.');
     } catch (error) {
       fail(error);
@@ -126,7 +141,7 @@ export default function SignInPage() {
         }
       />
 
-      <FormMessage tone="success" message={signedOut ? SIGNED_OUT_MESSAGE : null} className="mb-6" />
+      <FormMessage tone="success" message={signedOutMessage} className="mb-6" />
 
       {user && (
         <Callout kind="info" className="mb-6">

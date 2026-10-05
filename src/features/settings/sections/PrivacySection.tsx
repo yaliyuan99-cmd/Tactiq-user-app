@@ -23,7 +23,7 @@ function storedItems(supabase: boolean): readonly StoredItem[] {
       name: 'Profile',
       detail: supabase
         ? 'Your name and email are held by the account service that handles sign-in.'
-        : 'Your display name and email. Demo Mode keeps no password.',
+        : 'Your display name and email. A local profile keeps no password.',
     },
     { name: 'Calibration', detail: 'Your most recent calibration run.' },
     { name: 'Lessons', detail: 'Progress and scores for each lesson.' },
@@ -61,7 +61,13 @@ export function PrivacySection() {
         <p className="max-w-prose font-medium">
           {supabase
             ? 'Apart from your sign-in and profile, all of this stays in this browser on this device.'
-            : 'All of this stays in this browser on this device. In Demo Mode nothing is sent anywhere.'}
+            : 'All of this stays in this browser on this device. Your profile, settings and activity are never sent to a server.'}
+        </p>
+        {/* "Nothing is sent anywhere" would overstate it: the fonts are fetched
+            from Google Fonts, which Help > Privacy also says. */}
+        <p className="max-w-prose text-sm text-muted-foreground">
+          The app’s fonts are loaded from Google Fonts, which receives an ordinary web request. Tactiq has no analytics
+          or tracking.
         </p>
       </div>
 

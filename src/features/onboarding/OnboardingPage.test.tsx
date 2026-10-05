@@ -1,13 +1,57 @@
 import { ONBOARDING_LAST_STEP } from '@/domain/onboarding';
+import { PREFERENCES_UNREADABLE_NOTE } from '@/services/preferences/PreferencesProvider';
+import { MemoryStorageAdapter, STORAGE_KEYS, WRITES_BLOCKED_NOTE } from '@/services/storage/StorageAdapter';
 import { screen, waitFor, within } from '@/test/renderApp';
 import { LESSON_DONE, WELCOME_HONESTY } from './onboardingCopy';
 import { currentPathname, politeRegion, renderOnboarding, storedPreferences, tabTo } from './testing/renderOnboarding';
+
+/** Keeps something under the preferences key that cannot be read back. */
+class UnreadablePreferences extends MemoryStorageAdapter {
+  override get<T>(key: string): T | null {
+    if (key === STORAGE_KEYS.preferences) return null;
+    return super.get<T>(key);
+  }
+  override has(key: string): boolean {
+    return key === STORAGE_KEYS.preferences ? true : super.has(key);
+  }
+}
+
+/** Refuses every write, as private browsing or a full quota does. */
+class NoWrites extends MemoryStorageAdapter {
+  override set<T>(_key: string, _value: T): boolean {
+    return false;
+  }
+  override get canPersist(): boolean {
+    return false;
+  }
+}
 
 vi.mock('@/features/train/LessonRunner', () => import('./testing/MockLessonRunner'));
 
 function heading() {
   return screen.getByRole('heading', { level: 1 });
 }
+
+describe('OnboardingPage: storage problems', () => {
+  it('says the saved setup could not be read, instead of letting setup look untouched', async () => {
+    await renderOnboarding({ storage: new UnreadablePreferences() });
+
+    expect(screen.getByText('Your saved setup could not be read')).toBeInTheDocument();
+    expect(screen.getByText(PREFERENCES_UNREADABLE_NOTE)).toBeInTheDocument();
+    expect(heading()).toHaveTextContent('Welcome');
+  });
+
+  it('says nothing about storage on an ordinary first run', async () => {
+    await renderOnboarding();
+    expect(screen.queryByText('Your saved setup could not be read')).not.toBeInTheDocument();
+    expect(screen.queryByText(WRITES_BLOCKED_NOTE)).not.toBeInTheDocument();
+  });
+
+  it('warns that nothing is being saved, because setup is outside the app shell', async () => {
+    await renderOnboarding({ storage: new NoWrites() });
+    expect(screen.getByText(WRITES_BLOCKED_NOTE)).toBeInTheDocument();
+  });
+});
 
 describe('OnboardingPage: frame and first step', () => {
   it('starts a new user at step 1 with its own frame, progress and the honesty line', async () => {
@@ -98,9 +142,14 @@ describe('OnboardingPage: resuming and leaving', () => {
     expect(screen.getByRole('button', { name: 'Back' })).toBeInTheDocument();
   });
 
-  it('never resumes beyond the last step', async () => {
-    await renderOnboarding({ preferences: { onboardingStep: 42, onboardingCompleted: true } });
+  it('resumes at the last step and stops there', async () => {
+    // Out-of-range stored values are replaced before they reach the flow
+    // (readStoredPreferences), and initialStepIndex clamps what is left —
+    // see onboardingFlow.test.ts. Here the furthest real step opens "All set".
+    await renderOnboarding({ preferences: { onboardingStep: ONBOARDING_LAST_STEP, onboardingCompleted: true } });
     expect(heading()).toHaveTextContent('All set');
+    expect(screen.getByRole('button', { name: 'Go to the dashboard' })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Skip setup' })).not.toBeInTheDocument();
   });
 
   it('Skip setup asks first, then marks setup left, keeps the step and goes to the dashboard', async () => {

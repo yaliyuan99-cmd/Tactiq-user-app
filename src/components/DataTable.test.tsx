@@ -38,6 +38,38 @@ describe('DataTable', () => {
     expect(cell.className).toContain('text-right');
   });
 
+  it('leaves the stacked mobile label to CSS, so it is in no cell name or cell text', () => {
+    render(
+      <DataTable
+        caption="Attempts per command (simulated)"
+        columns={columns}
+        rows={[{ command: 'Confirm', attempts: 12 }]}
+        rowKey={(row) => row.command}
+        emptyMessage="No attempts yet."
+      />,
+    );
+    const table = screen.getByRole('table', { name: 'Attempts per command (simulated)' });
+    // The label beside each value below sm is drawn by .stacked-label in theme.css from
+    // data-label, with empty alt text. In the markup it is nowhere: not in the accessible
+    // name (a plain ::before read as "Status, Status Fixed") and not in the cell's text
+    // (a real span would make a cell's text the column label plus the value).
+    const rowHeader = within(table).getByRole('rowheader', { name: 'Confirm' });
+    expect(rowHeader).toHaveAccessibleName('Confirm');
+    expect(rowHeader.textContent).toBe('Confirm');
+    expect(rowHeader).toHaveAttribute('data-label', 'Command');
+    expect(rowHeader).toHaveClass('stacked-label');
+    const cell = within(table).getByRole('cell', { name: '12' });
+    expect(cell).toHaveAccessibleName('12');
+    expect(cell.textContent).toBe('12');
+    expect(cell.children).toHaveLength(0);
+    // A long unbreakable value wraps instead of widening the page (320px + Larger text).
+    expect(cell.className).toContain('max-sm:min-w-0');
+    expect(cell.className).toContain('max-sm:[overflow-wrap:anywhere]');
+    expect(within(table).getByText('Attempts per command (simulated)').className).toContain(
+      'max-sm:[overflow-wrap:anywhere]',
+    );
+  });
+
   it('shows the empty message in a full-width cell', () => {
     render(
       <DataTable caption="History" columns={columns} rows={[]} rowKey={(row) => row.command} emptyMessage="No attempts yet." />,

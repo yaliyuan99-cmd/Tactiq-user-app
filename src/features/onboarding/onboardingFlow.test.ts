@@ -85,6 +85,7 @@ describe('step controls', () => {
       showSkip: false,
       continueLabel: 'Continue',
       continueAction: 'next',
+      continueVariant: 'primary',
       showSkipSetup: true,
     });
   });
@@ -112,8 +113,15 @@ describe('step controls', () => {
       showSkip: false,
       continueLabel: 'Go to the dashboard',
       continueAction: 'finish',
+      continueVariant: 'primary',
       showSkipSetup: false,
     });
+  });
+
+  it('demotes Continue on the first-lesson step, whose lesson owns the filled button', () => {
+    expect(stepControls(stepIndexOf('first_lesson')).continueVariant).toBe('secondary');
+    expect(stepControls(stepIndexOf('welcome')).continueVariant).toBe('primary');
+    expect(stepControls(stepIndexOf('calibration')).continueVariant).toBe('primary');
   });
 });
 
@@ -122,6 +130,19 @@ describe('timing and sentences', () => {
     expect(commandWindowSeconds(false)).toBe(3);
     expect(commandWindowSeconds(true)).toBe(6);
     expect(longerTimeAnnouncement(true)).toBe('Longer interaction time on. The command window stays open for 6 seconds.');
+    expect(longerTimeAnnouncement(false)).toBe('Longer interaction time off. The command window stays open for 3 seconds.');
+  });
+
+  it('keeps the bench ring on its own window, whatever the preference says', () => {
+    expect(commandWindowSeconds(true, 'hardware')).toBe(3);
+    expect(commandWindowSeconds(false, 'hardware')).toBe(3);
+    expect(commandWindowSeconds(true, 'demo')).toBe(6);
+    expect(longerTimeAnnouncement(true, 'hardware')).toBe(
+      'Longer interaction time on. It applies to Demo Mode, so the Bluetooth bench ring keeps its own 3-second window.',
+    );
+    expect(longerTimeAnnouncement(false, 'hardware')).toBe(
+      'Longer interaction time off. The command window stays open for 3 seconds.',
+    );
   });
 
   it('adds a full stop only where needed', () => {
@@ -151,10 +172,24 @@ describe('summary', () => {
     ]);
   });
 
-  it('describes a Bluetooth ring by its status', () => {
+  it('describes a Bluetooth ring by its status and keeps its three-second window', () => {
     const items = summariseChoices({ ...base, deviceMode: 'hardware', deviceStatusLabel: 'Searching…', longerInteractionTime: true });
     expect(items.find((item) => item.id === 'ring')?.value).toBe('Bluetooth ring — Searching');
+    expect(items.find((item) => item.id === 'longer_time')?.value).toBe(
+      'On — it applies to Demo Mode, so the Bluetooth bench ring keeps its own 3-second window',
+    );
+  });
+
+  it('gives the simulated ring the six-second window it really has', () => {
+    const items = summariseChoices({ ...base, longerInteractionTime: true });
     expect(items.find((item) => item.id === 'longer_time')?.value).toBe('On — the command window stays open for 6 seconds');
+  });
+
+  it('says three seconds for either ring when longer interaction time is off', () => {
+    const hardware = summariseChoices({ ...base, deviceMode: 'hardware', deviceStatusLabel: 'Disconnected' });
+    expect(hardware.find((item) => item.id === 'longer_time')?.value).toBe(
+      'Off — the command window stays open for 3 seconds',
+    );
   });
 
   it('reads as one line of text', () => {

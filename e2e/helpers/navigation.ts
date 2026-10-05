@@ -27,7 +27,7 @@ export const PRIMARY_NAV: readonly NavDestination[] = [
 export const SECONDARY_NAV: readonly NavDestination[] = [
   { label: 'Connect', path: '/dashboard/connect', title: 'Connect your ring' },
   { label: 'Calibrate', path: '/dashboard/calibrate', title: 'Calibrate' },
-  { label: 'History', path: '/dashboard/history', title: 'Activity' },
+  { label: 'History', path: '/dashboard/history', title: 'History' },
   { label: 'Help', path: '/dashboard/help', title: 'Help' },
 ];
 
@@ -130,4 +130,23 @@ export async function findFocusHiddenBehind(
     if (result) hidden.push(result);
   }
   return hidden;
+}
+
+/**
+ * Writes the browser's guest profile without a session, so "Continue as a
+ * guest" reopens it rather than creating one. A returning guest keeps whatever
+ * setup progress is stored; a first-time guest starts setup.
+ */
+export async function seedGuestProfile(page: Page): Promise<void> {
+  await page.addInitScript(() => {
+    // Only on the very first load of this test, so reloads keep what the app saved.
+    if (window.sessionStorage.getItem('e2e.guestSeeded')) return;
+    window.sessionStorage.setItem('e2e.guestSeeded', '1');
+    window.localStorage.setItem(
+      'tactiq.auth.accounts',
+      JSON.stringify([
+        { id: 'user_guest_e2e', email: 'guest@demo.local', displayName: 'Guest', createdAt: '2026-09-01T09:00:00.000Z' },
+      ]),
+    );
+  });
 }

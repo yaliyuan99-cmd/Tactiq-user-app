@@ -13,9 +13,12 @@ import { useContactPress } from './useContactPress';
  * Maximum figure widths. The closest contact points (ring and pinky finger
  * bases) are about 37 of the drawing's 300 units apart, so 44px interactive
  * points only stay clear of each other when the figure is at least about 358px
- * wide (md and lg at full width). Narrower containers shrink the figure;
- * ContactList is the alternative when that happens. Decorative points scale
- * with the figure instead, so they never overlap (see DECORATIVE_POINT_SIZE).
+ * wide (md and lg at full width; sm is narrower than that, so it is for
+ * display-only maps). Narrower containers shrink the figure, and a caller that
+ * cannot give the drawing 358px shows ContactList instead — PracticeSurface
+ * measures its column and does exactly that. HandMap.test.tsx pins the 358px.
+ * Decorative points scale with the figure instead, so they never overlap (see
+ * DECORATIVE_POINT_SIZE).
  */
 const SIZES: Record<NonNullable<HandMapProps['size']>, string> = {
   sm: 'max-w-[340px]',

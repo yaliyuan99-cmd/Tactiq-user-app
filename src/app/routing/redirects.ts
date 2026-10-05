@@ -60,6 +60,11 @@ export function safeNextPath(search: string, fallback: string = ROUTES.dashboard
     return fallback;
   }
   if (url.origin !== SAFE_BASE) return fallback;
+  // The parser resolves dot segments and turns backslashes into slashes, so a
+  // path that began with a single slash ("/.//evil.example", "/..//evil.example")
+  // can still come back as "//evil.example" — a protocol-relative host wherever
+  // the result is used as a URL. Judge the normalised path, not only the input.
+  if (url.pathname.startsWith('//')) return fallback;
   if (AUTH_ONLY_PATHS.includes(normalisePathname(url.pathname))) return fallback;
   return `${url.pathname}${url.search}${url.hash}`;
 }
@@ -73,8 +78,17 @@ export function isOnboardingExempt(pathname: string): boolean {
 /** Router state passed to the sign-in screen after a deliberate sign-out. */
 export interface SignedOutLocationState {
   readonly signedOut: true;
+  /** Set when "Delete all local data" cleared this browser before signing out. */
+  readonly dataDeleted?: true;
 }
 
 export function isSignedOutLocationState(state: unknown): state is SignedOutLocationState {
   return typeof state === 'object' && state !== null && (state as { signedOut?: unknown }).signedOut === true;
+}
+
+/** True when that sign-out also deleted every Tactiq value in this browser, so sign-in can confirm the deletion. */
+export function isDataDeletedLocationState(
+  state: unknown,
+): state is SignedOutLocationState & { readonly dataDeleted: true } {
+  return isSignedOutLocationState(state) && (state as { dataDeleted?: unknown }).dataDeleted === true;
 }

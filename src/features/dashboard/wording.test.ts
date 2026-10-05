@@ -132,6 +132,23 @@ describe('activity wording', () => {
     );
   });
 
+  it('describes a calibration tap by its point, never as a command that fired', () => {
+    const tap = (patch: Parameters<typeof makeGestureEvent>[0]) =>
+      describeActivity(makeGestureEvent({ source: 'calibration', mode: 'calibration', ...patch }));
+
+    // Calibration prompts a contact point, so "Shortcut 2 recognised" would
+    // imply a shortcut ran.
+    expect(tap({ targetContact: 'pinky_base', detectedContact: 'pinky_base', token: 'quick_action_2' })).toBe(
+      'Pinky finger base tap accepted',
+    );
+    expect(
+      tap({ outcome: 'mismatch', targetContact: 'ring_base', detectedContact: 'ring_tip', token: 'read' }),
+    ).toBe('Asked for ring finger base, detected ring fingertip');
+    expect(tap({ outcome: 'window_closed', token: null, targetContact: 'index_tip', detectedContact: null })).toBe(
+      'Index fingertip: the command window had closed',
+    );
+  });
+
   it('always carries the simulation notice for a completed emergency hold', () => {
     const text = describeActivity(makeGestureEvent({ outcome: 'emergency', token: 'emergency', targetContact: 'pinky_tip' }));
     expect(text).toContain(EMERGENCY_SIMULATION_NOTICE);
@@ -164,7 +181,7 @@ describe('commandRows', () => {
       'Middle finger base → Next',
       'Ring fingertip → Read / Repeat',
       'Ring finger base → Previous',
-      'Pinky fingertip, brief tap → Shortcut 1: Toggle the flashlight',
+      'Pinky fingertip, brief tap → Shortcut 1: Turn the torch on or off',
       'Pinky finger base → Shortcut 2 (nothing assigned)',
       'Pinky fingertip, held 5 seconds → Emergency',
     ]);

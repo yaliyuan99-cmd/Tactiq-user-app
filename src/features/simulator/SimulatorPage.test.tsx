@@ -36,7 +36,7 @@ describe('Simulator page, guided practice', () => {
     expect(screen.getByRole('heading', { level: 1, name: 'Simulator' })).toBeInTheDocument();
     expect(document.title).toBe('Simulator · Tactiq');
     expect(
-      screen.getByText('Practise the nine commands with a simulated ring. Squeeze to open the command window, then tap a point.'),
+      screen.getByText('Practise the nine commands. Squeeze to open the command window, then tap a point.'),
     ).toBeInTheDocument();
     expect(screen.getAllByText('Simulated').length).toBeGreaterThan(0);
 
@@ -61,9 +61,9 @@ describe('Simulator page, guided practice', () => {
     await user.click(screen.getByRole('button', { name: 'Index fingertip, Confirm, target' }));
 
     await waitFor(() =>
-      expect(politeRegion()).toHaveTextContent('Correct: Confirm. New target: Dismiss / Back, index finger base.'),
+      expect(politeRegion()).toHaveTextContent('Correct: Confirm. New target: Dismiss or Back, index finger base.'),
     );
-    expect(speech.messages().at(-1)).toBe('Correct: Confirm. New target: Dismiss / Back, index finger base.');
+    expect(speech.messages().at(-1)).toBe('Correct: Confirm. New target: Dismiss or Back, index finger base.');
     expect(history()).toHaveLength(1);
     expect(history()[0]).toMatchObject({
       source: 'simulator',
@@ -100,13 +100,13 @@ describe('Simulator page, guided practice', () => {
     const { user, history } = await renderSimulator({ random: FIRST_CANDIDATE });
     await squeeze(user);
     await user.click(screen.getByRole('button', { name: 'Index fingertip, Confirm, target' }));
-    await waitFor(() => expect(politeRegion()).toHaveTextContent('New target: Dismiss / Back, index finger base.'));
+    await waitFor(() => expect(politeRegion()).toHaveTextContent('New target: Dismiss or Back, index finger base.'));
 
     expect(screen.queryByRole('button', { name: /, target$/ })).not.toBeInTheDocument();
     await user.click(screen.getByRole('button', { name: 'Index finger base, Dismiss / Back' }));
 
     await waitFor(() =>
-      expect(politeRegion()).toHaveTextContent('Correct: Dismiss / Back. New target: Confirm, index fingertip.'),
+      expect(politeRegion()).toHaveTextContent('Correct: Dismiss or Back. New target: Confirm, index fingertip.'),
     );
     expect(history()[0]).toMatchObject({ targetContact: 'index_base', targetToken: 'back', outcome: 'recognised' });
     expect(within(targetCard()).getByText('This session: 2 of 2 correct')).toBeInTheDocument();
@@ -156,7 +156,7 @@ describe('Simulator page, guided practice', () => {
     expect(speech.messages().at(-1)).toBe('Your target: Confirm, index fingertip.');
 
     await user.click(screen.getByRole('button', { name: 'Skip' }));
-    await waitFor(() => expect(politeRegion()).toHaveTextContent('New target: Dismiss / Back, index finger base.'));
+    await waitFor(() => expect(politeRegion()).toHaveTextContent('New target: Dismiss or Back, index finger base.'));
     expect(within(targetCard()).getByText('Dismiss / Back — index finger base')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Index finger base, Dismiss / Back, target' })).toBeInTheDocument();
   });

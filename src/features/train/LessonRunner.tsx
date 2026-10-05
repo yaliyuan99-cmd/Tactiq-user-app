@@ -59,7 +59,13 @@ export function LessonRunner({ lessonId, onComplete, onExit, embedded = false, h
       )}
 
       {state.phase === 'intro' && (
-        <LessonIntro lesson={lesson} progress={progress} headingLevel={sectionLevel} onStart={run.start} />
+        <LessonIntro
+          lesson={lesson}
+          progress={progress}
+          headingLevel={sectionLevel}
+          onStart={run.start}
+          showSettingsLink={!embedded}
+        />
       )}
       {state.phase === 'practice' && <LessonPractice run={run} headingLevel={sectionLevel} onExit={onExit} />}
       {state.phase === 'summary' && (

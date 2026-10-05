@@ -9,7 +9,20 @@ import { GESTURE_EVENT_SOURCES } from '@/services/history/events';
 import type { HistoryFilter } from '@/services/history/types';
 
 export type CommandFilter = CommandToken | 'all';
-export type SourceFilter = GestureEventSource | 'all';
+
+/**
+ * The sources a user can filter by. 'device' is deliberately absent: nothing in
+ * the app records a gesture with source 'device' — a connected bench ring's
+ * taps are recorded by the screen the user is on (simulator, lessons or
+ * calibration) and marked Measured — so a "Ring" option could only ever come
+ * back empty. Filter by the Measured label in Recent attempts instead.
+ */
+export const FILTERABLE_SOURCES = GESTURE_EVENT_SOURCES.filter(
+  (source): source is Exclude<GestureEventSource, 'device'> => source !== 'device',
+);
+
+export type FilterableSource = (typeof FILTERABLE_SOURCES)[number];
+export type SourceFilter = FilterableSource | 'all';
 
 export interface HistoryFilterState {
   readonly range: HistoryRange;
@@ -46,7 +59,7 @@ const SOURCE_LABELS: Readonly<Record<GestureEventSource, string>> = {
 
 export const SOURCE_OPTIONS: readonly FilterOption<SourceFilter>[] = [
   { value: 'all', label: 'All sources' },
-  ...GESTURE_EVENT_SOURCES.map((source) => ({ value: source, label: SOURCE_LABELS[source] })),
+  ...FILTERABLE_SOURCES.map((source) => ({ value: source, label: SOURCE_LABELS[source] })),
 ];
 
 export function sourceLabel(source: GestureEventSource): string {
@@ -66,7 +79,7 @@ export function isCommandFilter(value: unknown): value is CommandFilter {
 }
 
 export function isSourceFilter(value: unknown): value is SourceFilter {
-  return value === 'all' || (typeof value === 'string' && (GESTURE_EVENT_SOURCES as readonly string[]).includes(value));
+  return value === 'all' || (typeof value === 'string' && (FILTERABLE_SOURCES as readonly string[]).includes(value));
 }
 
 export function parseHistoryParams(params: URLSearchParams): HistoryFilterState {

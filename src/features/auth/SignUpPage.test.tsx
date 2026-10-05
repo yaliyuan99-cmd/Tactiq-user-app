@@ -1,9 +1,11 @@
+import { ONBOARDING_LAST_STEP } from '@/domain/onboarding';
 import { renderApp, screen, TEST_USER, userEvent, waitFor } from '@/test/renderApp';
 import { DEMO_MESSAGES, type LocalAccountRecord } from '@/services/auth/LocalDemoAuthService';
 import { SUPABASE_MESSAGES } from '@/services/auth/supabaseErrors';
 import { AuthError } from '@/services/auth/types';
 import { MESSAGES } from '@/services/auth/validation';
 import { MemoryStorageAdapter, STORAGE_KEYS } from '@/services/storage/StorageAdapter';
+import type { UserPreferences } from '@/domain/models';
 import { createFakeSupabaseAuth, renderWithAuthService } from './authTestUtils';
 import { AuthTestRoutes } from './AuthTestRoutes';
 import { FORM_MESSAGES } from './formValidation';
@@ -37,6 +39,28 @@ describe('SignUpPage in Demo Mode', () => {
     const accounts = storage.get<LocalAccountRecord[]>(STORAGE_KEYS.authAccounts) ?? [];
     expect(accounts).toEqual([expect.objectContaining({ email: 'sam@example.com', displayName: 'Sam' })]);
     await waitFor(() => expect(screen.getByTestId('live-region-polite')).toHaveTextContent('Profile created.'));
+  });
+
+  it('starts setup again for a new profile, even after someone else finished it', async () => {
+    const user = userEvent.setup();
+    const storage = new MemoryStorageAdapter();
+    // Preferences live once per browser, so the previous person's finished setup is what this profile would inherit.
+    renderApp(<AuthTestRoutes />, {
+      route: '/sign-up',
+      signedIn: false,
+      storage,
+      preferences: { onboardingCompleted: true, onboardingStep: ONBOARDING_LAST_STEP },
+    });
+
+    await user.type(nameField(), 'Alex Morgan');
+    await user.type(emailField(), 'alex.morgan@example.com');
+    await user.click(screen.getByRole('button', { name: 'Create profile' }));
+
+    expect(await screen.findByText('Landed at /onboarding')).toBeInTheDocument();
+    expect(storage.get<UserPreferences>(STORAGE_KEYS.preferences)).toMatchObject({
+      onboardingCompleted: false,
+      onboardingStep: 0,
+    });
   });
 
   it('focuses the first invalid field', async () => {

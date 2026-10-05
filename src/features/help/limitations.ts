@@ -27,7 +27,8 @@ export const LIMITATIONS: readonly Limitation[] = [
   {
     id: 'bench-firmware',
     title: 'The bench firmware has never run on a finished ring.',
-    detail: 'The firmware for the bench prototype has compiled, but no wearable ring exists to run it on.',
+    detail:
+      'The firmware runs on an unvalidated bench prototype, which this app can connect to over Bluetooth. No wearable ring exists to run it on.',
   },
   {
     id: 'not-validated',
@@ -37,9 +38,9 @@ export const LIMITATIONS: readonly Limitation[] = [
   },
   {
     id: 'simulated',
-    title: 'Every result in this app is simulated.',
+    title: 'No result in this app shows how a finished ring would perform.',
     detail:
-      'Scores, activity and calibration come from practice with the simulated ring and are labelled Simulated. They show how you practised, not how a ring performs.',
+      'Scores, activity and calibration come either from the simulated ring, labelled Simulated, or from an unvalidated bench prototype, labelled Measured. Both show how you practised on what exists today, not how a finished ring performs.',
     evidence: 'simulated',
   },
   {

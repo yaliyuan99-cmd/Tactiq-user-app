@@ -179,9 +179,10 @@ describe('AuthProvider', () => {
     expect(result.current.service).toBe(service);
 
     const guest = await act(() => result.current.continueAsGuest());
-    expect(result.current.user).toEqual(guest);
+    expect(result.current.user).toEqual(guest.user);
+    expect(guest.created).toBe(true);
 
-    const reset = await act(() => result.current.requestPasswordReset(guest.email));
+    const reset = await act(() => result.current.requestPasswordReset(guest.user.email));
     expect(reset.delivered).toBe(false);
     const resetError = await act(() => result.current.completePasswordReset('x').then(() => null, (e: unknown) => e));
     expect(resetError).toMatchObject({ code: 'unavailable' });

@@ -1,7 +1,15 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from 'react';
 import { LocalStorageAdapter, type StorageAdapter } from '@/services/storage/StorageAdapter';
 import { createAuthService } from './createAuthService';
-import type { AuthMode, AuthService, AuthUser, PasswordResetRequestResult, SignInInput, SignUpInput } from './types';
+import type {
+  AuthMode,
+  AuthService,
+  AuthUser,
+  GuestResult,
+  PasswordResetRequestResult,
+  SignInInput,
+  SignUpInput,
+} from './types';
 import { toAuthError } from './validation';
 
 export interface AuthContextValue {
@@ -13,7 +21,7 @@ export interface AuthContextValue {
   readonly signIn: (input: SignInInput) => Promise<AuthUser>;
   readonly signUp: (input: SignUpInput) => Promise<AuthUser>;
   readonly signOut: () => Promise<void>;
-  readonly continueAsGuest: () => Promise<AuthUser>;
+  readonly continueAsGuest: () => Promise<GuestResult>;
   readonly requestPasswordReset: (email: string) => Promise<PasswordResetRequestResult>;
   readonly completePasswordReset: (newPassword: string) => Promise<void>;
   readonly updateProfile: (patch: { displayName?: string }) => Promise<AuthUser>;
@@ -108,9 +116,9 @@ export function AuthProvider({ service: injected, storage, children }: AuthProvi
   const continueAsGuest = useCallback(
     () =>
       run(async () => {
-        const next = await service.continueAsGuest();
-        setUser(next);
-        return next;
+        const result = await service.continueAsGuest();
+        setUser(result.user);
+        return result;
       }),
     [service],
   );

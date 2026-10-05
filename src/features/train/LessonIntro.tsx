@@ -6,6 +6,7 @@ import { Button, EvidenceLabel } from '@/components';
 import type { Lesson } from '@/domain/lessons';
 import type { LessonProgress } from '@/domain/models';
 import { COMMAND_WINDOW_LONG_MS } from '@/domain/timing';
+import { windowSeconds } from '@/features/practice';
 import { formatPercent } from '@/lib/time';
 import { useDevice } from '@/services/device/DeviceProvider';
 import { usePreferences } from '@/services/preferences/PreferencesProvider';
@@ -18,10 +19,13 @@ export interface LessonIntroProps {
   readonly progress: LessonProgress;
   readonly headingLevel: HeadingLevel;
   readonly onStart: () => void;
-}
-
-function seconds(ms: number): number {
-  return Math.round(ms / 100) / 10;
+  /**
+   * Whether to link to Settings for Longer interaction time. False inside
+   * onboarding, where Settings is behind the setup gate: following the link
+   * would bounce straight back to setup. The sentence still states the window,
+   * it just does not offer a way out of the step.
+   */
+  readonly showSettingsLink?: boolean;
 }
 
 function ProgressNote({ progress }: { progress: LessonProgress }) {
@@ -39,13 +43,18 @@ function ProgressNote({ progress }: { progress: LessonProgress }) {
   return null;
 }
 
-/** What the lesson covers, how many steps it has, the time limit and how to extend it, then "Start lesson". */
-export function LessonIntro({ lesson, progress, headingLevel, onStart }: LessonIntroProps) {
+/**
+ * What the lesson covers, how many steps it has, the time limit and how to
+ * extend it, then "Start lesson". The stated window is always the one the
+ * active device uses; Longer interaction time only applies in Demo Mode,
+ * because the bench firmware's window is fixed.
+ */
+export function LessonIntro({ lesson, progress, headingLevel, onStart, showSettingsLink = true }: LessonIntroProps) {
   const headingId = useId();
   const { preferences } = usePreferences();
   const { state } = useDevice();
   const teaches = teachesPhrase(lesson);
-  const windowSeconds = seconds(state.commandWindowMs);
+  const openFor = windowSeconds(state.commandWindowMs);
 
   return (
     <section aria-labelledby={headingId} className="grid max-w-3xl gap-6">
@@ -71,25 +80,51 @@ export function LessonIntro({ lesson, progress, headingLevel, onStart }: LessonI
             <dd className="font-semibold tabular-nums">{lesson.steps.length}</dd>
           </div>
         </dl>
-        <p className="text-muted-foreground">
-          Each squeeze opens the command window for {windowSeconds} seconds.{' '}
-          {preferences.longerInteractionTime ? (
-            <>
-              Longer interaction time is on.{' '}
-              <Link to={ROUTES.settings} className="font-medium text-primary-strong underline">
-                Change it in Settings
-              </Link>
-            </>
-          ) : (
-            <>
-              Need more time?{' '}
-              <Link to={ROUTES.settings} className="font-medium text-primary-strong underline">
-                Turn on Longer interaction time in Settings
-              </Link>{' '}
-              for {seconds(COMMAND_WINDOW_LONG_MS)} seconds.
-            </>
-          )}
-        </p>
+        {state.mode === 'demo' ? (
+          <p className="text-muted-foreground">
+            Each squeeze opens the command window for {openFor} seconds.{' '}
+            {preferences.longerInteractionTime ? (
+              <>
+                Longer interaction time is on.
+                {showSettingsLink && (
+                  <>
+                    {' '}
+                    <Link to={ROUTES.settings} className="font-medium text-primary-strong underline">
+                      Change it in Settings
+                    </Link>
+                  </>
+                )}
+              </>
+            ) : showSettingsLink ? (
+              <>
+                Need more time?{' '}
+                <Link to={ROUTES.settings} className="font-medium text-primary-strong underline">
+                  Turn on Longer interaction time in Settings
+                </Link>{' '}
+                for {windowSeconds(COMMAND_WINDOW_LONG_MS)} seconds.
+              </>
+            ) : (
+              <>
+                Longer interaction time, in Settings, gives {windowSeconds(COMMAND_WINDOW_LONG_MS)} seconds. You can
+                change it once setup is finished.
+              </>
+            )}
+          </p>
+        ) : (
+          <p className="text-muted-foreground">
+            Your bench ring keeps its command window open for {openFor} seconds.{' '}
+            {showSettingsLink ? (
+              <>
+                <Link to={ROUTES.settings} className="font-medium text-primary-strong underline">
+                  Longer interaction time
+                </Link>{' '}
+                only changes practice in Demo Mode.
+              </>
+            ) : (
+              <>Longer interaction time only changes practice in Demo Mode.</>
+            )}
+          </p>
+        )}
         <ProgressNote progress={progress} />
         <div>
           <Button onClick={onStart} leadingIcon={<Play className="h-5 w-5" />}>

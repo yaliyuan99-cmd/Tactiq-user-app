@@ -6,6 +6,7 @@ import { COMMANDS, getCommand, type CommandToken, type ShortcutMapping } from '@
 import { getContact, type ContactKey } from '@/domain/contacts';
 import { EMERGENCY_SIMULATION_NOTICE } from '@/domain/evidence';
 import { describeRingResult, type RingResult } from '@/features/practice/ringResults';
+import type { FeedbackKind } from '@/services/feedback/types';
 
 /** Returns a number in [0, 1), like Math.random. Injectable so tests can choose targets. */
 export type RandomSource = () => number;
@@ -41,8 +42,10 @@ export function contactForTarget(target: CommandToken): ContactKey {
 }
 
 export interface TargetWords {
-  /** "Next" */
+  /** "Next", or the display label "Dismiss / Back" */
   readonly command: string;
+  /** "Next", or "Dismiss or Back": the label as it is read aloud, never with a slash. */
+  readonly spokenCommand: string;
   /** "middle finger base", or "hold the pinky fingertip for five seconds" */
   readonly where: string;
   /** "Next — middle finger base" */
@@ -62,9 +65,10 @@ export function describeTarget(target: CommandToken): TargetWords {
   else if (command.contact === 'pinky_tip') where = `${where}, brief tap`;
   return {
     command: command.label,
+    spokenCommand: command.spokenLabel,
     where,
     visible: `${command.label} — ${where}`,
-    spoken: `${command.label}, ${where}`,
+    spoken: `${command.spokenLabel}, ${where}`,
   };
 }
 
@@ -80,21 +84,20 @@ export function newTargetAnnouncement(target: CommandToken): string {
 
 export type GuidedVerdict = 'correct' | 'wrong' | 'not_recognised';
 
-export interface GuidedAnnouncement {
-  readonly message: string;
-  readonly assertive: boolean;
-}
-
 export interface GuidedEvaluation {
   readonly verdict: GuidedVerdict;
-  /** On-screen feedback in the prompt card. */
+  /** On-screen feedback in the prompt card, with the display labels. */
   readonly visibleMessage: string;
   /**
-   * Said instead of the ring's own words, in the same moment. Null when the
-   * ring's announcement already says everything (a dropped press or a
-   * cancelled hold), so nothing is announced twice.
+   * Said instead of the ring's own words, in the same moment and under the
+   * same feedback kind, so it replaces them rather than following them. Never
+   * contains a slash. Null when the ring's announcement already says
+   * everything (a dropped press or a cancelled hold), so nothing is announced
+   * twice.
    */
-  readonly announcement: GuidedAnnouncement | null;
+  readonly announcement: string | null;
+  /** The ring's own feedback kind for this result; the guided words are sent under it. */
+  readonly feedbackKind: FeedbackKind;
   /** Where the attempt landed when it was not the target, for the map. */
   readonly detectedContact: ContactKey | null;
   /** The Result column of the session log. */
@@ -103,54 +106,53 @@ export interface GuidedEvaluation {
 
 /** What one ring result means for the current target, in words. */
 export function evaluateGuided(target: CommandToken, result: RingResult, mapping: ShortcutMapping): GuidedEvaluation {
-  const tryAgain = `Try again: ${describeTarget(target).spoken}.`;
+  const words = describeTarget(target);
+  const tryAgain = (command: string) => `Try again: ${command}, ${words.where}.`;
+  const description = describeRingResult(result, mapping);
 
   if (result.kind === 'command' || result.kind === 'emergency') {
     const token: CommandToken = result.kind === 'command' ? result.token : 'emergency';
     const command = getCommand(token);
     if (token === target) {
-      const message =
-        token === 'emergency'
-          ? `Correct: Emergency hold complete. ${EMERGENCY_SIMULATION_NOTICE}`
-          : `Correct: ${command.label}.`;
+      const correct = (label: string) =>
+        token === 'emergency' ? `Correct: Emergency hold complete. ${EMERGENCY_SIMULATION_NOTICE}` : `Correct: ${label}.`;
       return {
         verdict: 'correct',
-        visibleMessage: message,
-        announcement: { message, assertive: token === 'emergency' },
+        visibleMessage: correct(command.label),
+        announcement: correct(command.spokenLabel),
+        feedbackKind: description.feedbackKind,
         detectedContact: null,
         logWords: 'Correct',
       };
     }
-    const message =
+    const wrong = (label: string, retryLabel: string) =>
       token === 'emergency'
-        ? `Emergency hold complete. ${EMERGENCY_SIMULATION_NOTICE} That was not the target. ${tryAgain}`
-        : `That was ${command.label}, on the ${place(result.contact)}. ${tryAgain}`;
+        ? `Emergency hold complete. ${EMERGENCY_SIMULATION_NOTICE} That was not the target. ${tryAgain(retryLabel)}`
+        : `That was ${label}, on the ${place(result.contact)}. ${tryAgain(retryLabel)}`;
     return {
       verdict: 'wrong',
-      visibleMessage: message,
-      announcement: { message, assertive: token === 'emergency' },
+      visibleMessage: wrong(command.label, words.command),
+      announcement: wrong(command.spokenLabel, words.spokenCommand),
+      feedbackKind: description.feedbackKind,
       detectedContact: result.contact,
       logWords: `Not the target: ${command.label}`,
     };
   }
 
-  const description = describeRingResult(result, mapping);
   return {
     verdict: 'not_recognised',
-    visibleMessage: `${description.visibleMessage} ${tryAgain}`,
+    visibleMessage: `${description.visibleMessage} ${tryAgain(words.command)}`,
     announcement: null,
+    feedbackKind: description.feedbackKind,
     detectedContact: null,
     logWords: description.shortLabel,
   };
 }
 
 /** The announcement after a correct answer: the verdict, then the next target. */
-export function correctAnnouncement(evaluation: GuidedEvaluation, next: CommandToken): GuidedAnnouncement | null {
+export function correctAnnouncement(evaluation: GuidedEvaluation, next: CommandToken): string | null {
   if (!evaluation.announcement) return null;
-  return {
-    message: `${evaluation.announcement.message} ${newTargetAnnouncement(next)}`,
-    assertive: evaluation.announcement.assertive,
-  };
+  return `${evaluation.announcement} ${newTargetAnnouncement(next)}`;
 }
 
 export interface GuidedScore {

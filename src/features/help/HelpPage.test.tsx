@@ -54,13 +54,44 @@ describe('HelpPage', () => {
     }
   });
 
-  it('moves focus to the chosen section heading from the contents, by keyboard', async () => {
+  it('moves focus to the chosen section heading from the contents, by keyboard, and opens a collapsed section', async () => {
     const user = userEvent.setup();
     await renderHelpPage();
     const nav = screen.getByRole('navigation', { name: 'On this page' });
+    const section = document.getElementById('limitations');
+    expect(section?.querySelector('details')?.open).toBe(false);
+
     within(nav).getByRole('link', { name: 'Project limitations' }).focus();
     await user.keyboard('{Enter}');
     expect(screen.getByRole('heading', { level: 2, name: 'Project limitations' })).toHaveFocus();
+    // A link into a collapsed section has to show its content, not just its heading.
+    expect(section?.querySelector('details')?.open).toBe(true);
+  });
+
+  it('keeps the long reference sections collapsed, each with a way back to the contents', async () => {
+    await renderHelpPage();
+    // The page was about sixteen phone screens of continuous prose; these four
+    // sections are the bulk of it, and Troubleshooting already worked this way.
+    for (const id of ['commands', 'accessibility', 'limitations', 'privacy']) {
+      const details = document.getElementById(id)?.querySelector('details[data-help-disclosure]');
+      expect(details, id).not.toBeNull();
+      expect((details as HTMLDetailsElement).open, id).toBe(false);
+      expect(details?.querySelector('summary h2')?.id).toBe(`${id}-heading`);
+    }
+    // Getting started and Contact stay open.
+    for (const id of ['getting-started', 'contact']) {
+      expect(document.getElementById(id)?.querySelector('details[data-help-disclosure]')).toBeNull();
+    }
+    const backLinks = screen.getAllByRole('link', { name: 'Back to contents' });
+    expect(backLinks).toHaveLength(HELP_SECTION_IDS.length);
+    expect(backLinks[0]).toHaveAttribute('href', helpRoute('help-contents'));
+  });
+
+  it('opens a collapsed section the address hash points at', async () => {
+    await renderHelpPage({ route: helpRoute('privacy') });
+    const details = document.getElementById('privacy')?.querySelector('details');
+    expect(details?.open).toBe(true);
+    expect(document.getElementById('limitations')?.querySelector('details')?.open).toBe(false);
   });
 
   it('shows the five steps as a numbered sequence with links to set up and practise', async () => {
@@ -149,6 +180,13 @@ describe('HelpPage', () => {
     expect(within(section).getByText('Simulated')).toBeInTheDocument();
   });
 
+  it('explains the abbreviations and code names its Source columns quote', async () => {
+    await renderHelpPage();
+    const glossaries = screen.getAllByText(/AUSSEF is the Australian science fair/);
+    // Beside the timing table in Practising and the design targets in Limitations.
+    expect(glossaries).toHaveLength(2);
+  });
+
   it('never shows a battery percentage', async () => {
     const { container } = await renderHelpPage();
     const text = container.textContent ?? '';
@@ -171,13 +209,14 @@ describe('HelpPage', () => {
     );
   });
 
-  it('offers email and the project website, clearly labelled and in the same tab', async () => {
+  it('offers the project website, clearly labelled and in the same tab, and no invented email address', async () => {
     await renderHelpPage();
     const section = region('Contact');
-    expect(within(section).getByRole('link', { name: 'Email hello@tactiq.app' })).toHaveAttribute(
-      'href',
-      'mailto:hello@tactiq.app',
-    );
+    // No mailto: the project has no mailbox, and an address that bounces would
+    // lose the accessibility reports this section asks for.
+    expect(within(section).queryByRole('link', { name: /^Email/ })).not.toBeInTheDocument();
+    expect(section.querySelector('a[href^="mailto:"]')).toBeNull();
+    expect(within(section).getByText(/no mailbox of its own yet/)).toBeInTheDocument();
     const website = within(section).getByRole('link', { name: /Tactiq project website/ });
     expect(website).toHaveAttribute('href', 'https://tactiq0.netlify.app/');
     expect(website).not.toHaveAttribute('target');

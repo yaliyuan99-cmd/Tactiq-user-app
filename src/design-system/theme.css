@@ -74,6 +74,15 @@
   --dur-tap: 90ms;
   --dur-move: 180ms;
   --dur-enter: 320ms;
+  /*
+   * App frame heights, without their 1px border. TopBar, Sidebar and MobileNav
+   * read these, and so does the scroll padding further down, so the space the
+   * browser keeps clear can never drift from the bars' real height.
+   */
+  --app-top-bar-height: 4rem;
+  --app-bottom-bar-height: 3.5rem;
+  /* Breathing room between a focused control and the bar beside it. */
+  --app-bar-gap: 0.75rem;
 }
 
 /* Body copy stays at or above 16px on small screens. */
@@ -250,6 +259,27 @@
     caret-color: var(--primary);
   }
 
+  /*
+   * WCAG 2.2 Focus Not Obscured (Minimum), 2.4.11. The app bars are fixed or
+   * sticky, so a control behind one still counts as inside the viewport and
+   * Chromium does not scroll it any further: Tab or Shift+Tab would leave it
+   * completely covered. Reserving each bar's height in the scrollport makes the
+   * browser scroll past it. The bottom bar (MobileNav) exists below lg; the top
+   * bar (TopBar) is sticky from sm up.
+   */
+  @media (width < 64rem) {
+    html {
+      scroll-padding-bottom: calc(
+        var(--app-bottom-bar-height) + 1px + env(safe-area-inset-bottom) + var(--app-bar-gap)
+      );
+    }
+  }
+  @media (width >= 40rem) {
+    html {
+      scroll-padding-top: calc(var(--app-top-bar-height) + 1px + var(--app-bar-gap));
+    }
+  }
+
   body {
     background: var(--background);
     color: var(--foreground);
@@ -360,6 +390,33 @@
     font-size: 0.78rem;
     letter-spacing: 0.02em;
     font-variant-numeric: tabular-nums;
+  }
+
+  /*
+   * Stacked table cells (DataTable below sm, matching max-sm): the column
+   * label is drawn from the cell's data-label as generated content with empty
+   * alt text, so Chromium and WebKit keep it out of the cell's accessible
+   * name. The hidden thead already names every column, and a label inside the
+   * name read as "Status, Status Fixed", with row headers no longer matching
+   * the command or time they stand for. The plain declaration above it keeps
+   * the label visible in an engine that does not parse alt text yet.
+   * Generated content also stays out of the cell's text, so the text of a cell
+   * is its value — which is what matters when the label is a repeat of a
+   * column header rather than part of the data.
+   *
+   * flex: none keeps the label at its own width so a long unbreakable value
+   * wraps instead of widening the page at 320 px with the Larger text size.
+   */
+  @media (width < 40rem) {
+    .stacked-label::before {
+      content: attr(data-label);
+      content: attr(data-label) / '';
+      flex: none;
+      text-align: left;
+      font-weight: 500;
+      color: var(--muted-foreground);
+      overflow-wrap: normal;
+    }
   }
 
   /* WCAG 2.2 target size — every interactive control is at least 44×44 CSS px. */

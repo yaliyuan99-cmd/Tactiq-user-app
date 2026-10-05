@@ -8,6 +8,7 @@
  * duration — a five-second hold — never by tap count. It can never be remapped.
  */
 import { type ContactKey } from './contacts';
+import { type HapticClass, hapticPhrase, hapticSentence } from './haptics';
 
 export const COMMAND_TOKENS = [
   'confirm',
@@ -25,9 +26,6 @@ export type CommandToken = (typeof COMMAND_TOKENS)[number];
 export type Interaction = 'tap' | 'hold_5s';
 export type CommandKind = 'fixed' | 'shortcut' | 'emergency';
 
-/** The four haptic classes the bench firmware defines (docs/PROTOCOL.md). */
-export type HapticClass = 'armed' | 'confirm' | 'reject' | 'emergency';
-
 export interface FeedbackDescription {
   /** What the ring's haptic actuator is specified to do (design intent). */
   readonly haptic: string;
@@ -44,6 +42,12 @@ export interface CommandDefinition {
   readonly kind: CommandKind;
   /** Display name, e.g. "Dismiss / Back". */
   readonly label: string;
+  /**
+   * The label as it should be spoken or read aloud: no slashes, because a
+   * screen reader reads "Dismiss / Back" as "Dismiss slash Back". Headings,
+   * instructions and announcements use this; tables and chips use `label`.
+   */
+  readonly spokenLabel: string;
   /** One line: what it does. */
   readonly description: string;
   /** How the phone would carry it out (Table 3 "Platform route"). */
@@ -55,7 +59,7 @@ export interface CommandDefinition {
 }
 
 const tapFeedback = (text: string): FeedbackDescription => ({
-  haptic: 'One strong click (the "confirm" haptic class) when the tap is accepted.',
+  haptic: `${hapticSentence('confirm')} This is the “confirm” haptic class.`,
   visual: 'The contact point flashes once and the command name is shown.',
   text,
 });
@@ -67,6 +71,7 @@ export const COMMANDS: readonly CommandDefinition[] = [
     interaction: 'tap',
     kind: 'fixed',
     label: 'Confirm',
+    spokenLabel: 'Confirm',
     description: 'Select the item your screen reader is focused on.',
     platformRoute: 'Screen-reader activate',
     guaranteed: true,
@@ -79,6 +84,7 @@ export const COMMANDS: readonly CommandDefinition[] = [
     interaction: 'tap',
     kind: 'fixed',
     label: 'Dismiss / Back',
+    spokenLabel: 'Dismiss or Back',
     description: 'Go back, or cancel what is open.',
     platformRoute: 'Screen-reader or system Back',
     guaranteed: true,
@@ -91,6 +97,7 @@ export const COMMANDS: readonly CommandDefinition[] = [
     interaction: 'tap',
     kind: 'fixed',
     label: 'Undo',
+    spokenLabel: 'Undo',
     description: 'Reverse the last command where the app allows it.',
     platformRoute: 'App-dependent; not guaranteed',
     guaranteed: false,
@@ -103,6 +110,7 @@ export const COMMANDS: readonly CommandDefinition[] = [
     interaction: 'tap',
     kind: 'fixed',
     label: 'Next',
+    spokenLabel: 'Next',
     description: 'Move screen-reader focus to the next item.',
     platformRoute: 'Screen-reader next item',
     guaranteed: true,
@@ -115,6 +123,7 @@ export const COMMANDS: readonly CommandDefinition[] = [
     interaction: 'tap',
     kind: 'fixed',
     label: 'Read / Repeat',
+    spokenLabel: 'Read or Repeat',
     description: 'Read the focused item again.',
     platformRoute: 'Screen-reader read current',
     guaranteed: true,
@@ -127,6 +136,7 @@ export const COMMANDS: readonly CommandDefinition[] = [
     interaction: 'tap',
     kind: 'fixed',
     label: 'Previous',
+    spokenLabel: 'Previous',
     description: 'Move screen-reader focus to the previous item.',
     platformRoute: 'Screen-reader previous item',
     guaranteed: true,
@@ -139,6 +149,7 @@ export const COMMANDS: readonly CommandDefinition[] = [
     interaction: 'tap',
     kind: 'shortcut',
     label: 'Shortcut 1',
+    spokenLabel: 'Shortcut 1',
     description: 'A shortcut you choose. Brief tap only — a long hold on this point is Emergency.',
     platformRoute: 'Platform automation',
     guaranteed: false,
@@ -151,6 +162,7 @@ export const COMMANDS: readonly CommandDefinition[] = [
     interaction: 'tap',
     kind: 'shortcut',
     label: 'Shortcut 2',
+    spokenLabel: 'Shortcut 2',
     description: 'A second shortcut you choose.',
     platformRoute: 'Platform automation',
     guaranteed: false,
@@ -163,14 +175,14 @@ export const COMMANDS: readonly CommandDefinition[] = [
     interaction: 'hold_5s',
     kind: 'emergency',
     label: 'Emergency',
+    spokenLabel: 'Emergency',
     description:
       'Hold the pinky fingertip for five full seconds to hand over to the phone’s own emergency pathway. Cannot be changed.',
     platformRoute: 'Platform SOS pathway; not guaranteed',
     guaranteed: false,
     hapticClass: 'emergency',
     feedback: {
-      haptic:
-        'A distinct arming pulse at two seconds, then a long 750 ms alert when the hold reaches five seconds. Releasing early cancels with no pulse.',
+      haptic: `A distinct arming pulse at two seconds, then ${hapticPhrase('emergency')} when the hold reaches five seconds. Releasing early cancels with no pulse.`,
       visual: 'A progress ring fills over five seconds; the point turns solid orange when it completes.',
       text: 'Emergency armed at two seconds. Emergency hold complete at five seconds.',
     },
@@ -269,9 +281,9 @@ export const SHORTCUT_ACTIONS: readonly ShortcutAction[] = [
   },
   {
     id: 'toggle_flashlight',
-    label: 'Toggle the flashlight',
+    label: 'Turn the torch on or off',
     description: 'Would switch the phone’s torch on or off.',
-    simulatedOutcome: 'Flashlight on.',
+    simulatedOutcome: 'Torch on.',
   },
   {
     id: 'announce_phone_battery',

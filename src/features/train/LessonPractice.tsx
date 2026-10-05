@@ -1,7 +1,14 @@
 import { useEffect, useRef, useState } from 'react';
 import { LogOut, RotateCcw } from 'lucide-react';
 import { Button, ConfirmDialog, ProgressBar, VisuallyHidden } from '@/components';
-import { EmergencyNotice, PracticeSurface, SqueezeControl, useRing } from '@/features/practice';
+import {
+  EmergencyNotice,
+  PRACTICE_PANEL_CLASSES,
+  PracticeSurface,
+  SqueezeControl,
+  evidenceForDevice,
+  useRing,
+} from '@/features/practice';
 import { useDevice } from '@/services/device/DeviceProvider';
 import { usePreferences } from '@/services/preferences/PreferencesProvider';
 import type { HeadingLevel } from './headingLevel';
@@ -19,9 +26,6 @@ export interface LessonPracticeProps {
   readonly onExit?: () => void;
 }
 
-/** A card from the small breakpoint up; edge to edge on narrow phones, where every pixel of width helps the points. */
-const SURFACE_CLASSES = 'sm:rounded-lg sm:border sm:border-border sm:bg-card sm:p-6 sm:shadow-card';
-
 /**
  * The practice phase: step indicator, the instruction (focused on every step
  * change), the result of the latest attempt, the ring surface for the step
@@ -31,7 +35,8 @@ const SURFACE_CLASSES = 'sm:rounded-lg sm:border sm:border-border sm:bg-card sm:
 export function LessonPractice({ run, headingLevel, onExit }: LessonPracticeProps) {
   const { lesson, state } = run;
   const { preferences } = usePreferences();
-  const windowMs = useDevice().state.commandWindowMs;
+  const device = useDevice().state;
+  const windowMs = device.commandWindowMs;
   const [confirmingRestart, setConfirmingRestart] = useState(false);
 
   const ring = useRing({
@@ -79,10 +84,12 @@ export function LessonPractice({ run, headingLevel, onExit }: LessonPracticeProp
         onHold={run.holdStep}
       />
 
-      {state.emergencyCompleted && <EmergencyNotice />}
+      {/* Whenever a hold completes the notice must be visible — including on a squeeze step,
+          where the step itself has nothing to say about it. */}
+      {(state.emergencyCompleted || ring.lastResult?.kind === 'emergency') && <EmergencyNotice />}
 
       {step.kind === 'squeeze' ? (
-        <div className={`grid max-w-xl gap-4 ${SURFACE_CLASSES}`}>
+        <div className={`grid max-w-xl gap-4 ${PRACTICE_PANEL_CLASSES}`}>
           <SqueezeControl ring={ring} />
           {armed && !state.stepComplete ? (
             <p>The command window is still open. Let it close, then squeeze again.</p>
@@ -91,7 +98,7 @@ export function LessonPractice({ run, headingLevel, onExit }: LessonPracticeProp
           )}
         </div>
       ) : (
-        <div className={SURFACE_CLASSES}>
+        <div className={PRACTICE_PANEL_CLASSES}>
           <PracticeSurface
             ring={ring}
             hand={preferences.hand}
@@ -103,7 +110,7 @@ export function LessonPractice({ run, headingLevel, onExit }: LessonPracticeProp
         </div>
       )}
 
-      <RunStats totals={runTotals(state.records)} />
+      <RunStats totals={runTotals(state.records)} evidence={evidenceForDevice(device)} />
 
       <div className="flex flex-wrap items-center gap-3 border-t border-border pt-5">
         <Button variant="secondary" leadingIcon={<RotateCcw className="h-4 w-4" />} onClick={() => setConfirmingRestart(true)}>

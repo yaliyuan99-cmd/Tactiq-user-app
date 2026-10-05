@@ -48,7 +48,7 @@ export default function DashboardPage() {
         <TrainingSection summary={training} className="lg:col-span-3" />
         <CalibrationSection summary={calibration} now={now} className="lg:col-span-2" />
         <CommandsSection className="lg:col-span-5" />
-        <RecentActivitySection now={now} className="lg:col-span-5 lg:mt-2" />
+        <RecentActivitySection now={now} className="lg:col-span-5" />
       </div>
     </>
   );

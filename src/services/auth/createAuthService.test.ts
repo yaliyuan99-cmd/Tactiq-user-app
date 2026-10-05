@@ -10,7 +10,7 @@ describe('createAuthService (no backend configured)', () => {
     const service = createAuthService(storage);
     expect(service).toBeInstanceOf(LocalDemoAuthService);
     expect(service.mode).toBe('demo');
-    const user = await service.continueAsGuest();
+    const { user } = await service.continueAsGuest();
     expect(await createAuthService(storage).getSession()).toEqual(user);
   });
 });

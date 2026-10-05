@@ -1,16 +1,18 @@
 import { type ReactNode } from 'react';
-import { EvidenceLabel } from '@/components';
 import { getCommand } from '@/domain/commands';
 import { EMERGENCY_SIMULATION_NOTICE } from '@/domain/evidence';
 import type { ActivitySummary } from '@/domain/models';
 import { cn } from '@/lib/cn';
 import { formatPercent } from '@/lib/time';
+import { EvidenceTag } from './EvidenceTag';
 import { HISTORY_HEADING_IDS } from './historyIds';
 import { plural, type EmergencyCounts } from './wording';
 
 export interface SummarySectionProps {
   readonly summary: ActivitySummary;
   readonly emergency: EmergencyCounts;
+  /** True when every record in view is a Demo Mode sample. */
+  readonly allSamples?: boolean;
 }
 
 function SummaryItem({
@@ -33,14 +35,7 @@ function SummaryItem({
   );
 }
 
-/** The evidence tag for the figures in view: simulated unless ring records are included. */
-export function SummaryEvidence({ evidence }: { evidence: ActivitySummary['evidence'] }) {
-  if (evidence === 'measured') return <EvidenceLabel kind="measured" />;
-  if (evidence === 'mixed') return <EvidenceLabel kind="simulated" detail="includes some Measured ring records" />;
-  return <EvidenceLabel kind="simulated" />;
-}
-
-export function SummarySection({ summary, emergency }: SummarySectionProps) {
+export function SummarySection({ summary, emergency, allSamples = false }: SummarySectionProps) {
   const { attempts, successes, misclassifications, rejected, mostPractised } = summary;
   return (
     <section aria-labelledby={HISTORY_HEADING_IDS.summary}>
@@ -48,7 +43,7 @@ export function SummarySection({ summary, emergency }: SummarySectionProps) {
         <h2 id={HISTORY_HEADING_IDS.summary} tabIndex={-1}>
           Summary
         </h2>
-        <SummaryEvidence evidence={summary.evidence} />
+        <EvidenceTag evidence={summary.evidence} allSamples={allSamples} />
       </div>
       <dl className="mt-4 grid gap-px overflow-hidden rounded-lg border border-border bg-border shadow-card sm:grid-cols-2 lg:grid-cols-3">
         <SummaryItem
@@ -57,18 +52,18 @@ export function SummarySection({ summary, emergency }: SummarySectionProps) {
           explanation="Taps and presses scored in this view. Emergency holds are counted separately."
         />
         <SummaryItem
-          term="Successful detections"
+          term="Correct attempts"
           value={successes}
           explanation={
             attempts > 0
-              ? `Recognised as the command you aimed for: ${successes} of ${attempts} (${formatPercent(successes / attempts)}).`
-              : 'Recognised as the command you aimed for.'
+              ? `You gave the command that was asked for: ${successes} of ${attempts} (${formatPercent(successes / attempts)}).`
+              : 'You gave the command that was asked for.'
           }
         />
         <SummaryItem
-          term="Misclassifications"
+          term="Wrong point or command"
           value={misclassifications}
-          explanation="Recognised as a different command from the one asked for."
+          explanation="Aimed for one command, got another."
         />
         <SummaryItem
           term="Rejected presses"

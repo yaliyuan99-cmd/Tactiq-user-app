@@ -15,6 +15,14 @@ export interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
   readonly fullWidth?: boolean;
 }
 
+/**
+ * `busy` and `aria-disabled` both keep the button focusable and both swallow
+ * the click, so `onClick` does not run. A control that must explain why
+ * nothing happened cannot use `onClick` for that: either say it up front with
+ * `aria-describedby` (see `FeedbackTryouts`), explain from `onClickCapture`
+ * (see `ConfirmDialog`), or use a plain `<button>` with `buttonClasses()`
+ * (see `ShortcutEditor`).
+ */
 export const Button = forwardRef<HTMLButtonElement, ButtonProps>(function Button(
   {
     variant = 'primary',

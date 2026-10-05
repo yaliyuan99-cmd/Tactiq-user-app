@@ -51,10 +51,10 @@ export const TROUBLESHOOTING_ENTRIES: readonly TroubleshootingEntry[] = [
   {
     id: 'no-ring-in-bluetooth-window',
     question: 'The Bluetooth window shows no ring',
-    intro: `The window only lists nearby devices that are advertising. A bench ring advertises as “${DEVICE_NAME}”.`,
+    intro: `The window only lists nearby devices that are switched on and visible to Bluetooth. A bench ring shows up as “${DEVICE_NAME}”.`,
     steps: [
       'Check the ring is switched on and has power.',
-      `Check it is running the Tactiq bench firmware, which is what makes it advertise as “${DEVICE_NAME}”.`,
+      `Check it is running the Tactiq bench firmware, which is what makes it visible as “${DEVICE_NAME}”.`,
       'Bring the ring close to this computer or phone.',
       'If the ring is connected to another phone, computer or browser tab, disconnect it there first. It may not appear while it is connected elsewhere.',
       'Close the Bluetooth window, wait a few seconds, then choose Connect a ring again.',

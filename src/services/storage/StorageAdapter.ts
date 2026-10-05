@@ -6,11 +6,24 @@
 
 export const STORAGE_NAMESPACE = 'tactiq.';
 
+/**
+ * Reported to subscribers (in place of a key) when the browser's willingness
+ * to save changes flips, so the shell can show or hide one banner. No service
+ * owns this key, so `ChangeNotifier` ignores it.
+ */
+export const STORAGE_PERSISTENCE_KEY = '__persistence__';
+
+/** Shown once when writes are being refused. The session still works; nothing survives the tab. */
+export const WRITES_BLOCKED_NOTE =
+  'This browser will not let Tactiq save changes. Anything you do now is lost when you close the tab.';
+
 export type StorageListener = (key: string) => void;
 
 export interface StorageAdapter {
   /** Parsed JSON value or null when missing or unreadable. */
   get<T>(key: string): T | null;
+  /** True when something is stored under this key, even if it cannot be parsed. */
+  has(key: string): boolean;
   /** Returns false when the write failed (quota, private mode, unavailable). */
   set<T>(key: string, value: T): boolean;
   remove(key: string): void;
@@ -20,12 +33,19 @@ export interface StorageAdapter {
   clear(): void;
   /** Notified after any write through this adapter, and on cross-tab changes where supported. */
   subscribe(listener: StorageListener): () => void;
+  /**
+   * False once the browser has refused a write (full quota, blocked site data,
+   * private mode). Reading is a separate capability and keeps working, so a
+   * session in this state is degraded, not empty.
+   */
+  readonly canPersist: boolean;
 }
 
 abstract class BaseStorage implements StorageAdapter {
   private readonly listeners = new Set<StorageListener>();
 
   abstract get<T>(key: string): T | null;
+  abstract has(key: string): boolean;
   abstract set<T>(key: string, value: T): boolean;
   abstract remove(key: string): void;
   abstract keys(): string[];
@@ -36,6 +56,11 @@ abstract class BaseStorage implements StorageAdapter {
     return () => {
       this.listeners.delete(listener);
     };
+  }
+
+  /** Overridden by adapters that can be refused a write. */
+  get canPersist(): boolean {
+    return true;
   }
 
   protected notify(key: string): void {
@@ -59,6 +84,9 @@ export class MemoryStorageAdapter extends BaseStorage {
       return null;
     }
   }
+  has(key: string): boolean {
+    return this.map.has(key);
+  }
   set<T>(key: string, value: T): boolean {
     this.map.set(key, JSON.stringify(value));
     this.notify(key);
@@ -79,12 +107,16 @@ export class MemoryStorageAdapter extends BaseStorage {
 }
 
 export class LocalStorageAdapter extends BaseStorage {
-  private readonly available: boolean;
+  /** Whether window.localStorage can be reached at all. Decides reads. */
+  private readonly reachable: boolean;
+  /** Whether the browser accepts writes. Reads keep working when this is false. */
+  private writable: boolean;
 
   constructor(private readonly namespace: string = STORAGE_NAMESPACE) {
     super();
-    this.available = LocalStorageAdapter.probe();
-    if (this.available && typeof window !== 'undefined') {
+    this.reachable = LocalStorageAdapter.isReachable();
+    this.writable = this.reachable && LocalStorageAdapter.probe();
+    if (this.reachable && typeof window !== 'undefined') {
       window.addEventListener('storage', (event) => {
         if (event.key && event.key.startsWith(this.namespace)) {
           this.notify(event.key.slice(this.namespace.length));
@@ -93,6 +125,20 @@ export class LocalStorageAdapter extends BaseStorage {
     }
   }
 
+  /** Can the store be read? Touching `window.localStorage` itself can throw when site data is blocked. */
+  static isReachable(): boolean {
+    try {
+      return typeof window !== 'undefined' && typeof window.localStorage?.getItem === 'function';
+    } catch {
+      return false;
+    }
+  }
+
+  /**
+   * Does the browser accept a write? A full quota, storage partitioning or a
+   * site-level "block data" setting makes writes throw while everything
+   * already stored stays readable, so this never gates a read.
+   */
   static probe(): boolean {
     try {
       const probe = `${STORAGE_NAMESPACE}__probe__`;
@@ -104,16 +150,29 @@ export class LocalStorageAdapter extends BaseStorage {
     }
   }
 
+  /** True when stored values can be read. */
   get isAvailable(): boolean {
-    return this.available;
+    return this.reachable;
+  }
+
+  /** False when the browser has refused a write; reads are unaffected. */
+  get canPersist(): boolean {
+    return this.writable;
   }
 
   private full(key: string): string {
     return `${this.namespace}${key}`;
   }
 
+  /** Records whether writes are working and tells subscribers when that changes. */
+  private setWritable(writable: boolean): void {
+    if (this.writable === writable) return;
+    this.writable = writable;
+    this.notify(STORAGE_PERSISTENCE_KEY);
+  }
+
   get<T>(key: string): T | null {
-    if (!this.available) return null;
+    if (!this.reachable) return null;
     try {
       const raw = window.localStorage.getItem(this.full(key));
       return raw === null ? null : (JSON.parse(raw) as T);
@@ -121,25 +180,37 @@ export class LocalStorageAdapter extends BaseStorage {
       return null;
     }
   }
-  set<T>(key: string, value: T): boolean {
-    if (!this.available) return false;
+  has(key: string): boolean {
+    if (!this.reachable) return false;
     try {
-      window.localStorage.setItem(this.full(key), JSON.stringify(value));
-      this.notify(key);
-      return true;
+      return window.localStorage.getItem(this.full(key)) !== null;
     } catch {
       return false;
     }
   }
+  set<T>(key: string, value: T): boolean {
+    if (!this.reachable) return false;
+    try {
+      window.localStorage.setItem(this.full(key), JSON.stringify(value));
+      this.setWritable(true);
+      this.notify(key);
+      return true;
+    } catch {
+      this.setWritable(false);
+      return false;
+    }
+  }
   remove(key: string): void {
-    if (!this.available) return;
+    if (!this.reachable) return;
     try {
       window.localStorage.removeItem(this.full(key));
-    } catch {}
+    } catch {
+      this.setWritable(false);
+    }
     this.notify(key);
   }
   keys(): string[] {
-    if (!this.available) return [];
+    if (!this.reachable) return [];
     const out: string[] = [];
     try {
       for (let i = 0; i < window.localStorage.length; i += 1) {

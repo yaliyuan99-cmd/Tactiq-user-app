@@ -62,6 +62,13 @@ function useHorizontalOverflow(ref: RefObject<HTMLDivElement>): boolean {
  * A real table: caption, column headers with scope, optional row headers.
  * Below 640px rows stack into labelled blocks (explicit ARIA roles keep the
  * table semantics when CSS changes the display type).
+ *
+ * Each stacked row repeats its column label beside the value. It is drawn by
+ * the `.stacked-label` rule in src/design-system/theme.css from `data-label`,
+ * with empty alt text, so it reaches the eye without reaching the accessible
+ * name or the cell's text: a plain ::before label was read into every name
+ * ("Status, Status Fixed"), and a real span would make a cell's text the
+ * column label plus the value.
  */
 export function DataTable<T>({
   caption,
@@ -86,7 +93,15 @@ export function DataTable<T>({
       aria-label={overflowing ? `${caption} (scrolls sideways)` : undefined}
     >
       <table role="table" className="w-full border-collapse text-left max-sm:block">
-        <caption className={cn('px-4 pt-3 text-left font-medium', captionHidden && 'sr-only', 'max-sm:block')}>
+        <caption
+          className={cn(
+            'px-4 pt-3 text-left font-medium',
+            captionHidden && 'sr-only',
+            // A long caption must be able to break below sm, or its longest word
+            // sets a minimum width the page then scrolls sideways to reach.
+            'max-sm:block max-sm:[overflow-wrap:anywhere]',
+          )}
+        >
           {caption}
         </caption>
         <thead role="rowgroup" className="max-sm:sr-only">
@@ -135,9 +150,11 @@ export function DataTable<T>({
                         'align-top',
                         column.rowHeader && 'font-medium',
                         ALIGN[column.align ?? 'start'],
-                        'max-sm:flex max-sm:justify-between max-sm:gap-4 max-sm:py-1.5 max-sm:text-right',
-                        mobileLabel &&
-                          'max-sm:before:content-[attr(data-label)] max-sm:before:text-left max-sm:before:font-medium max-sm:before:text-muted-foreground',
+                        // Stacked layout: label on the left, value on the right. min-w-0 and
+                        // overflow-wrap keep a long unbreakable value from widening the page.
+                        'max-sm:flex max-sm:min-w-0 max-sm:justify-between max-sm:gap-4 max-sm:py-1.5 max-sm:text-right',
+                        'max-sm:[overflow-wrap:anywhere]',
+                        mobileLabel && 'stacked-label',
                       )}
                     >
                       {column.cell(row)}

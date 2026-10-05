@@ -15,6 +15,52 @@ function region(name: string): HTMLElement {
   return screen.getByRole('region', { name });
 }
 
+describe('DashboardPage training', () => {
+  it('labels the figures Simulated when the lesson records came from the simulated ring', async () => {
+    const storage = seededStorage((services) =>
+      services.history.append({
+        source: 'training',
+        mode: 'lesson',
+        lessonId: 'confirm_and_back',
+        targetContact: 'index_tip',
+        detectedContact: 'index_tip',
+        token: 'confirm',
+        durationMs: 120,
+        outcome: 'recognised',
+        evidence: 'simulated',
+      }),
+    );
+    await renderDashboard({ storage });
+    const section = region('Training');
+    expect(within(section).getByText('Simulated')).toBeInTheDocument();
+    expect(within(section).getByText('Attempts and accuracy come from lessons in this app, not from a ring.')).toBeInTheDocument();
+  });
+
+  it('follows the stored evidence and says Measured when the lesson records came from a ring', async () => {
+    const storage = seededStorage((services) =>
+      services.history.append({
+        source: 'training',
+        mode: 'lesson',
+        lessonId: 'confirm_and_back',
+        targetContact: 'index_tip',
+        detectedContact: 'index_tip',
+        token: 'confirm',
+        durationMs: 120,
+        outcome: 'recognised',
+        evidence: 'measured',
+      }),
+    );
+    await renderDashboard({ storage });
+    const section = region('Training');
+    // Recent activity below labels the same record Measured, so this card must not call it Simulated.
+    expect(within(section).getByText('Measured')).toBeInTheDocument();
+    expect(within(section).queryByText('Simulated')).not.toBeInTheDocument();
+    expect(
+      within(section).getByText('Attempts and accuracy come from taps on a connected bench ring, which has not been validated.'),
+    ).toBeInTheDocument();
+  });
+});
+
 describe('DashboardPage commands', () => {
   it('lists the nine interactions with the saved shortcut actions', async () => {
     const storage = seededStorage((services) =>
@@ -26,7 +72,7 @@ describe('DashboardPage commands', () => {
     const items = within(list).getAllByRole('listitem');
     expect(items).toHaveLength(9);
     expect(items[0]).toHaveTextContent('Index fingertip:Confirm');
-    expect(items[6]).toHaveTextContent('Pinky fingertip, brief tap:Shortcut 1: Toggle the flashlight');
+    expect(items[6]).toHaveTextContent('Pinky fingertip, brief tap:Shortcut 1: Turn the torch on or off');
     expect(items[7]).toHaveTextContent('Pinky finger base:Shortcut 2: Read recent notifications');
     expect(items[8]).toHaveTextContent('Pinky fingertip, held 5 seconds:Emergency');
     expect(within(section).getByRole('link', { name: 'Change shortcuts' })).toHaveAttribute('href', ROUTES.commands);
@@ -42,6 +88,15 @@ describe('DashboardPage commands', () => {
 });
 
 describe('DashboardPage recent activity', () => {
+  it('sits on a card like every other section, so the page keeps its rhythm', async () => {
+    await renderDashboard();
+    const section = region('Recent activity');
+    expect(section).toHaveClass('bg-card');
+    expect(section).toHaveClass('shadow-card');
+    // The card draws the surround, so the list only needs dividers between rows.
+    expect(section.querySelector('ul.border-y')).toBeNull();
+  });
+
   it('shows an empty state with a way to the simulator', async () => {
     await renderDashboard();
     const section = region('Recent activity');

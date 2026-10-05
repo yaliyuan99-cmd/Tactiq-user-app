@@ -18,6 +18,7 @@ export const NO_CHANGES_MESSAGE = 'No changes yet.';
 export const SAVED_ANNOUNCEMENT = 'Shortcuts saved.';
 export const DISCARDED_ANNOUNCEMENT = 'Changes discarded.';
 export const RESTORED_ANNOUNCEMENT = 'Default shortcuts restored.';
+export const NOTHING_TO_SAVE_ANNOUNCEMENT = 'Nothing to save. Choose a different action for a shortcut first.';
 
 /** Fieldset legends for the two editors. */
 export const SHORTCUT_LEGENDS: Readonly<Record<ShortcutToken, string>> = {

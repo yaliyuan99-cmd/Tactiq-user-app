@@ -3,6 +3,7 @@
  * been measured on a wearable — every one is a design value from the bench
  * firmware, the research grammar or the paper.
  */
+import { CONTACT_KEYS } from './contacts';
 
 /** A press up to this long is a brief tap. `grammar.py` TAP_MAX_MS; firmware TAP_MAX_MS. */
 export const TAP_MAX_MS = 500;
@@ -13,7 +14,12 @@ export const EMERGENCY_HOLD_MS = 5000;
 /** The paper (Algorithm 3) specifies a distinct arming haptic two seconds into the hold. */
 export const EMERGENCY_ARMING_CUE_MS = 2000;
 
-/** Squeeze held this long before the command window opens. Firmware GATE_TAU_MS — a placeholder pending the bench sweep. */
+/**
+ * Squeeze held this long before the command window opens. Firmware
+ * GATE_TAU_MS — a placeholder pending the bench sweep, which is expected to
+ * settle it between 200 and 350 ms. That range is a forecast, not a
+ * measurement and not a threshold fixed before testing.
+ */
 export const GATE_HOLD_MS = 150;
 
 /** How long the command window stays open after a squeeze. Firmware ARM_WINDOW_MS. */
@@ -27,6 +33,9 @@ export const INDETERMINATE_MIN_MS = TAP_MAX_MS + 1;
 
 /** Number of taps the research calibration tool asks for per contact (`calibrate.py --reps`). */
 export const CALIBRATION_SAMPLES_PER_CONTACT = 3;
+
+/** Taps the app's guided calibration asks for in all: every contact, three times. */
+export const CALIBRATION_TAPS_TOTAL = CALIBRATION_SAMPLES_PER_CONTACT * CONTACT_KEYS.length;
 
 export interface TimingFact {
   readonly id: string;
@@ -62,7 +71,8 @@ export const TIMING_FACTS: readonly TimingFact[] = [
     id: 'gate_hold',
     label: 'Squeeze hold before the window opens',
     valueMs: GATE_HOLD_MS,
-    source: 'Bench firmware GATE_TAU_MS — placeholder until the bench sweep measures it',
+    source:
+      'Bench firmware GATE_TAU_MS — placeholder until the bench sweep measures it. Expected to settle between 200 and 350 ms; expected, not measured.',
     status: 'placeholder',
   },
   {

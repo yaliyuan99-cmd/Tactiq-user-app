@@ -16,6 +16,9 @@ export const HELP_SECTION_IDS = [
 
 export type HelpSectionId = (typeof HELP_SECTION_IDS)[number];
 
+/** The id of the "On this page" card, so every section can link back to it. */
+export const HELP_CONTENTS_ID = 'help-contents';
+
 export interface HelpSectionInfo {
   readonly id: HelpSectionId;
   /** The section's h2 and its link text in the contents list. */

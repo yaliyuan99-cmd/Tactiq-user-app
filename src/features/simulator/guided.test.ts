@@ -69,11 +69,20 @@ describe('target words', () => {
   it('names the command and the contact', () => {
     expect(describeTarget('next')).toEqual({
       command: 'Next',
+      spokenCommand: 'Next',
       where: 'middle finger base',
       visible: 'Next — middle finger base',
       spoken: 'Next, middle finger base',
     });
     expect(describeTarget('confirm').visible).toBe('Confirm — index fingertip');
+  });
+
+  it('keeps the slash out of the spoken words', () => {
+    const words = describeTarget('back');
+    expect(words.command).toBe('Dismiss / Back');
+    expect(words.spokenCommand).toBe('Dismiss or Back');
+    expect(words.spoken).toBe('Dismiss or Back, index finger base');
+    expect(words.spoken).not.toContain('/');
   });
 
   it('separates the pinky fingertip tap from the five-second hold', () => {
@@ -93,14 +102,14 @@ describe('evaluateGuided', () => {
     expect(evaluation).toEqual({
       verdict: 'correct',
       visibleMessage: 'Correct: Next.',
-      announcement: { message: 'Correct: Next.', assertive: false },
+      announcement: 'Correct: Next.',
+      feedbackKind: 'confirm',
       detectedContact: null,
       logWords: 'Correct',
     });
-    expect(correctAnnouncement(evaluation, 'previous')).toEqual({
-      message: 'Correct: Next. New target: Previous, ring finger base.',
-      assertive: false,
-    });
+    expect(correctAnnouncement(evaluation, 'previous')).toBe(
+      'Correct: Next. New target: Previous, ring finger base.',
+    );
   });
 
   it('names the detected command and contact for a wrong point', () => {
@@ -109,7 +118,8 @@ describe('evaluateGuided', () => {
     expect(evaluation.visibleMessage).toBe(
       'That was Previous, on the ring finger base. Try again: Next, middle finger base.',
     );
-    expect(evaluation.announcement).toEqual({ message: evaluation.visibleMessage, assertive: false });
+    expect(evaluation.announcement).toBe(evaluation.visibleMessage);
+    expect(evaluation.feedbackKind).toBe('confirm');
     expect(evaluation.detectedContact).toBe('ring_base');
     expect(evaluation.logWords).toBe('Not the target: Previous');
   });
@@ -127,7 +137,8 @@ describe('evaluateGuided', () => {
     const evaluation = evaluateGuided('emergency', result, DEFAULT_SHORTCUT_MAPPING);
     expect(evaluation.verdict).toBe('correct');
     expect(evaluation.visibleMessage).toBe(`Correct: Emergency hold complete. ${EMERGENCY_SIMULATION_NOTICE}`);
-    expect(evaluation.announcement?.assertive).toBe(true);
+    expect(evaluation.announcement).toBe(evaluation.visibleMessage);
+    expect(evaluation.feedbackKind).toBe('emergency');
   });
 
   it('keeps the simulation notice when a completed hold was not the target', () => {
@@ -136,7 +147,8 @@ describe('evaluateGuided', () => {
     expect(evaluation.verdict).toBe('wrong');
     expect(evaluation.visibleMessage).toContain(EMERGENCY_SIMULATION_NOTICE);
     expect(evaluation.visibleMessage).toContain('Try again: Confirm, index fingertip.');
-    expect(evaluation.announcement?.assertive).toBe(true);
+    expect(evaluation.announcement).toContain(EMERGENCY_SIMULATION_NOTICE);
+    expect(evaluation.feedbackKind).toBe('emergency');
     expect(evaluation.detectedContact).toBe('pinky_tip');
   });
 

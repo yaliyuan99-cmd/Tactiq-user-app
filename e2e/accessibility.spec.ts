@@ -212,7 +212,7 @@ test.describe('axe — dynamic states', () => {
     const errors = trackConsoleErrors(page);
     await gotoReady(page, '/dashboard/commands');
     const slot = page.getByRole('group', { name: 'Shortcut 1 — pinky fingertip, brief tap' });
-    await slot.getByRole('radio', { name: 'Toggle the flashlight' }).check();
+    await slot.getByRole('radio', { name: 'Turn the torch on or off' }).check();
     await expect(page.getByText('Not saved yet', { exact: true })).toBeVisible();
     await expect(page.getByRole('button', { name: 'Discard changes' })).toBeVisible();
     await expectNoSeriousAxeViolations(page, '/dashboard/commands with an unsaved shortcut draft');
@@ -319,10 +319,6 @@ test.describe('reflow at 320×640', () => {
 
     for (const route of DASHBOARD_ROUTES) {
       test(`no horizontal overflow (${textSize} text): ${route}`, async ({ page }) => {
-        test.fixme(
-          textSize === 'larger' && route === '/dashboard/settings',
-          'FINDING: Settings page scrolls horizontally at 320 px with Larger text',
-        );
         await seedStorage(page, { preferences: { textSize } });
         const errors = trackConsoleErrors(page);
         await gotoReady(page, route);
@@ -336,7 +332,6 @@ test.describe('reflow at 320×640', () => {
     }
 
     test(`no horizontal overflow (${textSize} text): /dashboard/simulator with a Shortcut 1 or Shortcut 2 guided target`, async ({ page }) => {
-      test.fixme(textSize === 'larger', 'FINDING: Simulator overflows at 320 px with Larger text when the guided target is a shortcut');
       await seedStorage(page, { preferences: { textSize } });
       const errors = trackConsoleErrors(page);
       await gotoReady(page, '/dashboard/simulator');
@@ -402,11 +397,7 @@ test.describe('reflow at 640×450 (200% zoom)', () => {
 
 test.describe('target size 44×44', () => {
   for (const route of DASHBOARD_ROUTES) {
-    test(`targets in main and nav are at least 44×44 CSS px: ${route}`, async ({ signedInPage: page }, testInfo) => {
-      test.fixme(
-        route === '/dashboard/simulator' && testInfo.project.name === 'desktop-chromium',
-        'FINDING: CheckboxField pointer target is 21×21 px plus a 23 px-tall label; its 44 px wrapper is not clickable',
-      );
+    test(`targets in main and nav are at least 44×44 CSS px: ${route}`, async ({ signedInPage: page }) => {
       const errors = trackConsoleErrors(page);
       await gotoReady(page, route);
       const offenders = await findSmallTargets(page);
@@ -473,11 +464,7 @@ async function collectObscuredFocus(page: Page, route: string, stops = 15): Prom
 
 test.describe('focus not obscured', () => {
   for (const route of ['/dashboard', '/dashboard/simulator'] as const) {
-    test(`the first 15 tab stops on ${route} are not hidden behind the fixed navigation or top bar`, async ({ signedInPage: page }, testInfo) => {
-      test.fixme(
-        testInfo.project.name === 'mobile-chromium',
-        'FINDING: Keyboard focus is hidden behind the fixed bottom navigation below the lg breakpoint',
-      );
+    test(`the first 15 tab stops on ${route} are not hidden behind the fixed navigation or top bar`, async ({ signedInPage: page }) => {
       const errors = trackConsoleErrors(page);
       await gotoReady(page, route);
       const obscured = await collectObscuredFocus(page, route);
@@ -493,7 +480,6 @@ test.describe('focus not obscured at 640×450 (200% zoom)', () => {
   for (const route of ['/dashboard', '/dashboard/simulator'] as const) {
     test(`200% zoom: the first 15 tab stops on ${route} are not hidden behind the fixed navigation or top bar`, async ({ signedInPage: page }, testInfo) => {
       test.skip(testInfo.project.name !== 'desktop-chromium', 'Zoom reflow is checked on the desktop project.');
-      test.fixme(true, 'FINDING: Keyboard focus is hidden behind the fixed bottom navigation below the lg breakpoint');
       const errors = trackConsoleErrors(page);
       await gotoReady(page, route);
       const obscured = await collectObscuredFocus(page, route);
@@ -595,10 +581,16 @@ test.describe('document structure', () => {
     });
   }
 
-  test('simulator hand map: the drawing is aria-hidden and the eight real buttons carry the point names', async ({ signedInPage: page }) => {
+  test('simulator hand map: the drawing is aria-hidden and the eight real buttons carry the point names', async ({
+    signedInPage: page,
+  }, testInfo) => {
+    // Below MIN_HAND_VIEW_WIDTH (358 px) the fixed 44 px contact points would
+    // overlap, so the practice surface shows the list instead and says so;
+    // e2e/practice.spec.ts covers that fallback at the phone width.
+    test.skip(testInfo.project.name !== 'desktop-chromium', 'The hand drawing only fits from the desktop width.');
     const errors = trackConsoleErrors(page);
     await gotoReady(page, '/dashboard/simulator?mode=free');
-    // Narrow screens start in the list view; the hand drawing is one radio away.
+    // The surface opens in the list view; the hand drawing is one radio away.
     await page.getByRole('radio', { name: 'Hand view' }).check();
     const figure = page.getByRole('figure', { name: 'Right hand contact map' });
     await expect(figure).toBeVisible();

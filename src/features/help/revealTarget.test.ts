@@ -1,4 +1,4 @@
-import { openDetailsById, revealHelpTarget, scrollToId } from './revealTarget';
+import { openDetailsById, openSectionDisclosure, revealHelpTarget, scrollToId } from './revealTarget';
 
 function mount(html: string): HTMLDivElement {
   const container = document.createElement('div');
@@ -67,5 +67,37 @@ describe('openDetailsById and scrollToId', () => {
     Object.defineProperty(section, 'scrollIntoView', { value: scrollIntoView, configurable: true });
     expect(scrollToId('c', 'smooth')).toBe(true);
     expect(scrollIntoView).toHaveBeenCalledWith({ block: 'start', behavior: 'smooth' });
+  });
+});
+
+describe('openSectionDisclosure', () => {
+  let container: HTMLDivElement | null = null;
+
+  afterEach(() => {
+    container?.remove();
+    container = null;
+  });
+
+  it('opens the disclosure a collapsible section keeps its body in', () => {
+    container = mount(
+      '<section id="privacy"><details data-help-disclosure><summary><h2 id="privacy-heading" tabindex="-1">Privacy</h2></summary><p>Body</p></details></section>',
+    );
+    expect(openSectionDisclosure('privacy')).toBe(true);
+    expect(container.querySelector('details')?.open).toBe(true);
+  });
+
+  it('opens the section when a link reveals it, and focuses its heading', () => {
+    container = mount(
+      '<section id="privacy"><details data-help-disclosure><summary><h2 id="privacy-heading" tabindex="-1">Privacy</h2></summary><p>Body</p></details></section>',
+    );
+    expect(revealHelpTarget('privacy')?.id).toBe('privacy-heading');
+    expect(container.querySelector('details')?.open).toBe(true);
+  });
+
+  it('leaves a section without one alone, and never opens a nested answer', () => {
+    container = mount('<section id="troubleshooting"><details id="an-answer"><summary>Q</summary></details></section>');
+    expect(openSectionDisclosure('troubleshooting')).toBe(false);
+    expect(container.querySelector('details')?.open).toBe(false);
+    expect(openSectionDisclosure('missing')).toBe(false);
   });
 });

@@ -1,5 +1,6 @@
 import { ROUTES } from '@/app/routes';
 import {
+  isDataDeletedLocationState,
   isOnboardingExempt,
   isSignedOutLocationState,
   normalisePathname,
@@ -65,8 +66,18 @@ describe('safeNextPath', () => {
     ['the sign-up screen', '/Sign-Up/'],
     ['the forgot-password screen', '/forgot-password'],
     ['the forgot-password screen with a query', '/forgot-password?x=1'],
+    ['a dot segment that normalises to //host', '/.//evil.example'],
+    ['a parent segment that normalises to //host', '/..//evil.example'],
+    ['a percent-encoded parent segment', '/%2e%2e//evil.example'],
+    ['dot segments that climb past the root', '/dashboard/../..//evil.example'],
+    ['a backslash that normalises to //host', '/dashboard/..\\/evil.example'],
   ])('refuses %s', (_label, next) => {
     expect(safeNextPath(`?next=${encodeURIComponent(next)}`)).toBe(ROUTES.dashboard);
+  });
+
+  it('still resolves harmless dot segments inside the app', () => {
+    expect(safeNextPath(`?next=${encodeURIComponent('/./dashboard/history')}`)).toBe('/dashboard/history');
+    expect(safeNextPath(`?next=${encodeURIComponent('/dashboard/train/../history')}`)).toBe('/dashboard/history');
   });
 });
 
@@ -95,5 +106,22 @@ describe('isSignedOutLocationState', () => {
     expect(isSignedOutLocationState({ signedOut: true })).toBe(true);
     expect(isSignedOutLocationState({ signedOut: 'yes' })).toBe(false);
     expect(isSignedOutLocationState(null)).toBe(false);
+  });
+
+  it('accepts the sign-out marker that also reports a deletion', () => {
+    expect(isSignedOutLocationState({ signedOut: true, dataDeleted: true })).toBe(true);
+  });
+});
+
+describe('isDataDeletedLocationState', () => {
+  it('recognises a sign-out that deleted the local data', () => {
+    expect(isDataDeletedLocationState({ signedOut: true, dataDeleted: true })).toBe(true);
+  });
+
+  it('refuses an ordinary sign-out, a wrong value and anything else', () => {
+    expect(isDataDeletedLocationState({ signedOut: true })).toBe(false);
+    expect(isDataDeletedLocationState({ signedOut: true, dataDeleted: 'yes' })).toBe(false);
+    expect(isDataDeletedLocationState({ dataDeleted: true })).toBe(false);
+    expect(isDataDeletedLocationState(null)).toBe(false);
   });
 });

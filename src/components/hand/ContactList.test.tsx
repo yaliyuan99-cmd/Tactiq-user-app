@@ -59,6 +59,31 @@ describe('ContactList', () => {
     );
   });
 
+  it('gives every row the badge column while one row carries a badge, so no single row reflows', () => {
+    const { rerender } = render(<ContactList labelFor={commandName} />);
+    const plain = screen.getAllByRole('button');
+    expect(plain).toHaveLength(8);
+    // Nothing to show: no reserved column, no placeholders.
+    plain.forEach((button) => expect(button.className).not.toMatch(/7\.25rem/));
+    expect(screen.queryByText('Target')).toBeNull();
+
+    rerender(<ContactList labelFor={commandName} targetContact="index_base" detectedContact="pinky_base" />);
+    const rows = screen.getAllByRole('button');
+    rows.forEach((button) => {
+      // Same two-column shape on all eight rows, so the label width never depends on the badge.
+      expect(button.className).toContain('min-[480px]:grid-cols-[minmax(0,1fr)_7.25rem]');
+      expect(button.className).toContain('grid');
+      expect(button.className).not.toContain('justify-between');
+      expect(button.lastElementChild).toHaveAttribute('aria-hidden', 'true');
+    });
+    const target = screen.getByText('Target');
+    expect(target).toHaveClass('whitespace-nowrap');
+    expect(screen.getByText('Detected here')).toHaveClass('whitespace-nowrap');
+    // The eight rows minus the two with a badge keep an empty stand-in, hidden in the stacked layout.
+    expect(rows.filter((button) => button.lastElementChild?.textContent === '')).toHaveLength(6);
+    expect(rows[0]?.lastElementChild?.className).toContain('hidden');
+  });
+
   it('fires onActivate without press handlers', async () => {
     const onActivate = vi.fn();
     render(<ContactList onActivate={onActivate} />);

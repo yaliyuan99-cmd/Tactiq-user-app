@@ -20,6 +20,27 @@ export function escapeRegExp(text: string): string {
 }
 
 /**
+ * A command name as it is announced. The visible labels keep the slash
+ * ("Dismiss / Back"), but every announcement uses the command's spokenLabel,
+ * which spells the slash out so a screen reader does not read "slash".
+ */
+export function spokenCommand(label: string): string {
+  return label.replace(/ \/ /g, ' or ');
+}
+
+/**
+ * Chooses Free or Guided practice. The mode lives in the URL, so the radio is
+ * only checked once that navigation has landed; check() asserts the new state
+ * in the same tick and reports "did not change its state", so the choice is
+ * made with a click and then awaited.
+ */
+export async function choosePracticeMode(page: Page, mode: 'Free practice' | 'Guided practice'): Promise<void> {
+  const radio = page.getByRole('radio', { name: mode });
+  await radio.click();
+  await expect(radio).toBeChecked();
+}
+
+/**
  * A contact-point button by its contact label. The hand view names points
  * "Middle finger base, Next" and the list view "Middle finger base — Next";
  * both start with the contact label.

@@ -60,7 +60,7 @@ export interface UseGuidedPracticeOptions {
 }
 
 export function useGuidedPractice({ mapping, random = Math.random }: UseGuidedPracticeOptions): GuidedPractice {
-  const { announce } = useFeedback();
+  const { announce, feedback: sendFeedback } = useFeedback();
   const [target, setTarget] = useState<CommandToken>(() => pickGuidedTarget(null, false, random));
   const [advancing, setAdvancing] = useState(false);
   const [includeEmergency, setIncludeEmergencyState] = useState(false);
@@ -71,10 +71,10 @@ export function useGuidedPractice({ mapping, random = Math.random }: UseGuidedPr
   const activeRef = useRef<CommandToken>(target);
   const includeRef = useRef(false);
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const latest = useRef({ mapping, random, announce });
+  const latest = useRef({ mapping, random, announce, sendFeedback });
 
   useEffect(() => {
-    latest.current = { mapping, random, announce };
+    latest.current = { mapping, random, announce, sendFeedback };
   });
 
   const clearTimer = useCallback(() => {
@@ -120,7 +120,7 @@ export function useGuidedPractice({ mapping, random = Math.random }: UseGuidedPr
   const handleResult = useCallback(
     (result: RingResult): GuidedResult => {
       const current = activeRef.current;
-      const { mapping: shortcuts, random: nextRandom, announce: say } = latest.current;
+      const { mapping: shortcuts, random: nextRandom, sendFeedback: tell } = latest.current;
       const evaluation = evaluateGuided(current, result, shortcuts);
       setScore((previous) => addToScore(previous, evaluation.verdict));
       setFeedback({
@@ -131,9 +131,10 @@ export function useGuidedPractice({ mapping, random = Math.random }: UseGuidedPr
 
       if (evaluation.verdict === 'correct') {
         const next = pickGuidedTarget(current, includeRef.current, nextRandom);
-        // Said in the same moment as the ring's own words, so it replaces them rather than following them.
+        // Sent with the ring's own feedback kind, in the same moment, so it replaces
+        // the ring's words in the live region rather than being read after them.
         const announcement = correctAnnouncement(evaluation, next);
-        if (announcement) say(announcement.message, { assertive: announcement.assertive });
+        if (announcement) tell(evaluation.feedbackKind, announcement);
         clearTimer();
         activeRef.current = next;
         setAdvancing(true);
@@ -143,7 +144,7 @@ export function useGuidedPractice({ mapping, random = Math.random }: UseGuidedPr
           setAdvancing(false);
         }, ADVANCE_DELAY_MS);
       } else if (evaluation.announcement) {
-        say(evaluation.announcement.message, { assertive: evaluation.announcement.assertive });
+        tell(evaluation.feedbackKind, evaluation.announcement);
       }
 
       return { target: current, evaluation };

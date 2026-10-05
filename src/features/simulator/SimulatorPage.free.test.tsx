@@ -89,7 +89,10 @@ describe('Simulator page, free practice', () => {
     await squeeze(user);
     await user.click(screen.getByRole('button', { name: 'Pinky finger base, Shortcut 2: Announce the time' }));
 
-    await waitFor(() => expect(politeRegion()).toHaveTextContent('Shortcut 2: Announce the time. It is a quarter past two.'));
+    // A mock outcome is labelled Simulated in the announcement too: a screen-reader user never sees the on-screen label.
+    await waitFor(() =>
+      expect(politeRegion()).toHaveTextContent('Shortcut 2: Announce the time. Simulated: It is a quarter past two.'),
+    );
     const panel = screen.getByRole('region', { name: 'What would happen' });
     expect(within(panel).getByRole('heading', { level: 3, name: 'Shortcut 2: Announce the time' })).toBeInTheDocument();
     const outcome = within(panel).getByText('It is a quarter past two.');

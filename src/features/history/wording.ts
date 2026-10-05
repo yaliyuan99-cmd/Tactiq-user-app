@@ -44,8 +44,48 @@ export function contactLabel(contact: ContactKey | null): string | null {
   return contact ? getContact(contact).label : null;
 }
 
-/** The command the user was aiming for, as a label, or null when there was none. */
+/**
+ * The point column: the point asked for, and the point reported when it differs.
+ * One column instead of two, because the two agree on most records and a narrow
+ * screen stacks every column into its own line.
+ */
+export function pointSummary(event: Pick<GestureEvent, 'targetContact' | 'detectedContact'>): string | null {
+  const target = contactLabel(event.targetContact);
+  const detected = contactLabel(event.detectedContact);
+  if (target === null) return detected === null ? null : `${detected} (no point asked for)`;
+  if (detected === null || detected === target) return target;
+  return `${target}, detected ${detected}`;
+}
+
+/**
+ * What every record in view has in common, for the section lede, e.g.
+ * "All 25 shown are Simulator records labelled Sample." Columns that repeat the
+ * same value on every row say it once here instead.
+ */
+export function sharedRecordNote(
+  events: readonly Pick<GestureEvent, 'source' | 'seeded' | 'evidence'>[],
+  sourceName: (source: GestureEvent['source']) => string,
+): string | null {
+  if (events.length < 2) return null;
+  const [first] = events;
+  if (!first) return null;
+  const sameSource = events.every((event) => event.source === first.source);
+  const label = recordLabel(first);
+  const sameLabel = events.every((event) => recordLabel(event) === label);
+  if (!sameSource && !sameLabel) return null;
+  const count = events.length;
+  if (sameSource && sameLabel) return `All ${count} shown are ${sourceName(first.source)} records labelled ${label}.`;
+  if (sameSource) return `All ${count} shown come from ${sourceName(first.source)}.`;
+  return `All ${count} shown are labelled ${label}.`;
+}
+
+/**
+ * The command the user was aiming for, as a label, or null when there was none.
+ * A calibration run prompts a contact point rather than a command, so those
+ * records have no command to name: the point column carries what was asked for.
+ */
 export function intendedCommandLabel(event: GestureEvent): string | null {
+  if (event.source === 'calibration') return null;
   const token = intendedToken(event);
   return token ? getCommand(token).label : null;
 }

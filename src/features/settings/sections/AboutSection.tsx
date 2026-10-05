@@ -2,6 +2,7 @@ import { Link } from 'react-router';
 import { helpRoute } from '@/app/routes';
 import { DataTable, EvidenceLabel, type DataTableColumn } from '@/components';
 import { DESIGN_TARGETS, type DesignTarget } from '@/domain/evidence';
+import { SOURCE_GLOSSARY } from '@/features/help/helpContent';
 import { SettingsSection } from '../SettingsSection';
 
 export const DESIGN_TARGETS_CAPTION = 'Design targets';
@@ -37,6 +38,7 @@ export function AboutSection() {
         <p className="max-w-prose">
           These acceptance thresholds were fixed before any testing. They are goals the ring would have to meet, not results.
         </p>
+        <p className="max-w-prose text-sm text-muted-foreground">{SOURCE_GLOSSARY}</p>
         <DataTable
           caption={DESIGN_TARGETS_CAPTION}
           columns={COLUMNS}

@@ -19,8 +19,10 @@ import { useHistoryFilters } from './useHistoryFilters';
 import { YourDataSection } from './YourDataSection';
 import { countEmergencyHolds, plural, resultCountMessage } from './wording';
 
+export const HISTORY_TITLE = 'History';
+
 export const HISTORY_LEDE =
-  'Your practice in the simulator, lessons and calibration. These are simulated results from this app, not measurements of a ring.';
+  'Your practice in the simulator, lessons and calibration. Each record is labelled Simulated, or Measured when it came from a connected bench ring.';
 
 export const STORAGE_WARNING = 'This browser is not saving activity, so it will be lost when you close the tab.';
 
@@ -57,14 +59,16 @@ function useFocusAfterRender(): (id: string) => void {
 }
 
 export default function HistoryPage() {
-  usePageTitle('Activity');
+  // The page is named the same everywhere: the sidebar and the More dialog say
+  // "History", so the document title, the h1 and the route announcement do too.
+  usePageTitle(HISTORY_TITLE);
   const history = useHistory();
   const { announce } = useFeedback();
   const { filters, setFilters, searchFor } = useHistoryFilters();
   const ready = useInitialRead(history);
   const focusAfterRender = useFocusAfterRender();
 
-  const header = <PageHeader title="Activity" lede={HISTORY_LEDE} />;
+  const header = <PageHeader title={HISTORY_TITLE} lede={HISTORY_LEDE} />;
   if (!ready) {
     return (
       <>
@@ -82,6 +86,9 @@ export default function HistoryPage() {
   const summary = history.summarise(serviceFilter);
   const emergency = countEmergencyHolds(events);
   const sampleCount = countSampleRecords(history);
+  // Every evidence statement on the page describes the records in view, so the
+  // lede, the banner, Summary and By command can never disagree with the rows.
+  const allSamples = events.length > 0 && events.every((event) => event.seeded);
   const filterKey = `${filters.range}|${filters.command}|${filters.source}`;
 
   const announceResults = (next: HistoryFilterState) => {
@@ -116,7 +123,7 @@ export default function HistoryPage() {
         <EmptyState
           icon={Activity}
           title="No activity yet"
-          body="Attempts from the simulator, lessons and calibration will appear here, each labelled Simulated."
+          body="Attempts from the simulator, lessons and calibration will appear here. Each one is labelled Simulated, or Measured when it came from a connected bench ring."
           action={
             <>
               <ButtonLink to={ROUTES.simulator}>Practise a command</ButtonLink>
@@ -129,7 +136,12 @@ export default function HistoryPage() {
       ) : (
         <div className="space-y-10">
           <div className="space-y-4">
-            <EvidenceBanner sampleCount={sampleCount} onRemoveSamples={removeSamples} />
+            <EvidenceBanner
+              evidence={summary.evidence}
+              allSamples={allSamples}
+              sampleCount={sampleCount}
+              onRemoveSamples={removeSamples}
+            />
             <FiltersForm filters={filters} onChange={changeFilters} />
           </div>
 
@@ -144,11 +156,13 @@ export default function HistoryPage() {
             />
           ) : (
             <>
-              <SummarySection summary={summary} emergency={emergency} />
+              <SummarySection summary={summary} emergency={emergency} allSamples={allSamples} />
               <CommandPerformanceSection
                 rows={performanceRows(summary.perCommand, filters.command)}
                 command={filters.command}
                 emergency={emergency}
+                evidence={summary.evidence}
+                allSamples={allSamples}
               />
               <RecentAttemptsSection key={filterKey} events={events} />
             </>

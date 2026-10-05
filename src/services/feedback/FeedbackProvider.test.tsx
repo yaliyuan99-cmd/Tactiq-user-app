@@ -2,7 +2,14 @@ import { act, render, screen, waitFor } from '@testing-library/react';
 import { renderWithProviders } from '@/test/render';
 import { DEFAULT_PREFERENCES, type UserPreferences } from '@/domain/models';
 import { STORAGE_KEYS } from '@/services/storage/StorageAdapter';
-import { ANNOUNCE_FALLBACK_MS, SPEECH_RATE, useFeedback } from './FeedbackProvider';
+import {
+  ANNOUNCE_FALLBACK_MS,
+  SPEECH_FINISHED,
+  SPEECH_RATE,
+  SPEECH_REFUSED,
+  useFeedback,
+  VOICE_CHECK_MS,
+} from './FeedbackProvider';
 import { type FeedbackContextValue } from './types';
 
 const captured: { current: FeedbackContextValue | null } = { current: null };
@@ -20,6 +27,8 @@ function api(): FeedbackContextValue {
 class FakeUtterance {
   rate = 1;
   lang = '';
+  onend: (() => void) | null = null;
+  onerror: ((event: { error: string }) => void) | null = null;
   constructor(readonly text: string) {}
 }
 
@@ -28,6 +37,35 @@ function installSpeech() {
   Object.defineProperty(window, 'speechSynthesis', { configurable: true, writable: true, value: synth });
   Object.defineProperty(window, 'SpeechSynthesisUtterance', { configurable: true, writable: true, value: FakeUtterance });
   return synth;
+}
+
+/** The last utterance handed to the browser. */
+function spoken(synth: { speak: ReturnType<typeof vi.fn> }): FakeUtterance {
+  const utterance = synth.speak.mock.calls.at(-1)?.[0] as FakeUtterance | undefined;
+  if (!utterance) throw new Error('Nothing was spoken');
+  return utterance;
+}
+
+/** Speech plus a voice list, as a browser that reports its voices does. */
+function installSpeechWithVoices(voices: string[]) {
+  const target = new EventTarget();
+  let current = voices;
+  const synth = {
+    speak: vi.fn(),
+    cancel: vi.fn(),
+    getVoices: vi.fn(() => current.map((name) => ({ name }))),
+    addEventListener: target.addEventListener.bind(target),
+    removeEventListener: target.removeEventListener.bind(target),
+  };
+  Object.defineProperty(window, 'speechSynthesis', { configurable: true, writable: true, value: synth });
+  Object.defineProperty(window, 'SpeechSynthesisUtterance', { configurable: true, writable: true, value: FakeUtterance });
+  return {
+    synth,
+    load(names: string[]) {
+      current = names;
+      target.dispatchEvent(new Event('voiceschanged'));
+    },
+  };
 }
 
 function installVibration(result = true) {
@@ -303,6 +341,80 @@ describe('FeedbackProvider', () => {
     renderWithProviders(<Capture />, { preferences: { audioAnnouncements: true } });
     expect(api().canSpeak).toBe(false);
     expect(() => act(() => api().speak('Hello.'))).not.toThrow();
+  });
+
+  it('announces that the browser finished speaking what the user asked to hear', async () => {
+    const synth = installSpeech();
+    renderWithProviders(<Capture />, { preferences: { audioAnnouncements: true } });
+    act(() => api().speak('Next.'));
+    expect(spoken(synth).text).toBe('Next.');
+    // Nothing is claimed until the browser says it is done.
+    expect(screen.getByRole('status')).toHaveTextContent('');
+    act(() => spoken(synth).onend?.());
+    await waitFor(() => expect(screen.getByRole('status')).toHaveTextContent(SPEECH_FINISHED));
+  });
+
+  it('announces a failure when the browser cannot produce the speech', async () => {
+    const synth = installSpeech();
+    renderWithProviders(<Capture />, { preferences: { audioAnnouncements: true } });
+    act(() => api().speak('Next.'));
+    act(() => spoken(synth).onerror?.({ error: 'synthesis-failed' }));
+    await waitFor(() => expect(screen.getByRole('status')).toHaveTextContent(SPEECH_REFUSED));
+  });
+
+  it('says nothing when speech is cancelled on purpose, and reports a browser that throws', async () => {
+    const synth = installSpeech();
+    renderWithProviders(<Capture />, { preferences: { audioAnnouncements: true } });
+    act(() => api().speak('Read again.'));
+    act(() => spoken(synth).onerror?.({ error: 'interrupted' }));
+    act(() => spoken(synth).onerror?.({ error: 'canceled' }));
+    expect(screen.getByRole('status')).toHaveTextContent('');
+
+    synth.speak.mockImplementationOnce(() => {
+      throw new Error('speech is blocked here');
+    });
+    act(() => api().speak('Read again.'));
+    await waitFor(() => expect(screen.getByRole('status')).toHaveTextContent(SPEECH_REFUSED));
+  });
+
+  it('treats a browser that lists no voice as unable to speak', async () => {
+    vi.useFakeTimers();
+    installSpeechWithVoices([]);
+    renderWithProviders(<Capture />, { preferences: { audioAnnouncements: true } });
+    // The list is often empty until the voices load, so it is given a moment first.
+    expect(api().canSpeak).toBe(true);
+    act(() => vi.advanceTimersByTime(VOICE_CHECK_MS));
+    expect(api().canSpeak).toBe(false);
+    vi.useRealTimers();
+    // speak() still reports rather than failing silently.
+    act(() => api().speak('Next.'));
+    await waitFor(() => expect(screen.getByRole('status')).toHaveTextContent(SPEECH_REFUSED));
+  });
+
+  it('keeps speech available when the voices arrive late, or are never listed', () => {
+    vi.useFakeTimers();
+    const voices = installSpeechWithVoices([]);
+    const { unmount } = renderWithProviders(<Capture />, { preferences: { audioAnnouncements: true } });
+    act(() => voices.load(['Daniel']));
+    act(() => vi.advanceTimersByTime(VOICE_CHECK_MS * 2));
+    expect(api().canSpeak).toBe(true);
+    unmount();
+
+    // Voices that arrive after the wait turn speech back on: headless Chromium
+    // lists its first voice about 1.2 s in, and a slow machine can be slower still.
+    const late = installSpeechWithVoices([]);
+    const slow = renderWithProviders(<Capture />, { preferences: { audioAnnouncements: true } });
+    act(() => vi.advanceTimersByTime(VOICE_CHECK_MS));
+    expect(api().canSpeak).toBe(false);
+    act(() => late.load(['Daniel']));
+    expect(api().canSpeak).toBe(true);
+    slow.unmount();
+
+    // A browser with no getVoices() tells us nothing, so speech stays available.
+    installSpeech();
+    renderWithProviders(<Capture />, { preferences: { audioAnnouncements: true } });
+    act(() => vi.advanceTimersByTime(VOICE_CHECK_MS * 2));
+    expect(api().canSpeak).toBe(true);
   });
 
   it('vibrates only when available and haptic feedback is on', () => {

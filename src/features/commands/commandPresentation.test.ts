@@ -2,6 +2,7 @@ import { COMMANDS, DEFAULT_SHORTCUT_MAPPING, getCommand } from '@/domain/command
 import { CONTACT_KEYS } from '@/domain/contacts';
 import {
   commandWhereAndHow,
+  commandWindowNote,
   contactCommandLabel,
   mapCaption,
   statusLabel,
@@ -36,6 +37,27 @@ describe('commandPresentation', () => {
       'Shortcut 2 (nothing assigned)',
     );
     CONTACT_KEYS.forEach((key) => expect(contactCommandLabel(key, DEFAULT_SHORTCUT_MAPPING)).not.toBe(''));
+  });
+
+  it('describes the command window for the mode the app is actually in', () => {
+    // Demo Mode: the preference decides, and the tip is worth offering.
+    expect(commandWindowNote({ mode: 'demo', windowMs: 3000, longerInteractionTime: false })).toEqual({
+      lead: 'Your window is',
+      value: '3 s',
+      tail: '. Switch on Longer interaction time for 6 s.',
+    });
+    expect(commandWindowNote({ mode: 'demo', windowMs: 6000, longerInteractionTime: true })).toEqual({
+      lead: 'Your window is',
+      value: '6 s',
+      tail: ' because Longer interaction time is on.',
+    });
+
+    // Hardware: the firmware fixes the window, so the tip would mislead.
+    const hardware = commandWindowNote({ mode: 'hardware', windowMs: 3000, longerInteractionTime: true });
+    expect(hardware.value).toBe('3 s');
+    expect(hardware.lead).toBe('Your bench ring’s window is');
+    expect(hardware.tail).toMatch(/fixed by its firmware/);
+    expect(hardware.tail).not.toMatch(/Switch on/);
   });
 
   it('captions the map for either hand', () => {

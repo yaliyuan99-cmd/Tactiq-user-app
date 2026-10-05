@@ -5,6 +5,7 @@ import {
   SOURCE_OPTIONS,
   describeFilters,
   hasNarrowingFilters,
+  isSourceFilter,
   parseHistoryParams,
   rangeLabel,
   sourceLabel,
@@ -25,10 +26,10 @@ describe('parseHistoryParams', () => {
       command: 'quick_action_2',
       source: 'training',
     });
-    expect(parseHistoryParams(new URLSearchParams('range=today&command=emergency&source=device'))).toEqual({
+    expect(parseHistoryParams(new URLSearchParams('range=today&command=emergency&source=calibration'))).toEqual({
       range: 'today',
       command: 'emergency',
-      source: 'device',
+      source: 'calibration',
     });
   });
 
@@ -69,7 +70,12 @@ describe('options and labels', () => {
     expect(COMMAND_OPTIONS).toHaveLength(10);
     expect(COMMAND_OPTIONS[0]).toEqual({ value: 'all', label: 'All commands' });
     expect(COMMAND_OPTIONS.map((o) => o.label)).toContain('Emergency');
-    expect(SOURCE_OPTIONS.map((o) => o.label)).toEqual(['All sources', 'Simulator', 'Lessons', 'Calibration', 'Ring']);
+    // No "Ring": nothing records source 'device', so the option could only ever
+    // come back empty (a bench ring's taps are recorded by the screen in use).
+    expect(SOURCE_OPTIONS.map((o) => o.label)).toEqual(['All sources', 'Simulator', 'Lessons', 'Calibration']);
+    expect(SOURCE_OPTIONS.map((o) => o.value)).not.toContain('device');
+    expect(isSourceFilter('device')).toBe(false);
+    expect(parseHistoryParams(new URLSearchParams('source=device')).source).toBe('all');
   });
 
   it('names sources and ranges in words', () => {
@@ -81,10 +87,10 @@ describe('options and labels', () => {
 
 describe('helpers', () => {
   it('maps filter state to the service filter', () => {
-    expect(toServiceFilter({ range: 'today', command: 'read', source: 'device' })).toEqual({
+    expect(toServiceFilter({ range: 'today', command: 'read', source: 'calibration' })).toEqual({
       range: 'today',
       token: 'read',
-      source: 'device',
+      source: 'calibration',
     });
   });
 

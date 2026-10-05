@@ -1,8 +1,8 @@
-import { DataTable, EvidenceLabel, VisuallyHidden, type DataTableColumn } from '@/components';
 import { getCommand } from '@/domain/commands';
 import type { CommandPerformance } from '@/domain/models';
 import { cn } from '@/lib/cn';
-import { formatPercent } from '@/lib/time';
+import { type EvidenceInView } from './evidenceInView';
+import { EvidenceTag } from './EvidenceTag';
 import { HISTORY_HEADING_IDS } from './historyIds';
 import type { CommandFilter } from './historyParams';
 import { barWidthPercent, performanceSentence, rateWithCounts } from './performance';
@@ -13,27 +13,11 @@ export interface CommandPerformanceSectionProps {
   readonly rows: readonly CommandPerformance[];
   readonly command: CommandFilter;
   readonly emergency: EmergencyCounts;
+  /** The evidence of the records these rows were counted from. */
+  readonly evidence: EvidenceInView;
+  /** True when every record in view is a Demo Mode sample. */
+  readonly allSamples?: boolean;
 }
-
-const COLUMNS: readonly DataTableColumn<CommandPerformance>[] = [
-  { key: 'command', header: 'Command', rowHeader: true, cell: (row) => getCommand(row.token).label },
-  { key: 'attempts', header: 'Attempts', align: 'end', cell: (row) => row.attempts },
-  { key: 'recognised', header: 'Recognised', align: 'end', cell: (row) => row.successes },
-  {
-    key: 'rate',
-    header: 'Rate',
-    align: 'end',
-    cell: (row) =>
-      row.rate === null ? (
-        <>
-          <span aria-hidden="true">—</span>
-          <VisuallyHidden>No attempts</VisuallyHidden>
-        </>
-      ) : (
-        formatPercent(row.rate)
-      ),
-  },
-];
 
 function PerformanceBar({ row }: { row: CommandPerformance }) {
   const empty = row.attempts === 0;
@@ -58,12 +42,18 @@ function PerformanceBar({ row }: { row: CommandPerformance }) {
   );
 }
 
-export function CommandPerformanceSection({ rows, command, emergency }: CommandPerformanceSectionProps) {
+export function CommandPerformanceSection({
+  rows,
+  command,
+  emergency,
+  evidence,
+  allSamples = false,
+}: CommandPerformanceSectionProps) {
   return (
     <section aria-labelledby={HISTORY_HEADING_IDS.byCommand}>
       <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
         <h2 id={HISTORY_HEADING_IDS.byCommand}>By command</h2>
-        <EvidenceLabel kind="simulated" />
+        <EvidenceTag evidence={evidence} allSamples={allSamples} />
       </div>
 
       {command === 'emergency' ? (
@@ -76,22 +66,13 @@ export function CommandPerformanceSection({ rows, command, emergency }: CommandP
         <>
           <p className="mt-2 max-w-prose">{performanceSentence(rows)}</p>
           <ul
-            aria-label="Recognition by command"
+            aria-label="Recognised attempts by command, with counts and rate"
             className="mt-4 grid gap-4 rounded-lg border border-border bg-card p-4 shadow-card sm:gap-3 sm:p-5"
           >
             {rows.map((row) => (
               <PerformanceBar key={row.token} row={row} />
             ))}
           </ul>
-          <DataTable
-            caption="Performance by command"
-            columns={COLUMNS}
-            rows={rows}
-            rowKey={(row) => row.token}
-            emptyMessage="No commands to show."
-            dense
-            className="mt-4"
-          />
           {command === 'all' && (
             <p className="mt-3 text-sm text-muted-foreground">
               Emergency holds are not scored per command; they are counted in the summary.

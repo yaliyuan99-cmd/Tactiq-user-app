@@ -39,7 +39,9 @@ describe('Step 2: accessibility preferences', () => {
     await user.click(screen.getByRole('switch', { name: 'Haptic feedback' }));
 
     const longer = screen.getByRole('switch', { name: 'Longer interaction time' });
-    expect(longer).toHaveAccessibleDescription(/stays open for 3 seconds.*6 seconds/);
+    expect(longer).toHaveAccessibleDescription(
+      'After a squeeze, the command window stays open for 3 seconds. Switch this on to keep it open for 6 seconds in Demo Mode. A Bluetooth bench ring keeps its own 3-second window.',
+    );
     await user.click(longer);
     expect(longer).toHaveAttribute('aria-checked', 'true');
     await waitFor(() =>
@@ -54,6 +56,23 @@ describe('Step 2: accessibility preferences', () => {
       hapticFeedback: false,
       longerInteractionTime: true,
     });
+  });
+
+  it('tells a Bluetooth ring user that the longer window belongs to Demo Mode', async () => {
+    const { user } = await renderOnboarding({
+      preferences: { onboardingStep: stepIndexOf('accessibility') },
+      deviceMode: 'hardware',
+    });
+
+    const longer = screen.getByRole('switch', { name: 'Longer interaction time' });
+    // The switch names Demo Mode and the bench ring's own window, so the 6 seconds are never promised to a ring.
+    expect(longer).toHaveAccessibleDescription(/6 seconds in Demo Mode\. A Bluetooth bench ring keeps its own 3-second window\./);
+    await user.click(longer);
+    await waitFor(() =>
+      expect(politeRegion()).toHaveTextContent(
+        'Longer interaction time on. It applies to Demo Mode, so the Bluetooth bench ring keeps its own 3-second window.',
+      ),
+    );
   });
 });
 

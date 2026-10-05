@@ -36,7 +36,7 @@ describe('training words', () => {
     expect(joinWithAnd(['Undo', 'Shortcut 1', 'Shortcut 2'])).toBe('Undo, Shortcut 1 and Shortcut 2');
     expect(teachesPhrase(getLesson('squeeze_to_activate'))).toBeNull();
     expect(lessonTitle(getLesson('emergency_hold'))).toBe('Lesson 5: Five-second emergency hold');
-    expect(teachesPhrase(getLesson('confirm_and_back'))).toBe('Confirm and Dismiss / Back');
+    expect(teachesPhrase(getLesson('confirm_and_back'))).toBe('Confirm and Dismiss or Back');
   });
 
   it('words lesson status and the action for it', () => {
@@ -69,7 +69,7 @@ describe('runSummarySentence', () => {
   it('adds retries on the same command together and lists commands in step order', () => {
     // Steps 1, 2 and 6 are Next; step 3 is Read / Repeat.
     const records = [3, 2, 2, 1, 1, 2].map((attempts) => ({ attempts, correct: 1 }));
-    expect(runSummarySentence(lesson3, records)).toBe('You found every point, with four retries on Next and one retry on Read / Repeat.');
+    expect(runSummarySentence(lesson3, records)).toBe('You found every point, with four retries on Next and one retry on Read or Repeat.');
   });
 
   it('describes the hold lesson', () => {

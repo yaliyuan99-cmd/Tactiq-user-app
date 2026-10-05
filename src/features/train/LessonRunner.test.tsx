@@ -34,6 +34,24 @@ async function squeezeAndLetClose(user: User) {
 }
 
 describe('LessonRunner', () => {
+  it('states the window without linking to Settings when embedded, because Settings is behind the setup gate', async () => {
+    await renderWithUser(<LessonRunner lessonId="squeeze_to_activate" embedded />);
+
+    expect(screen.queryByRole('link', { name: /Settings/ })).not.toBeInTheDocument();
+    // The information is still there, just not as a way out of the step.
+    expect(screen.getByText(/Each squeeze opens the command window for 3 seconds\./)).toBeInTheDocument();
+    expect(screen.getByText(/Longer interaction time, in Settings, gives 6 seconds\./)).toBeInTheDocument();
+  });
+
+  it('links to Settings on its own page, where following the link is not a dead end', async () => {
+    await renderWithUser(<LessonRunner lessonId="squeeze_to_activate" />);
+
+    expect(screen.getByRole('link', { name: 'Turn on Longer interaction time in Settings' })).toHaveAttribute(
+      'href',
+      '/dashboard/settings',
+    );
+  });
+
   it('uses the given heading levels, practises the squeeze with no map, and calls onComplete once', async () => {
     const onComplete = vi.fn();
     const { user, storage } = await renderWithUser(<LessonRunner lessonId="squeeze_to_activate" embedded onComplete={onComplete} />);

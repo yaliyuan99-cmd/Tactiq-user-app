@@ -3,7 +3,7 @@ import { ROUTES } from '@/app/routes';
 import { DataTable, EvidenceLabel, type DataTableColumn } from '@/components';
 import { EMERGENCY_SIMULATION_NOTICE } from '@/domain/evidence';
 import { EMERGENCY_ARMING_CUE_MS, formatMs } from '@/domain/timing';
-import { EMERGENCY_HOLD_TEXT, TAP_MAX_TEXT, WINDOW_TEXT, timingRows, type TimingRow } from './helpContent';
+import { EMERGENCY_HOLD_TEXT, SOURCE_GLOSSARY, TAP_MAX_TEXT, WINDOW_TEXT, timingRows, type TimingRow } from './helpContent';
 import { HelpSection, HelpSubsection } from './HelpSection';
 import { InPageLink } from './InPageLink';
 import { INLINE_LINK, STANDALONE_LINK } from './helpStyles';
@@ -51,6 +51,7 @@ export function PractisingSection() {
             emptyMessage="No timing values."
             dense
           />
+          <p className="max-w-prose text-sm text-muted-foreground">{SOURCE_GLOSSARY}</p>
         </div>
       </HelpSubsection>
 

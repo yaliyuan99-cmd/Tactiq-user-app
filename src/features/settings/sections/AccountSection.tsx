@@ -64,7 +64,7 @@ export function AccountSection() {
       id="account"
       intro={
         demo
-          ? 'This is a local Demo Mode profile. It lives only in this browser and has no password, so anyone using this browser can open it.'
+          ? 'This is a local profile. It lives only in this browser and has no password, so anyone using this browser can open it.'
           : 'You are signed in with an account.'
       }
     >

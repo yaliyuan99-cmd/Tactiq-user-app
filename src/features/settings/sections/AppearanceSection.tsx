@@ -1,7 +1,7 @@
 import { RadioGroupField, SwitchField } from '@/components';
 import { useFeedback } from '@/services/feedback/FeedbackProvider';
 import { usePreferences } from '@/services/preferences/PreferencesProvider';
-import { SettingsDivider, SettingsSection } from '../SettingsSection';
+import { SettingsDivider, SettingsSection, WRAPPING_SWITCH_ROW } from '../SettingsSection';
 import {
   CONTRAST_LABELS,
   CONTRAST_OPTIONS,
@@ -62,6 +62,7 @@ export function AppearanceSection() {
 
       <div className="grid gap-2">
         <SwitchField
+          containerClassName={WRAPPING_SWITCH_ROW}
           label="Reduce motion"
           description={REDUCE_MOTION_DESCRIPTION}
           checked={preferences.reducedMotion}

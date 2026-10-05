@@ -1,10 +1,10 @@
-import { HELP_SECTIONS } from './helpSections';
+import { HELP_CONTENTS_ID, HELP_SECTIONS } from './helpSections';
 import { InPageLink } from './InPageLink';
 
 /** The in-page contents list at the top of Help. */
 export function ContentsNav() {
   return (
-    <nav aria-label="On this page" className="rounded-lg border border-border bg-card px-4 py-3 shadow-card sm:px-5">
+    <nav id={HELP_CONTENTS_ID} aria-label="On this page" className="rounded-lg border border-border bg-card px-4 py-3 shadow-card sm:px-5">
       <p aria-hidden="true" className="font-mono-label text-muted-foreground">
         On this page
       </p>

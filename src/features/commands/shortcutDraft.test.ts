@@ -77,7 +77,7 @@ describe('shortcutDraft', () => {
     expect(describeAssignment('quick_action_2', SAVED)).toBe('Shortcut 2: Announce the time');
     expect(mappingSummary({ quick_action_1: 'unassigned', quick_action_2: 'toggle_flashlight' })).toEqual([
       'Shortcut 1: Nothing assigned',
-      'Shortcut 2: Toggle the flashlight',
+      'Shortcut 2: Turn the torch on or off',
     ]);
     expect(defaultsSummary()).toEqual(mappingSummary(DEFAULT_SHORTCUT_MAPPING));
   });

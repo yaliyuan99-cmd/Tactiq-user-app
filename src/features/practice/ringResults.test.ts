@@ -118,7 +118,7 @@ describe('describeRingResult', () => {
   it('names a shortcut with its action and simulated outcome, marking the outcome Simulated only on screen', () => {
     const description = describeRingResult(command('quick_action_1', 'pinky_tip'), mapping);
     expect(description).toEqual({
-      message: 'Shortcut 1: Play or pause media. Media paused.',
+      message: 'Shortcut 1: Play or pause media. Simulated: Media paused.',
       visibleMessage: 'Shortcut 1: Play or pause media. Simulated: Media paused.',
       feedbackKind: 'confirm',
       shortLabel: 'Shortcut 1: Play or pause media',
@@ -128,7 +128,7 @@ describe('describeRingResult', () => {
   it('follows the user’s own shortcut mapping', () => {
     const custom: ShortcutMapping = { quick_action_1: 'toggle_flashlight', quick_action_2: 'start_voice_memo' };
     expect(describeRingResult(command('quick_action_2', 'pinky_base'), custom).message).toBe(
-      'Shortcut 2: Start a voice memo. Recording started.',
+      'Shortcut 2: Start a voice memo. Simulated: Recording started.',
     );
   });
 

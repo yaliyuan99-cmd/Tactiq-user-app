@@ -6,6 +6,7 @@ import {
   type AuthMode,
   type AuthService,
   type AuthUser,
+  type GuestResult,
   type PasswordResetRequestResult,
   type SignInInput,
   type SignUpInput,
@@ -154,7 +155,7 @@ export class LocalDemoAuthService implements AuthService {
     this.save({ accounts, session: null });
   }
 
-  async continueAsGuest(): Promise<AuthUser> {
+  async continueAsGuest(): Promise<GuestResult> {
     const { accounts } = this.load();
     const existing = accounts.find((a) => a.email === GUEST_EMAIL);
     const guest: LocalAccountRecord = existing ?? {
@@ -164,7 +165,7 @@ export class LocalDemoAuthService implements AuthService {
       createdAt: nowIso(),
     };
     this.save({ accounts: existing ? accounts : [...accounts, guest], session: this.sessionFor(guest) });
-    return toUser(guest);
+    return { user: toUser(guest), created: existing === undefined };
   }
 
   async requestPasswordReset(_email: string): Promise<PasswordResetRequestResult> {

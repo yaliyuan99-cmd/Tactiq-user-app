@@ -1,5 +1,6 @@
 export * from './contacts';
 export * from './commands';
+export * from './haptics';
 export * from './timing';
 export * from './evidence';
 export * from './protocol';

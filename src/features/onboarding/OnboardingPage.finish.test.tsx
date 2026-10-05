@@ -13,7 +13,10 @@ describe('Step 7: first lesson', () => {
     expect(runner).toHaveAttribute('data-lesson', 'squeeze_to_activate');
     expect(runner).toHaveAttribute('data-embedded', 'true');
     expect(within(runner).getByRole('heading', { level: 2 })).toBeInTheDocument();
-    expect(screen.getByText(/Need more time\? Switch on Longer interaction time/)).toBeInTheDocument();
+    expect(screen.getByText('In Demo Mode, a Squeeze button stands in for the ring.')).toBeInTheDocument();
+    // The lesson card states the command window; the step does not repeat it with different advice.
+    expect(screen.queryByText(/command window stays open/)).toBeNull();
+    expect(screen.queryByText(/Need more time/)).toBeNull();
     expect(screen.queryByText(LESSON_DONE)).not.toBeInTheDocument();
 
     await user.click(screen.getByRole('button', { name: 'Finish lesson' }));
@@ -24,6 +27,13 @@ describe('Step 7: first lesson', () => {
     await user.click(screen.getByRole('button', { name: 'Back' }));
     await user.click(screen.getByRole('button', { name: 'Continue' }));
     expect(screen.getByText(LESSON_DONE)).toBeInTheDocument();
+  });
+
+  it('keeps only the lesson’s own Start lesson button filled', async () => {
+    await renderOnboarding({ preferences: { onboardingStep: stepIndexOf('first_lesson') } });
+    // The step asks for the lesson first, so Continue steps back to an outlined button.
+    expect(screen.getByRole('button', { name: 'Continue' }).className).not.toContain('bg-primary');
+    expect(screen.getByRole('button', { name: 'Continue' }).className).toContain('border-border-strong');
   });
 
   it('offers a way back into the lesson after leaving it', async () => {
@@ -71,6 +81,19 @@ describe('Step 8: all set', () => {
     expect(await screen.findByRole('heading', { name: 'Dashboard stub' })).toBeInTheDocument();
     expect(currentPathname()).toBe('/dashboard');
     expect(storedPreferences(storage)).toMatchObject({ onboardingCompleted: true, onboardingStep: ONBOARDING_LAST_STEP });
+  });
+
+  it('does not promise a six-second window to someone using a Bluetooth ring', async () => {
+    await renderOnboarding({
+      preferences: { onboardingStep: ONBOARDING_LAST_STEP, longerInteractionTime: true },
+      deviceMode: 'hardware',
+    });
+    const choices = screen.getByRole('region', { name: 'Your choices' });
+    const longer = within(choices).getByText(/^Longer interaction time$/).parentElement as HTMLElement;
+    expect(longer).toHaveTextContent(
+      'On — it applies to Demo Mode, so the Bluetooth bench ring keeps its own 3-second window',
+    );
+    expect(longer).not.toHaveTextContent('6 seconds');
   });
 
   it('finishes setup before a next-step link opens its page', async () => {

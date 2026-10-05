@@ -62,7 +62,7 @@ describe('ConnectPage in Demo Mode', () => {
     expect(demo).toBeChecked();
     expect(demo).toHaveAccessibleDescription('Works in any browser. Every result is labelled Simulated.');
     expect(hardware).toHaveAccessibleDescription(
-      'Needs Chrome or Edge on desktop or Android, and a flashed Tactiq bench ring.',
+      'Needs Chrome or Edge on desktop or Android, and a bench ring running the Tactiq bench firmware.',
     );
     expect(screen.queryByText('Connection log')).not.toBeInTheDocument();
   });

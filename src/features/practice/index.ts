@@ -28,7 +28,9 @@
  *   <PracticeSurface ring={ring} hand={preferences.hand} targetContact={step.contact} />
  * Renders SqueezeControl, a Hand view / List view switch (hand by default,
  * list on screens under 480 px; the choice is remembered per tab in
- * sessionStorage "tactiq.practiceView" unless `view` is controlled), the
+ * sessionStorage "tactiq.practiceView" unless `view` is controlled). A hand
+ * view narrower than MIN_HAND_VIEW_WIDTH would overlap its 44 px points, so
+ * the list is shown with a short note instead and the choice is kept. Then the
  * HandMap or ContactList wired to the ring, a visible "Last: …" line (when
  * visual confirmation is on), the "Simulation only" EmergencyNotice after a
  * completed hold (`showEmergencyNotice`, default true) and the
@@ -80,6 +82,7 @@ export {
   describeRingResult,
   formatSeconds,
   ringResultFromEvent,
+  windowSeconds,
   type RingResult,
   type RingResultDescription,
   type RingResultKind,
@@ -95,6 +98,7 @@ export {
 export { FLASH_MS, REMAINING_TICK_MS, useRing, type RingController, type UseRingOptions } from './useRing';
 export { useRecordResult, useRecordSqueeze, type RecordResult, type RecordSqueeze } from './useRecordResult';
 export { useShortcutLabels, type ShortcutLabels } from './useShortcutLabels';
+export { spokenCommandLabel, spokenLabelForToken } from './spokenWords';
 export {
   DEFAULT_PRACTICE_VIEW,
   PRACTICE_VIEW_STORAGE_KEY,
@@ -109,4 +113,11 @@ export { SqueezeControl, type SqueezeControlProps } from './SqueezeControl';
 export { EmergencyHoldButton, type EmergencyHoldButtonProps } from './EmergencyHoldButton';
 export { EMERGENCY_NOTICE_DETAIL, EmergencyNotice, type EmergencyNoticeProps } from './EmergencyNotice';
 export { ViewSwitch, type ViewSwitchProps } from './ViewSwitch';
-export { KEYBOARD_HINT, PracticeSurface, type PracticeSurfaceProps } from './PracticeSurface';
+export { KEYBOARD_HINT, PRACTICE_PANEL_CLASSES, PracticeSurface, type PracticeSurfaceProps } from './PracticeSurface';
+export {
+  CLOSEST_CONTACT_DISTANCE,
+  HAND_VIEW_TOO_NARROW_NOTE,
+  INTERACTIVE_POINT_SIZE,
+  MIN_HAND_VIEW_WIDTH,
+  handViewFits,
+} from './handViewFit';

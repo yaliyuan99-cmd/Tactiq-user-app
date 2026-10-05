@@ -2,6 +2,7 @@ import { COMMAND_WINDOW_LONG_MS, COMMAND_WINDOW_MS } from '@/domain/timing';
 import {
   LONGER_TIME_DESCRIPTION,
   choiceAnnouncement,
+  commandWindowExplanation,
   commandWindowMsFor,
   handPreviewCaption,
   longerTimeAnnouncement,
@@ -20,11 +21,24 @@ describe('settings wording', () => {
   it('derives the command window wording from the timing constants', () => {
     expect(COMMAND_WINDOW_MS).toBe(3000);
     expect(COMMAND_WINDOW_LONG_MS).toBe(6000);
-    expect(LONGER_TIME_DESCRIPTION).toBe('Keeps the command window open for 6 seconds instead of 3.');
+    expect(LONGER_TIME_DESCRIPTION).toBe('Keeps the simulated ring’s command window open for 6 seconds instead of 3.');
     expect(commandWindowMsFor(false)).toBe(COMMAND_WINDOW_MS);
     expect(commandWindowMsFor(true)).toBe(COMMAND_WINDOW_LONG_MS);
-    expect(longerTimeAnnouncement(true)).toBe('Longer interaction time on. The command window stays open for 6 seconds.');
-    expect(longerTimeAnnouncement(false)).toBe('Longer interaction time off. The command window stays open for 3 seconds.');
+    expect(longerTimeAnnouncement(true)).toBe(
+      'Longer interaction time on. The simulated ring’s command window stays open for 6 seconds.',
+    );
+    expect(longerTimeAnnouncement(false)).toBe(
+      'Longer interaction time off. The simulated ring’s command window stays open for 3 seconds.',
+    );
+  });
+
+  it('says which ring the active command window belongs to', () => {
+    expect(commandWindowExplanation('demo')).toBe(
+      'This is the simulated ring’s window. A connected bench ring keeps its firmware’s 3 s window, which this setting does not change.',
+    );
+    expect(commandWindowExplanation('hardware')).toBe(
+      'You are set to use a Bluetooth bench ring, and its firmware fixes the window at 3 s. Longer interaction time changes only the simulated ring in Demo Mode.',
+    );
   });
 
   it('captions the hand preview and pluralises nouns', () => {

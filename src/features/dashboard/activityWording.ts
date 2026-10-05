@@ -4,6 +4,7 @@
  * simulation notice.
  */
 import { getCommand } from '@/domain/commands';
+import { getContact, type ContactKey } from '@/domain/contacts';
 import { EMERGENCY_SIMULATION_NOTICE } from '@/domain/evidence';
 import { getLesson } from '@/domain/lessons';
 import type { GestureEvent } from '@/domain/models';
@@ -12,14 +13,51 @@ import { intendedToken } from '@/services/history/summarise';
 /** How many records the dashboard lists. */
 export const RECENT_ACTIVITY_LIMIT = 5;
 
-type ActivityFields = Pick<GestureEvent, 'outcome' | 'token' | 'targetContact' | 'lessonId'>;
+type ActivityFields = Pick<
+  GestureEvent,
+  'outcome' | 'token' | 'targetContact' | 'detectedContact' | 'lessonId' | 'source' | 'targetToken'
+>;
 
 function commandName(token: GestureEvent['token']): string | null {
   return token ? getCommand(token).label : null;
 }
 
+function contactName(contact: ContactKey | null | undefined): string | null {
+  return contact ? getContact(contact).label : null;
+}
+
+function lowerFirst(text: string): string {
+  return text.charAt(0).toLocaleLowerCase() + text.slice(1);
+}
+
+/**
+ * Calibration asks for a contact point, not a command, so its records are
+ * described by the point. Saying "Shortcut 2 recognised" for a calibration tap
+ * would imply a shortcut fired.
+ */
+function describeCalibrationTap(event: ActivityFields): string {
+  const target = contactName(event.targetContact);
+  const detected = contactName(event.detectedContact);
+  switch (event.outcome) {
+    case 'recognised':
+      return target ? `${target} tap accepted` : 'Calibration tap accepted';
+    case 'mismatch':
+      if (target && detected) return `Asked for ${lowerFirst(target)}, detected ${lowerFirst(detected)}`;
+      return target ? `Asked for ${lowerFirst(target)}, detected another point` : 'Another point was detected';
+    case 'rejected_duration':
+      return target ? `${target}: press too long, ignored` : 'Press too long, ignored';
+    case 'window_closed':
+      return target ? `${target}: the command window had closed` : 'Tap after the command window closed';
+    case 'emergency':
+      return `Emergency hold completed. ${EMERGENCY_SIMULATION_NOTICE}`;
+    case 'emergency_cancelled':
+      return 'Emergency hold cancelled before five seconds';
+  }
+}
+
 /** What happened, in words: "Confirm recognised", "Aimed for Next, detected Previous", … */
 export function describeActivity(event: ActivityFields): string {
+  if (event.source === 'calibration') return describeCalibrationTap(event);
   const intended = commandName(intendedToken(event));
   const detected = commandName(event.token);
   switch (event.outcome) {

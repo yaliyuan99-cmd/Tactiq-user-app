@@ -33,7 +33,11 @@ describe('PrivacySection', () => {
     for (const item of ['Preferences:', 'Profile:', 'Calibration:', 'Lessons:', 'Activity:']) {
       expect(screen.getByText(item)).toBeInTheDocument();
     }
-    expect(screen.getByText('All of this stays in this browser on this device. In Demo Mode nothing is sent anywhere.')).toBeInTheDocument();
+    expect(
+      screen.getByText(
+        'All of this stays in this browser on this device. Your profile, settings and activity are never sent to a server.',
+      ),
+    ).toBeInTheDocument();
   });
 
   it('downloads every tactiq key as one JSON file and announces the file name', async () => {

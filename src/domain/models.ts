@@ -10,10 +10,19 @@ import { type LessonId } from './lessons';
 /* Preferences                                                         */
 /* ------------------------------------------------------------------ */
 
-export type Hand = 'left' | 'right';
-export type ThemePreference = 'light' | 'dark' | 'system';
-export type TextSize = 'default' | 'large' | 'larger';
-export type ContrastPreference = 'default' | 'high';
+/* The option sets are exported as values so labels, radio groups and the guard
+ * that validates stored preferences all read from one list. */
+export const HANDS = ['left', 'right'] as const;
+export type Hand = (typeof HANDS)[number];
+
+export const THEME_PREFERENCES = ['light', 'dark', 'system'] as const;
+export type ThemePreference = (typeof THEME_PREFERENCES)[number];
+
+export const TEXT_SIZES = ['default', 'large', 'larger'] as const;
+export type TextSize = (typeof TEXT_SIZES)[number];
+
+export const CONTRAST_PREFERENCES = ['default', 'high'] as const;
+export type ContrastPreference = (typeof CONTRAST_PREFERENCES)[number];
 
 export interface UserPreferences {
   readonly version: 1;

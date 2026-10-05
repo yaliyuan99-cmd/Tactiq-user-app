@@ -1,5 +1,6 @@
 import { RadioGroupField, SwitchField, type RadioOption } from '@/components';
 import type { TextSize, UserPreferences } from '@/domain/models';
+import { useDevice } from '@/services/device/DeviceProvider';
 import { useFeedback } from '@/services/feedback/FeedbackProvider';
 import { usePreferences } from '@/services/preferences/PreferencesProvider';
 import {
@@ -30,6 +31,7 @@ type SwitchPreference = 'reducedMotion' | 'audioAnnouncements' | 'visualConfirma
 /** Every control saves and applies at once, and says what changed. */
 export function AccessibilityStep() {
   const { preferences, update, prefersReducedMotion } = usePreferences();
+  const { state } = useDevice();
   const { announce } = useFeedback();
 
   const toggle = (key: SwitchPreference, label: string) => (on: boolean) => {
@@ -103,7 +105,7 @@ export function AccessibilityStep() {
           checked={preferences.longerInteractionTime}
           onChange={(longerInteractionTime) => {
             update({ longerInteractionTime });
-            announce(longerTimeAnnouncement(longerInteractionTime));
+            announce(longerTimeAnnouncement(longerInteractionTime, state.mode));
           }}
         />
       </StepSection>

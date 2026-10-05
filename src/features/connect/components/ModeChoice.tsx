@@ -10,7 +10,7 @@ const MODE_OPTIONS: readonly RadioOption<DeviceMode>[] = [
   {
     value: 'hardware',
     label: 'Bluetooth ring (bench prototype)',
-    description: 'Needs Chrome or Edge on desktop or Android, and a flashed Tactiq bench ring.',
+    description: 'Needs Chrome or Edge on desktop or Android, and a bench ring running the Tactiq bench firmware.',
   },
 ];
 

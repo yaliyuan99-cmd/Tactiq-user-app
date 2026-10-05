@@ -17,6 +17,7 @@ import {
   findFocusHiddenBehind,
   mainNav,
   politeRegion,
+  seedGuestProfile,
   tabUntilFocused,
   topBar,
   waitForPage,
@@ -338,6 +339,10 @@ test.describe('route protection', () => {
     page,
   }) => {
     await seedStorage(page, { onboardingCompleted: true, signedIn: false });
+    // The guest profile already exists, so this is the same person coming back
+    // and their finished setup stands. A guest profile made for the first time
+    // starts setup instead (the test below).
+    await seedGuestProfile(page);
     const errors = trackConsoleErrors(page);
     await page.goto('/sign-in?next=/dashboard/history');
     await expect(page.getByRole('heading', { level: 1, name: 'Sign in' })).toBeVisible();
@@ -346,10 +351,28 @@ test.describe('route protection', () => {
 
     await expect(page).toHaveURL((url) => url.pathname === '/dashboard/history' && url.searchParams.get('next') === null);
     await waitForPage(page);
-    await expect(page).toHaveTitle(`Activity${TITLE_SUFFIX}`);
+    await expect(page).toHaveTitle(`History${TITLE_SUFFIX}`);
     await expect(page.locator('#page-title')).toBeFocused();
     await expect(mainNav(page)).toBeVisible();
-    await expect(politeRegion(page)).toContainText('Activity');
+    await expect(politeRegion(page)).toContainText('History');
+    expect(errors).toEqual([]);
+  });
+
+  test('a guest profile made for the first time starts setup, even where setup was already finished', async ({
+    page,
+  }) => {
+    // Preferences belong to the browser, not the profile: whoever finished
+    // setup here, this guest has not, so they are not dropped into the app.
+    await seedStorage(page, { onboardingCompleted: true, signedIn: false });
+    const errors = trackConsoleErrors(page);
+    await page.goto('/sign-in?next=/dashboard/history');
+    await expect(page.getByRole('heading', { level: 1, name: 'Sign in' })).toBeVisible();
+
+    await page.getByRole('button', { name: 'Continue as a guest' }).click();
+
+    await expect(page).toHaveURL((url) => url.pathname === '/onboarding');
+    await waitForPage(page);
+    await expect(page.getByRole('heading', { level: 1, name: 'Welcome' })).toBeVisible();
     expect(errors).toEqual([]);
   });
 
@@ -549,7 +572,6 @@ test.describe('device status link', () => {
 test.describe('consistent naming', () => {
   test('each navigation label is how the page it opens names itself', async ({ signedInPage: page }, testInfo) => {
     test.skip(testInfo.project.name !== DESKTOP_PROJECT, 'Checked once, through the sidebar.');
-    test.fixme(true, 'FINDING: "History" navigation opens a page titled and announced as "Activity"');
     await page.goto('/dashboard');
     await waitForPage(page);
     const nav = mainNav(page);
@@ -572,7 +594,6 @@ test.describe('focus not obscured by the app bars', () => {
     signedInPage: page,
   }, testInfo) => {
     test.skip(testInfo.project.name !== MOBILE_PROJECT, 'The fixed bottom bar is only shown below lg.');
-    test.fixme(true, 'FINDING: Focused controls are fully hidden behind the fixed mobile bottom bar');
     test.setTimeout(180_000);
     const hidden: string[] = [];
     for (const route of DASHBOARD_ROUTES) {
@@ -589,7 +610,6 @@ test.describe('focus not obscured by the app bars', () => {
     signedInPage: page,
   }, testInfo) => {
     test.skip(testInfo.project.name !== DESKTOP_PROJECT, 'Checked at the desktop width, where the top bar is sticky.');
-    test.fixme(true, 'FINDING: Focused controls are fully hidden behind the sticky top bar when moving backwards');
     test.setTimeout(180_000);
     const hidden: string[] = [];
     for (const route of DASHBOARD_ROUTES) {

@@ -2,7 +2,14 @@ import { act, renderHook } from '@testing-library/react';
 import type { ReactNode } from 'react';
 import { DEFAULT_PREFERENCES, type UserPreferences } from '@/domain/models';
 import { MemoryStorageAdapter, STORAGE_KEYS } from '@/services/storage/StorageAdapter';
-import { PreferencesProvider, applyPreferencesToDocument, loadPreferences, usePreferences } from './PreferencesProvider';
+import {
+  PREFERENCES_REPLACED_NOTE,
+  PREFERENCES_UNREADABLE_NOTE,
+  PreferencesProvider,
+  applyPreferencesToDocument,
+  loadPreferences,
+  usePreferences,
+} from './PreferencesProvider';
 
 function resetDocument(): void {
   const root = document.documentElement;
@@ -40,6 +47,49 @@ describe('PreferencesProvider', () => {
     expect(loadPreferences(storage)).toEqual({ ...DEFAULT_PREFERENCES, theme: 'dark', hand: 'left' });
     storage.set(STORAGE_KEYS.preferences, 'garbage');
     expect(loadPreferences(storage)).toEqual(DEFAULT_PREFERENCES);
+  });
+
+  it('never hands a screen a stored value outside its options', () => {
+    const storage = new MemoryStorageAdapter();
+    storage.set(STORAGE_KEYS.preferences, { hand: 'middle', theme: 42, textSize: null, contrast: 'high' });
+    const { result } = setup(storage);
+    // A hand of "middle" reached HAND_LABELS[hand] and threw during render.
+    expect(result.current.preferences.hand).toBe('right');
+    expect(result.current.preferences.theme).toBe(DEFAULT_PREFERENCES.theme);
+    expect(result.current.preferences.textSize).toBe('default');
+    expect(result.current.preferences.contrast).toBe('high');
+    expect(document.documentElement.hasAttribute('data-text-size')).toBe(false);
+  });
+
+  it('reports which stored preferences were replaced, and stops reporting once they are saved again', () => {
+    const storage = new MemoryStorageAdapter();
+    storage.set(STORAGE_KEYS.preferences, { hand: 'middle', reducedMotion: 'yes' });
+    const { result } = setup(storage);
+    expect([...result.current.recovery.replacedFields].sort()).toEqual(['hand', 'reducedMotion']);
+    expect(result.current.recovery.unreadable).toBe(false);
+
+    act(() => {
+      result.current.update({ hand: 'left' });
+    });
+    expect(result.current.recovery).toEqual({ replacedFields: [], unreadable: false });
+    expect(loadPreferences(storage)).toEqual({ ...DEFAULT_PREFERENCES, hand: 'left' });
+  });
+
+  it('reports stored preferences it could not read at all, which is why onboarding looks unfinished', () => {
+    const storage = new MemoryStorageAdapter();
+    storage.set(STORAGE_KEYS.preferences, 'garbage');
+    const { result } = setup(storage);
+    expect(result.current.recovery).toEqual({ replacedFields: [], unreadable: true });
+    expect(result.current.preferences.onboardingCompleted).toBe(false);
+    expect(PREFERENCES_UNREADABLE_NOTE).toMatch(/could not be read/);
+    expect(PREFERENCES_REPLACED_NOTE).toMatch(/set back to the defaults/);
+  });
+
+  it('has nothing to report for a first run or for valid stored preferences', () => {
+    expect(setup().result.current.recovery).toEqual({ replacedFields: [], unreadable: false });
+    const storage = new MemoryStorageAdapter();
+    storage.set(STORAGE_KEYS.preferences, { ...DEFAULT_PREFERENCES, theme: 'dark' });
+    expect(setup(storage).result.current.recovery).toEqual({ replacedFields: [], unreadable: false });
   });
 
   it('persists updates and applies them to the document', () => {

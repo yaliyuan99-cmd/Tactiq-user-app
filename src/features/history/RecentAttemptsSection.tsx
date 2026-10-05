@@ -2,10 +2,9 @@ import { useEffect, useRef, useState } from 'react';
 import { Button, DataTable, EvidenceLabel, VisuallyHidden, type DataTableColumn } from '@/components';
 import type { GestureEvent } from '@/domain/models';
 import { HISTORY_HEADING_IDS } from './historyIds';
+import { initialRecentPageSize } from './recentPageSize';
 import { sourceLabel } from './historyParams';
-import { contactLabel, describeOutcome, eventTimeParts, intendedCommandLabel, recordLabel } from './wording';
-
-export const RECENT_PAGE_SIZE = 25;
+import { describeOutcome, eventTimeParts, intendedCommandLabel, pointSummary, recordLabel, sharedRecordNote } from './wording';
 
 export interface RecentAttemptsSectionProps {
   /** Matching events, newest first. */
@@ -53,17 +52,18 @@ const COLUMNS: readonly DataTableColumn<Row>[] = [
       );
     },
   },
-  { key: 'source', header: 'Source', cell: ({ event }) => sourceLabel(event.source) },
-  { key: 'target', header: 'Target', cell: ({ event }) => <OrNone value={contactLabel(event.targetContact)} /> },
-  { key: 'detected', header: 'Detected', cell: ({ event }) => <OrNone value={contactLabel(event.detectedContact)} /> },
+  // Source and Label repeat on most rows, and the lede says so when they are
+  // the same throughout, so neither needs a label of its own when stacked.
+  { key: 'source', header: 'Source', mobileLabel: '', cell: ({ event }) => sourceLabel(event.source) },
+  { key: 'point', header: 'Point', cell: ({ event }) => <OrNone value={pointSummary(event)} /> },
   { key: 'command', header: 'Command', cell: ({ event }) => <OrNone value={intendedCommandLabel(event)} /> },
   { key: 'result', header: 'Result', cell: ({ event }) => describeOutcome(event) },
-  { key: 'label', header: 'Label', cell: ({ event }) => <LabelCell event={event} /> },
+  { key: 'label', header: 'Label', mobileLabel: '', cell: ({ event }) => <LabelCell event={event} /> },
 ];
 
 /** The newest matching events, 25 at a time. Remount (key) it when the filters change. */
 export function RecentAttemptsSection({ events }: RecentAttemptsSectionProps) {
-  const [visible, setVisible] = useState(RECENT_PAGE_SIZE);
+  const [visible, setVisible] = useState(initialRecentPageSize);
   const containerRef = useRef<HTMLDivElement>(null);
   const focusIndexRef = useRef<number | null>(null);
 
@@ -77,13 +77,15 @@ export function RecentAttemptsSection({ events }: RecentAttemptsSectionProps) {
   const shown = events.slice(0, visible);
   const rows = shown.map((event, index) => ({ event, index }));
   const remaining = events.length - shown.length;
+  const pageSize = initialRecentPageSize();
+  const shared = sharedRecordNote(shown, sourceLabel);
 
   return (
     <section aria-labelledby={HISTORY_HEADING_IDS.recent}>
       <h2 id={HISTORY_HEADING_IDS.recent}>Recent attempts</h2>
       <p className="mt-2 max-w-prose text-muted-foreground">
-        Target is the point you were asked for, Detected is the point that was reported, and Command is the command you were
-        aiming for.
+        Point is the contact point you were asked for, and the point that was reported when it differed. Command is the
+        command you were aiming for.{shared ? ` ${shared}` : ''}
       </p>
       <div ref={containerRef} className="mt-4">
         <DataTable
@@ -101,10 +103,10 @@ export function RecentAttemptsSection({ events }: RecentAttemptsSectionProps) {
           className="mt-4"
           onClick={() => {
             focusIndexRef.current = shown.length;
-            setVisible((count) => count + RECENT_PAGE_SIZE);
+            setVisible((count) => count + pageSize);
           }}
         >
-          Show {Math.min(RECENT_PAGE_SIZE, remaining)} more
+          Show {Math.min(pageSize, remaining)} more
         </Button>
       )}
     </section>

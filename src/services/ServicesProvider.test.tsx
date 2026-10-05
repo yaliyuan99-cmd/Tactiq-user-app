@@ -6,6 +6,7 @@ import {
   ServicesProvider,
   createServices,
   useCalibration,
+  useCanPersist,
   useCommandMapping,
   useHistory,
   useServices,
@@ -29,6 +30,30 @@ describe('createServices', () => {
     services.training.startRun('confirm_and_back');
     services.commands.set({ quick_action_1: 'unassigned', quick_action_2: 'unassigned' });
     expect(storage.keys().sort()).toEqual([STORAGE_KEYS.commandMapping, STORAGE_KEYS.training].sort());
+  });
+});
+
+describe('useCanPersist', () => {
+  it('reports that the browser accepts writes, and re-renders when it stops', () => {
+    const storage = new LocalStorageAdapter();
+    const wrapper = ({ children }: { children: ReactNode }) => <ServicesProvider storage={storage}>{children}</ServicesProvider>;
+    const { result } = renderHook(() => useCanPersist(), { wrapper });
+    expect(result.current).toBe(true);
+
+    vi.spyOn(Storage.prototype, 'setItem').mockImplementation(() => {
+      throw new DOMException('The quota has been exceeded.', 'QuotaExceededError');
+    });
+    act(() => {
+      storage.set(STORAGE_KEYS.history, [1]);
+    });
+    expect(result.current).toBe(false);
+  });
+
+  it('is true for the in-memory adapter the tests use', () => {
+    const storage = new MemoryStorageAdapter();
+    const wrapper = ({ children }: { children: ReactNode }) => <ServicesProvider storage={storage}>{children}</ServicesProvider>;
+    const { result } = renderHook(() => useCanPersist(), { wrapper });
+    expect(result.current).toBe(true);
   });
 });
 

@@ -1,6 +1,7 @@
 import { renderApp, screen, TEST_USER, userEvent, waitFor } from '@/test/renderApp';
 import { DEMO_MESSAGES, GUEST_EMAIL, type LocalAccountRecord } from '@/services/auth/LocalDemoAuthService';
 import { SUPABASE_MESSAGES } from '@/services/auth/supabaseErrors';
+import type { UserPreferences } from '@/domain/models';
 import { AuthError, type AuthUser } from '@/services/auth/types';
 import { MemoryStorageAdapter, STORAGE_KEYS } from '@/services/storage/StorageAdapter';
 import {
@@ -12,7 +13,7 @@ import {
   SUPABASE_TEST_USER,
 } from './authTestUtils';
 import { AuthTestRoutes } from './AuthTestRoutes';
-import { SIGNED_OUT_MESSAGE } from './SignInPage';
+import { DATA_DELETED_MESSAGE, SIGNED_OUT_MESSAGE } from './SignInPage';
 
 function storageWithProfile() {
   const storage = new MemoryStorageAdapter();
@@ -103,6 +104,52 @@ describe('SignInPage in Demo Mode', () => {
     expect(storage.get(STORAGE_KEYS.authSession)).not.toBeNull();
   });
 
+  it('starts setup over for a guest profile created after someone else finished it', async () => {
+    const user = userEvent.setup();
+    // Another profile finished setup in this browser, and preferences are
+    // per-browser, so a brand-new guest must not inherit "setup done".
+    const storage = storageWithProfile();
+    renderApp(<AuthTestRoutes />, {
+      route: '/sign-in',
+      signedIn: false,
+      storage,
+      preferences: { onboardingCompleted: true, onboardingStep: 7 },
+    });
+
+    await user.click(screen.getByRole('button', { name: 'Continue as a guest' }));
+    await screen.findByText('Landed at /dashboard');
+
+    await waitFor(() => {
+      expect(storage.get<UserPreferences>(STORAGE_KEYS.preferences)).toMatchObject({
+        onboardingCompleted: false,
+        onboardingStep: 0,
+      });
+    });
+  });
+
+  it('keeps a returning guest’s own setup progress', async () => {
+    const user = userEvent.setup();
+    const storage = new MemoryStorageAdapter();
+    // The guest profile already exists, so this is the same person coming back.
+    storage.set<LocalAccountRecord[]>(STORAGE_KEYS.authAccounts, [
+      { id: 'user_guest', email: GUEST_EMAIL, displayName: 'Guest', createdAt: '2026-09-01T09:00:00.000Z' },
+    ]);
+    renderApp(<AuthTestRoutes />, {
+      route: '/sign-in',
+      signedIn: false,
+      storage,
+      preferences: { onboardingCompleted: true, onboardingStep: 7 },
+    });
+
+    await user.click(screen.getByRole('button', { name: 'Continue as a guest' }));
+    await screen.findByText('Landed at /dashboard');
+
+    expect(storage.get<UserPreferences>(STORAGE_KEYS.preferences)).toMatchObject({
+      onboardingCompleted: true,
+      onboardingStep: 7,
+    });
+  });
+
   it('tells someone already signed in where to go', async () => {
     renderApp(<AuthTestRoutes />, { route: '/sign-in' });
     expect(await screen.findByText(/You are already signed in as Alex/)).toBeInTheDocument();
@@ -137,6 +184,23 @@ describe('SignInPage after signing out', () => {
     renderAuthRoutesAt({ pathname: '/sign-in', search: '?next=%2Fdashboard%2Fhistory', state: null });
     expect(await screen.findByRole('heading', { level: 1, name: 'Sign in' })).toBeInTheDocument();
     expect(screen.queryByText(SIGNED_OUT_MESSAGE)).toBeNull();
+  });
+
+  it('confirms the deletion, not only the sign-out, after Delete all local data', async () => {
+    renderAuthRoutesAt({ pathname: '/sign-in', state: { signedOut: true, dataDeleted: true } });
+    const message = await screen.findByText(DATA_DELETED_MESSAGE);
+    expect(message.closest('[role="status"]')).not.toBeNull();
+    expect(message.closest('[data-kind]')).toHaveAttribute('data-kind', 'success');
+    // The ordinary sign-out wording is not shown on its own.
+    expect(screen.queryByText(SIGNED_OUT_MESSAGE)).toBeNull();
+    // The marker is cleared, as it is for a plain sign-out.
+    await waitFor(() => expect(currentLocationState()).toBe('null'));
+  });
+
+  it('shows the plain confirmation when only the sign-out marker is set', async () => {
+    renderAuthRoutesAt({ pathname: '/sign-in', state: { signedOut: true } });
+    expect(await screen.findByText(SIGNED_OUT_MESSAGE)).toBeInTheDocument();
+    expect(screen.queryByText(/deleted/i)).toBeNull();
   });
 
   it('shows no confirmation without the sign-out marker', async () => {

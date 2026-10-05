@@ -1,12 +1,13 @@
 import { DataTable, SwitchField, type DataTableColumn } from '@/components';
-import { COMMAND_WINDOW_MS, EMERGENCY_HOLD_MS, TAP_MAX_MS, TIMING_FACTS, formatMs, type TimingFact } from '@/domain/timing';
+import { EMERGENCY_HOLD_MS, TAP_MAX_MS, TIMING_FACTS, formatMs, type TimingFact } from '@/domain/timing';
+import { useDevice } from '@/services/device/DeviceProvider';
 import { useFeedback } from '@/services/feedback/FeedbackProvider';
 import { usePreferences } from '@/services/preferences/PreferencesProvider';
-import { SettingsSection } from '../SettingsSection';
+import { SettingsSection, WRAPPING_SWITCH_ROW } from '../SettingsSection';
 import {
   LONGER_TIME_DESCRIPTION,
   TIMING_STATUS_LABELS,
-  commandWindowMsFor,
+  commandWindowExplanation,
   longerTimeAnnouncement,
 } from '../settingsOptions';
 
@@ -26,15 +27,18 @@ export const TIMING_TABLE_CAPTION = 'Where these timings come from';
 export function TimingSection() {
   const { preferences, update } = usePreferences();
   const { announce } = useFeedback();
-  const windowMs = commandWindowMsFor(preferences.longerInteractionTime);
+  // The window the app is actually using, not the one the preference asks for:
+  // a bench ring keeps its firmware's window whatever this setting says.
+  const { state } = useDevice();
 
   return (
     <SettingsSection
       id="timing"
-      intro="After a deliberate squeeze, the ring accepts one touch for a short time. If the window closes before you touch, nothing happens and you can squeeze again."
+      intro="After a deliberate squeeze, the command window opens. Each accepted tap keeps it open, so you can give another command without squeezing again. If the window closes before you touch, nothing happens and you can squeeze again."
     >
       <div className="grid gap-3">
         <SwitchField
+          containerClassName={WRAPPING_SWITCH_ROW}
           label="Longer interaction time"
           description={LONGER_TIME_DESCRIPTION}
           checked={preferences.longerInteractionTime}
@@ -45,11 +49,10 @@ export function TimingSection() {
         />
         <div className="max-w-prose rounded-md border border-border bg-background px-4 py-3">
           <p>
-            Command window in this app: <strong>{formatMs(windowMs)}</strong>
+            Command window in use now: <strong>{formatMs(state.commandWindowMs)}</strong>
           </p>
           <p className="mt-1 text-sm text-muted-foreground">
-            This applies to the simulated ring. The bench prototype firmware keeps its own {formatMs(COMMAND_WINDOW_MS)}{' '}
-            window, which this setting does not change. The {formatMs(EMERGENCY_HOLD_MS)} Emergency hold and the{' '}
+            {commandWindowExplanation(state.mode)} The {formatMs(EMERGENCY_HOLD_MS)} Emergency hold and the{' '}
             {formatMs(TAP_MAX_MS)} tap limit stay the same either way.
           </p>
         </div>

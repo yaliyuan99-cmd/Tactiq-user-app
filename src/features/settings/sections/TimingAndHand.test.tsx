@@ -3,6 +3,7 @@ import type { UserPreferences } from '@/domain/models';
 import { useDevice } from '@/services/device/DeviceProvider';
 import { STORAGE_KEYS } from '@/services/storage/StorageAdapter';
 import { screen, userEvent, waitFor, within } from '@/test/renderApp';
+import { FakeRingAdapter } from '../testing/FakeRingAdapter';
 import { politeRegion, renderSettings } from '../testing/renderSettings';
 import { HandSection } from './HandSection';
 import { TimingSection } from './TimingSection';
@@ -13,6 +14,23 @@ function WindowProbe() {
 }
 
 describe('TimingSection', () => {
+  it('shows the window for the mode in use, so a connected ring is never reported as 6 s', async () => {
+    const { unmount } = await renderSettings(
+      {
+        preferences: { longerInteractionTime: true },
+        deviceMode: 'hardware',
+        deviceAdapter: new FakeRingAdapter({ status: 'connected' }),
+      },
+      <TimingSection />,
+    );
+    const section = screen.getByRole('region', { name: 'Interaction timing' });
+    expect(within(section).getByText('Command window in use now:')).toBeInTheDocument();
+    expect(section).toHaveTextContent('Command window in use now: 3 s');
+    expect(section).toHaveTextContent('its firmware fixes the window at 3 s');
+    expect(section).not.toHaveTextContent('Command window in use now: 6 s');
+    unmount();
+  });
+
   it('toggles longer interaction time, persists it and widens the simulated ring’s window', async () => {
     const user = userEvent.setup();
     const { storage, unmount } = await renderSettings(
@@ -23,7 +41,7 @@ describe('TimingSection', () => {
       </>,
     );
     const toggle = screen.getByRole('switch', { name: 'Longer interaction time' });
-    expect(toggle).toHaveAccessibleDescription('Keeps the command window open for 6 seconds instead of 3.');
+    expect(toggle).toHaveAccessibleDescription('Keeps the simulated ring’s command window open for 6 seconds instead of 3.');
     expect(screen.getByText('3 s', { selector: 'strong' })).toBeInTheDocument();
     expect(screen.getByTestId('window-ms')).toHaveTextContent('3000');
 
@@ -33,7 +51,7 @@ describe('TimingSection', () => {
     expect(screen.getByText('6 s', { selector: 'strong' })).toBeInTheDocument();
     expect(screen.getByTestId('window-ms')).toHaveTextContent('6000');
     await waitFor(() =>
-      expect(politeRegion()).toHaveTextContent('Longer interaction time on. The command window stays open for 6 seconds.'),
+      expect(politeRegion()).toHaveTextContent('Longer interaction time on. The simulated ring’s command window stays open for 6 seconds.'),
     );
 
     // A fresh page on the same storage keeps the choice.

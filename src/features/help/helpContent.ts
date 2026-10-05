@@ -16,6 +16,16 @@ import {
 } from '@/domain/timing';
 import type { HelpLinkTarget } from './troubleshooting';
 
+/**
+ * The Source columns quote the research material, which names itself with an
+ * abbreviation and names firmware settings in code. Blind and low-vision users
+ * get the plain-language key once, beside the table, rather than being left to
+ * guess what AUSSEF or GATE_TAU_MS mean.
+ */
+export const SOURCE_GLOSSARY =
+  'In the Source column, AUSSEF is the Australian science fair the research paper was written for, and a name in capitals with underscores, such as GATE_TAU_MS, is a setting in the bench firmware code.';
+
+
 /* ------------------------------------------------------------------ */
 /* Getting started                                                     */
 /* ------------------------------------------------------------------ */

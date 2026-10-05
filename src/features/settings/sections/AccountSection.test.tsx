@@ -4,7 +4,7 @@ import { ROUTES } from '@/app/routes';
 import { DEFAULT_PREFERENCES } from '@/domain/models';
 import type { LocalAccountRecord } from '@/services/auth/LocalDemoAuthService';
 import { SUPABASE_MESSAGES } from '@/services/auth/supabaseErrors';
-import { AuthError, type AuthService, type AuthUser } from '@/services/auth/types';
+import { AuthError, type AuthService, type AuthUser, type GuestResult } from '@/services/auth/types';
 import { MemoryStorageAdapter, STORAGE_KEYS, type StorageAdapter } from '@/services/storage/StorageAdapter';
 import { TEST_USER, act, render, screen, userEvent, waitFor, within } from '@/test/renderApp';
 import { SIGN_IN_STUB, politeRegion, renderSettings, signInState } from '../testing/renderSettings';
@@ -20,7 +20,7 @@ describe('AccountSection in Demo Mode', () => {
     const { storage } = await renderSettings({}, <AccountSection />);
     const region = screen.getByRole('region', { name: 'Account' });
     expect(within(region).getByText('alex@example.com')).toBeInTheDocument();
-    expect(within(region).getByText(/local Demo Mode profile/)).toBeInTheDocument();
+    expect(within(region).getByText(/local profile/)).toBeInTheDocument();
 
     const field = within(region).getByRole('textbox', { name: 'Display name' });
     expect(field).toHaveValue(TEST_USER.displayName);
@@ -97,7 +97,7 @@ class FakeAccountService implements AuthService {
   async signOut() {
     this.user = null;
   }
-  async continueAsGuest(): Promise<AuthUser> {
+  async continueAsGuest(): Promise<GuestResult> {
     throw new AuthError('unavailable', SUPABASE_MESSAGES.guestUnavailable);
   }
   async requestPasswordReset() {

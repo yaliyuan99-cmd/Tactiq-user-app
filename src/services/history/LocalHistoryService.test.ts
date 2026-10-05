@@ -184,6 +184,14 @@ describe('LocalHistoryService', () => {
     expect(json.events.map((e) => e.targetToken)).toEqual([undefined, 'confirm']);
   });
 
+  it('does not call a JSON export free of hardware measurements once a bench record is in it', () => {
+    history.append(tap({ id: 'simulated' }));
+    history.append(tap({ id: 'bench', evidence: 'measured' }));
+    const json = JSON.parse(history.exportJson()) as { note: string };
+    expect(json.note).not.toMatch(/Not hardware measurements/);
+    expect(json.note).toMatch(/evidence field/);
+  });
+
   describe('removeSeeded', () => {
     it('removes only sample records in one write, keeps the rest in order and leaves the seeded flag set', () => {
       history.append(tap({ id: 'mine-early', at: new Date(NOW.getTime() - 6 * DAY).toISOString() }));

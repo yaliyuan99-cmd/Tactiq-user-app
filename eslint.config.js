@@ -31,7 +31,9 @@ export default tseslint.config(
   },
   {
     // Playwright fixtures call a function named "use"; it is not a React hook.
+    // Playwright also requires the first callback argument to be a destructuring
+    // pattern, so a hook that needs only testInfo has to write `({}, testInfo)`.
     files: ['e2e/**/*.ts', 'playwright.config.ts'],
-    rules: { 'react-hooks/rules-of-hooks': 'off' },
+    rules: { 'react-hooks/rules-of-hooks': 'off', 'no-empty-pattern': 'off' },
   },
 );

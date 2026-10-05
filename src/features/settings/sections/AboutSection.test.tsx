@@ -28,6 +28,15 @@ describe('AboutSection', () => {
     expect(table.querySelectorAll('[data-evidence="design_target"]')).toHaveLength(DESIGN_TARGETS.length);
   });
 
+  it('explains the abbreviations and code names the Source column quotes', async () => {
+    await renderSettings({}, <AboutSection />);
+    // The table quotes the research material, which the app must not leave as
+    // unexplained jargon (AUSSEF, GATE_TAU_MS).
+    const glossary = screen.getByText(/AUSSEF is the Australian science fair/);
+    expect(glossary).toBeInTheDocument();
+    expect(glossary).toHaveTextContent(/GATE_TAU_MS, is a setting in the bench firmware code/);
+  });
+
   it('links to the limitations in Help', async () => {
     await renderSettings({}, <AboutSection />);
     expect(screen.getByRole('link', { name: 'Read about the prototype’s limitations' })).toHaveAttribute(

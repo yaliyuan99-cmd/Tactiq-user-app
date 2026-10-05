@@ -2,10 +2,12 @@ import { useRef, useState, type FormEvent } from 'react';
 import { useNavigate } from 'react-router';
 import { ROUTES } from '@/app/routes';
 import { Button, ButtonLink, PageHeader, TextField } from '@/components';
+import { NEW_PROFILE_SETUP_PATCH } from '@/features/onboarding/onboardingFlow';
 import { usePageTitle } from '@/lib/usePageTitle';
 import { useAuth } from '@/services/auth/AuthProvider';
 import { DISPLAY_NAME_MAX_LENGTH, toAuthError } from '@/services/auth/validation';
 import { useFeedback } from '@/services/feedback/FeedbackProvider';
+import { usePreferences } from '@/services/preferences/PreferencesProvider';
 import { AuthLayout } from './AuthLayout';
 import { DemoModeNote, FormMessage, TextLink } from './AuthParts';
 import {
@@ -27,6 +29,7 @@ export default function SignUpPage() {
   const title = demo ? 'Create your profile' : 'Create your account';
   usePageTitle(title);
   const { announce } = useFeedback();
+  const { update: updatePreferences } = usePreferences();
   const navigate = useNavigate();
 
   const [values, setValues] = useState({ name: '', email: '', password: '', confirm: '' });
@@ -60,6 +63,10 @@ export default function SignUpPage() {
     try {
       const input = { email: values.email, displayName: values.name };
       await signUp(demo ? input : { ...input, password: values.password });
+      // Onboarding progress is stored per browser, so without this a profile
+      // created after someone else finished setup would open on "All set" and
+      // be shown choices it never made.
+      updatePreferences(NEW_PROFILE_SETUP_PATCH);
       announce(demo ? 'Profile created.' : 'Account created.');
       navigate(ROUTES.onboarding, { replace: true });
     } catch (error) {
@@ -129,7 +136,7 @@ export default function SignUpPage() {
         <TextField
           ref={fieldRefs.email}
           label="Email"
-          hint={demo ? 'Used only to find your profile in this browser. Nothing is sent.' : undefined}
+          hint={demo ? 'Used only to find your profile in this browser. It is never sent to a server.' : undefined}
           type="email"
           name="email"
           autoComplete="email"

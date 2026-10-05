@@ -3,8 +3,10 @@ import { ArrowRight, RotateCcw } from 'lucide-react';
 import { ROUTES, lessonRoute } from '@/app/routes';
 import { Button, ButtonLink, EvidenceLabel, VisuallyHidden } from '@/components';
 import { getLesson, nextLessonId } from '@/domain/lessons';
+import type { EvidenceSource } from '@/domain/evidence';
+import { EmergencyNotice, evidenceForDevice } from '@/features/practice';
 import { formatPercent } from '@/lib/time';
-import { EmergencyNotice } from '@/features/practice';
+import { useDevice } from '@/services/device/DeviceProvider';
 import type { HeadingLevel } from './headingLevel';
 import { LessonHeading } from './LessonHeading';
 import { runTotals } from './lessonRun';
@@ -27,7 +29,7 @@ function Stat({ term, children }: { term: string; children: ReactNode }) {
   );
 }
 
-function Percent({ value }: { value: number | null }) {
+function Percent({ value, evidence }: { value: number | null; evidence: EvidenceSource }) {
   if (value === null) {
     return (
       <>
@@ -40,7 +42,7 @@ function Percent({ value }: { value: number | null }) {
     <>
       <span>{formatPercent(value)}</span>
       <span className="font-normal">
-        <EvidenceLabel kind="simulated" />
+        <EvidenceLabel kind={evidence} />
       </span>
     </>
   );
@@ -50,6 +52,9 @@ function Percent({ value }: { value: number | null }) {
 export function LessonSummary({ run, headingLevel, showLessonLinks }: LessonSummaryProps) {
   const headingId = useId();
   const { lesson, state, progress } = run;
+  const { state: device } = useDevice();
+  // Lessons store no provenance per run, so this run is labelled from the device it was done on.
+  const evidence = evidenceForDevice(device);
   const totals = runTotals(state.records);
   const nextId = nextLessonId(lesson.id);
   const next = nextId ? getLesson(nextId) : null;
@@ -68,14 +73,16 @@ export function LessonSummary({ run, headingLevel, showLessonLinks }: LessonSumm
         <Stat term="Attempts">{totals.attempts}</Stat>
         <Stat term="Correct">{totals.correct}</Stat>
         <Stat term="Accuracy">
-          <Percent value={totals.accuracy} />
+          <Percent value={totals.accuracy} evidence={evidence} />
         </Stat>
         <Stat term="Best accuracy">
-          <Percent value={progress.bestAccuracy} />
+          <Percent value={progress.bestAccuracy} evidence="simulated" />
         </Stat>
       </dl>
       <p className="text-sm text-muted-foreground">
-        Accuracy here is from practice in this app, not from a ring. Best accuracy is your best completed run of this lesson.
+        {evidence === 'measured'
+          ? 'Accuracy for this run comes from taps on your connected bench ring. Best accuracy is your best completed run of this lesson; lessons do not record which runs used a ring, so it stays labelled Simulated.'
+          : 'Accuracy here is from practice in this app, not from a ring. Best accuracy is your best completed run of this lesson.'}
       </p>
 
       {state.emergencyCompleted && <EmergencyNotice />}

@@ -71,17 +71,11 @@ export const OPEN_CALIBRATION_NOTE = 'This leaves setup. You can resume it from 
 /* Step 6 — Feedback */
 export const FEEDBACK_LEDE =
   'The ring is designed to confirm what happened with a short vibration pattern. Every result is also announced and shown on screen, so nothing depends on vibration alone.';
-export interface HapticClassDescription {
-  readonly id: 'armed' | 'confirm' | 'reject' | 'emergency';
-  readonly name: string;
-  readonly description: string;
-}
-export const HAPTIC_CLASSES: readonly HapticClassDescription[] = [
-  { id: 'armed', name: 'Window open', description: 'One short tick when a squeeze opens the command window.' },
-  { id: 'confirm', name: 'Confirm', description: 'One firm click when a command is accepted.' },
-  { id: 'reject', name: 'Reject', description: 'A double click when a press is not recognised.' },
-  { id: 'emergency', name: 'Emergency', description: 'A long alert when a five-second emergency hold completes.' },
-];
+/**
+ * The four haptic classes, from the single domain definition, so onboarding,
+ * the lessons and the Commands page cannot drift apart.
+ */
+export { HAPTIC_CLASS_LIST as HAPTIC_CLASSES, type HapticClassInfo as HapticClassDescription } from '@/domain/haptics';
 export const HAPTIC_NOT_BUILT = 'None of these patterns has been built into a ring or felt yet.';
 export const TRY_VIBRATION_LABEL = 'Try a vibration';
 export const HEAR_ANNOUNCEMENT_LABEL = 'Hear an announcement';

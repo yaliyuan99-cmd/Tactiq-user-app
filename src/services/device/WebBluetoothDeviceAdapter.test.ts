@@ -137,7 +137,7 @@ describe('WebBluetoothDeviceAdapter connection', () => {
       error: {
         code: 'not_found',
         message: 'No ring was chosen.',
-        hint: 'Make sure the ring is powered and advertising, then try again.',
+        hint: 'Make sure the ring is switched on and visible to Bluetooth, then try again.',
       },
     });
     expect(ofType('error')).toHaveLength(1);

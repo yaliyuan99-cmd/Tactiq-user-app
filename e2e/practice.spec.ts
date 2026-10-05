@@ -9,6 +9,7 @@ import {
   CONTACTED_SOMEONE,
   TAP_COMMAND_FOR_CONTACT,
   assertiveRegion,
+  choosePracticeMode,
   choosePracticeView,
   commandWindowTimer,
   contactButton,
@@ -17,6 +18,7 @@ import {
   openPage,
   politeRegion,
   reloadPage,
+  spokenCommand,
   squeezeAndWaitForWindow,
   tabUntilFocused,
   waitForHoldSeconds,
@@ -50,7 +52,11 @@ async function openFreePractice(page: Page): Promise<void> {
 test.describe('Simulator — free practice', () => {
   test('squeeze, then the Middle finger base point in the hand view is recognised as Next and logged', async ({
     signedInPage: page,
-  }) => {
+  }, testInfo) => {
+    // The hand drawing needs MIN_HAND_VIEW_WIDTH (358 px) for its fixed 44 px
+    // points to stay clear of one another, so below that the surface shows the
+    // list instead. The test below covers that fallback at the phone width.
+    test.skip(testInfo.project.name !== 'desktop-chromium', 'The hand view only fits from the desktop width.');
     const errors = trackConsoleErrors(page);
     await openFreePractice(page);
     await choosePracticeView(page, 'Hand view');
@@ -73,10 +79,40 @@ test.describe('Simulator — free practice', () => {
     expect(errors).toEqual([]);
   });
 
+  test('at the phone width the hand view falls back to the list, says so, and every point still works', async ({
+    signedInPage: page,
+  }, testInfo) => {
+    test.skip(testInfo.project.name !== 'mobile-chromium', 'Checked at the phone width, where the drawing does not fit.');
+    const errors = trackConsoleErrors(page);
+    await openFreePractice(page);
+    await choosePracticeView(page, 'Hand view');
+
+    // The choice is kept (it applies on a wider screen) and the swap is explained.
+    await expect(page.getByRole('radio', { name: 'Hand view' })).toBeChecked();
+    await expect(page.getByRole('main').getByText('Hand view needs a wider screen, so the list is shown.')).toBeVisible();
+    await expect(page.getByRole('figure', { name: 'Right hand contact map' })).toHaveCount(0);
+
+    // All eight points are still there, named, and big enough to hit.
+    const points = page.getByRole('button', { name: /^(Index|Middle|Ring|Pinky) (fingertip|finger base) — / });
+    await expect(points).toHaveCount(8);
+    for (const point of await points.all()) {
+      const box = await point.boundingBox();
+      expect(box, 'contact row bounding box').not.toBeNull();
+      expect(box!.width).toBeGreaterThanOrEqual(44);
+      expect(box!.height).toBeGreaterThanOrEqual(44);
+    }
+
+    await squeezeAndWaitForWindow(page);
+    await page.getByRole('button', { name: /^Middle finger base — Next/ }).click();
+    await expect(politeRegion(page)).toContainText('Next.');
+    await expect(attemptRows(page).first()).toContainText('Recognised: Next');
+    expect(errors).toEqual([]);
+  });
+
   test('the same command works from the List view after choosing Free practice', async ({ signedInPage: page }) => {
     const errors = trackConsoleErrors(page);
     await openPage(page, '/dashboard/simulator');
-    await page.getByRole('radio', { name: 'Free practice' }).check();
+    await choosePracticeMode(page, 'Free practice');
     await expect(page).toHaveURL(/[?&]mode=free/);
     await choosePracticeView(page, 'List view');
 
@@ -215,7 +251,7 @@ test.describe('Simulator — guided practice', () => {
     await contactButton(page, first.contact).click();
 
     await expect(card).toContainText(`Correct: ${first.command}.`);
-    await expect(politeRegion(page)).toContainText(`Correct: ${first.command}.`);
+    await expect(politeRegion(page)).toContainText(`Correct: ${spokenCommand(first.command)}.`);
     await expect(card).toContainText('This session: 1 of 1 correct');
     await expect(attemptRows(page).first()).toContainText('Correct');
     await expect(attemptRows(page).first()).toContainText('Simulated');
@@ -231,8 +267,9 @@ test.describe('Simulator — guided practice', () => {
     await contactButton(page, wrong).click();
 
     const message = `That was ${wrongCommand}, on the ${wrong.toLowerCase()}. Try again: ${second.command}, ${second.where}.`;
+    const spokenMessage = `That was ${spokenCommand(wrongCommand)}, on the ${wrong.toLowerCase()}. Try again: ${spokenCommand(second.command)}, ${second.where}.`;
     await expect(card).toContainText(message);
-    await expect(politeRegion(page)).toContainText(message);
+    await expect(politeRegion(page)).toContainText(spokenMessage);
     await expect(card).toContainText('This session: 1 of 2 correct');
     await expect(
       page.getByRole('button', { name: new RegExp(`^${escapeRegExp(wrong)}(,| —).*, detected here$`) }),
@@ -242,7 +279,6 @@ test.describe('Simulator — guided practice', () => {
   });
 
   test('a guided answer is announced once, without the ring’s own words read first', async ({ signedInPage: page }) => {
-    test.fixme(true, 'FINDING: Guided practice announces every result twice (ring words + guided words)');
     const errors = trackConsoleErrors(page);
     await openPage(page, '/dashboard/simulator');
     const target = await readTarget(page);
@@ -252,7 +288,7 @@ test.describe('Simulator — guided practice', () => {
 
     // useGuidedPractice says its words "replace" the ring's for the same result, so the region holds only the verdict.
     await expect(politeRegion(page)).toHaveText(
-      new RegExp(`^Correct: ${escapeRegExp(target.command)}\\. New target: .+\\.$`),
+      new RegExp(`^Correct: ${escapeRegExp(spokenCommand(target.command))}\\. New target: .+\\.$`),
     );
     expect(errors).toEqual([]);
   });
@@ -263,7 +299,7 @@ test.describe('Simulator — guided practice', () => {
     const target = await readTarget(page);
 
     await page.getByRole('button', { name: 'Repeat the prompt' }).click();
-    await expect(politeRegion(page)).toContainText(`Your target: ${target.command}, ${target.where}.`);
+    await expect(politeRegion(page)).toContainText(`Your target: ${spokenCommand(target.command)}, ${target.where}.`);
     expect(errors).toEqual([]);
   });
 
@@ -424,8 +460,8 @@ test.describe('Simulator — emergency hold', () => {
   });
 });
 
-test.describe('Activity history after the simulator', () => {
-  test('simulator attempts appear in Activity labelled Simulated', async ({ signedInPage: page }) => {
+test.describe('History after the simulator', () => {
+  test('simulator attempts appear in History labelled Simulated', async ({ signedInPage: page }) => {
     const errors = trackConsoleErrors(page);
     await openFreePractice(page);
     await squeezeAndWaitForWindow(page);
@@ -436,7 +472,7 @@ test.describe('Activity history after the simulator', () => {
     await expect(attemptRows(page)).toHaveCount(2);
 
     await openPage(page, '/dashboard/history');
-    await expect(page.getByRole('heading', { level: 1, name: 'Activity' })).toBeVisible();
+    await expect(page.getByRole('heading', { level: 1, name: 'History' })).toBeVisible();
     const table = page.getByRole('table', { name: /^Newest first, showing 2 of 2$/ });
     await expect(table).toBeVisible();
     const rows = table.getByRole('row').filter({ has: page.getByRole('cell') });
@@ -483,7 +519,7 @@ test.describe('Train', () => {
       await expect(page.getByRole('main').getByText('Correct', { exact: true })).toBeVisible();
       const command = TAP_COMMAND_FOR_CONTACT[contact as keyof typeof TAP_COMMAND_FOR_CONTACT];
       // The lesson's words replace the ring's own ("Confirm.") in the same moment, so they are read once.
-      await expect(politeRegion(page)).toHaveText(`Correct. ${command}, on the ${contact.toLowerCase()}.`);
+      await expect(politeRegion(page)).toHaveText(`Correct. ${spokenCommand(command)}, on the ${contact.toLowerCase()}.`);
     }
 
     const summary = page.getByRole('region', { name: 'Lesson complete' });
@@ -533,7 +569,7 @@ test.describe('Train', () => {
           'That was Dismiss / Back, on the index finger base. Try again: Confirm on the index fingertip.';
         await expect(page.getByRole('main').getByText('Not yet', { exact: true })).toBeVisible();
         await expect(page.getByRole('main').getByText(message)).toBeVisible();
-        await expect(politeRegion(page)).toHaveText(message);
+        await expect(politeRegion(page)).toHaveText(spokenCommand(message));
         await expect(page.getByText('Attempts on this step: 1')).toBeVisible();
         await expect(page.getByRole('button', { name: /^Index finger base(,| —).*, detected here$/ })).toBeVisible();
         await expect(heading).toBeVisible();

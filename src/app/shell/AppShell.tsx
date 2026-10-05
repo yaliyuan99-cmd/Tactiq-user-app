@@ -5,6 +5,7 @@ import { DemoModeNotice } from './DemoModeNotice';
 import { MobileNav } from './MobileNav';
 import { OfflineBanner } from './OfflineBanner';
 import { Sidebar } from './Sidebar';
+import { StorageBanner } from './StorageBanner';
 import { TopBar } from './TopBar';
 import { useDemoHistorySeed } from './useDemoHistorySeed';
 
@@ -28,7 +29,8 @@ export function AppShell() {
         <main id={MAIN_CONTENT_ID} tabIndex={-1} className="min-w-0 flex-1 pb-24 outline-none lg:pb-0">
           <DemoModeNotice />
           <OfflineBanner />
-          <div className="mx-auto w-full max-w-5xl px-4 py-6 sm:px-6 [&_[id]]:scroll-mt-24">
+          <StorageBanner />
+          <div className="mx-auto w-full max-w-5xl px-4 py-6 sm:px-6">
             <RouteErrorBoundary variant="section">
               <Outlet />
             </RouteErrorBoundary>

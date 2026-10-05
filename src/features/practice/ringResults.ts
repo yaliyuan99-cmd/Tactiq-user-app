@@ -107,8 +107,9 @@ export interface RingResultDescription {
    */
   readonly message: string;
   /**
-   * What is shown on screen. Identical to `message` except that simulated
-   * shortcut outcomes carry a "Simulated:" prefix.
+   * What is shown on screen. Always the same words as `message`: a shortcut's
+   * mock outcome is labelled "Simulated:" in both, because a screen-reader
+   * user hears the announcement and never sees the label.
    */
   readonly visibleMessage: string;
   readonly feedbackKind: FeedbackKind;
@@ -129,16 +130,12 @@ function describeCommand(token: CommandToken, mapping: ShortcutMapping): RingRes
   const command = getCommand(token);
   const shortLabel = commandLabelWithShortcut(command, mapping);
   if (command.kind === 'fixed') return same(command.feedback.text, 'confirm', shortLabel);
-  if (!isShortcutToken(token)) return same(`${command.label}.`, 'confirm', shortLabel);
+  if (!isShortcutToken(token)) return same(`${command.spokenLabel}.`, 'confirm', shortLabel);
   const action = getShortcutAction(mapping[token]);
-  if (action.id === 'unassigned') return same(`${command.label}: nothing assigned.`, 'confirm', shortLabel);
-  const lead = `${command.label}: ${action.label}.`;
-  return {
-    message: `${lead} ${action.simulatedOutcome}`,
-    visibleMessage: `${lead} Simulated: ${action.simulatedOutcome}`,
-    feedbackKind: 'confirm',
-    shortLabel,
-  };
+  if (action.id === 'unassigned') return same(`${command.spokenLabel}: nothing assigned.`, 'confirm', shortLabel);
+  // Nothing on a phone ran: the outcome is a mock, so "Simulated:" belongs in the
+  // announcement as well as on screen — a screen-reader user hears only this.
+  return same(`${command.spokenLabel}: ${action.label}. Simulated: ${action.simulatedOutcome}`, 'confirm', shortLabel);
 }
 
 function describeTooLong(contact: ContactKey | null, durationMs: number | null): RingResultDescription {
@@ -194,7 +191,7 @@ export function describeRingResult(result: RingResult, mapping: ShortcutMapping)
 }
 
 /** "3", or "2.5" when the window is not a whole number of seconds. */
-function windowSeconds(windowMs: number): string {
+export function windowSeconds(windowMs: number): string {
   const seconds = Math.max(0, windowMs) / 1000;
   return Number.isInteger(seconds) ? String(seconds) : seconds.toFixed(1);
 }

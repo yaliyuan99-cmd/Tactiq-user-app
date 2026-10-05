@@ -41,13 +41,17 @@ export function joinWithAnd(items: readonly string[]): string {
   return `${items.slice(0, -1).join(', ')} and ${items[items.length - 1]}`;
 }
 
-/** What a retry on a step is called in the summary sentence. */
+/**
+ * What a retry on a step is called in the summary sentence. These are
+ * sentences a screen reader reads straight out, so commands appear under their
+ * spoken labels ("Dismiss or Back"), never with the display slash.
+ */
 export function stepName(step: LessonStep): string {
   switch (step.kind) {
     case 'squeeze':
       return 'the squeeze';
     case 'tap':
-      return getCommand(step.token).label;
+      return getCommand(step.token).spokenLabel;
     case 'hold':
       return step.expect === 'cancel' ? 'cancelling the hold' : 'the full hold';
   }
@@ -81,8 +85,8 @@ export function lessonTitle(lesson: Lesson): string {
   return `Lesson ${lesson.number}: ${lesson.title}`;
 }
 
-/** "Confirm and Dismiss / Back", or null for a lesson that teaches no command. */
+/** "Confirm and Dismiss or Back", or null for a lesson that teaches no command. Spoken labels: it is a sentence, read aloud. */
 export function teachesPhrase(lesson: Lesson): string | null {
   if (lesson.teaches.length === 0) return null;
-  return joinWithAnd(lesson.teaches.map((token) => getCommand(token).label));
+  return joinWithAnd(lesson.teaches.map((token) => getCommand(token).spokenLabel));
 }

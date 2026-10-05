@@ -57,6 +57,19 @@ export function useServices(): AppServices {
   return ctx;
 }
 
+/**
+ * Whether the browser is still letting Tactiq save changes. Reads keep working
+ * when this is false, so a session in that state is degraded rather than
+ * empty: show `WRITES_BLOCKED_NOTE` once in the shell. Re-renders when the
+ * answer flips.
+ */
+export function useCanPersist(): boolean {
+  const { storage } = useServices();
+  const subscribe = useCallback<SubscribeFn>((listener) => storage.subscribe(listener), [storage]);
+  useSubscription(subscribe);
+  return storage.canPersist;
+}
+
 /** Re-renders the caller whenever `service` notifies, and returns it unchanged. */
 function useWatchedService<T extends { subscribe: SubscribeFn }>(service: T): T {
   const subscribe = useCallback<SubscribeFn>((listener) => service.subscribe(listener), [service]);
