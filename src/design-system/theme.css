@@ -1,87 +1,96 @@
 @custom-variant dark (&:is(.dark *));
 
 /*
- * Tactiq design tokens — ported verbatim from the Tactiq website's
- * "tactile research-journal" system, then extended for an application:
- * a high-contrast mode, three text sizes, a stronger focus ring and a
- * small motion vocabulary.
+ * Tactiq design tokens — violet and ink.
  *
- * Materials: warm stone paper, graphite ink, one burnt-orange accent taken
- * from tactile wayfinding surfaces. Colour is used sparingly: orange for
- * active contact points, selected commands and primary actions; neutrals
- * for prose; green / slate / rust reserved for genuine evidence meanings
- * and always accompanied by text.
+ * The identity comes from the project's earlier violet work (archived at
+ * tactiq0.netlify.app/showcase): a cool near-black ink, a violet action colour
+ * and a lavender selection surface. It is carried into a calm companion
+ * application rather than a marketing page, so there is no glow, no gradient
+ * and no full-bleed imagery — violet marks what you can act on and what is
+ * selected, and everything else stays quiet.
  *
- * Anchors: stone #F6F4EF · graphite #211E1A · burnt orange #A63A0A.
+ * Colour never carries meaning alone: evidence labels, status pills and
+ * contact states all pair their colour with an icon and words.
  *
- * Contrast (WCAG 2.2 AA, relative-luminance ratios): every token pair used for
- * text was checked in all four themes (light, dark, high-contrast light,
- * high-contrast dark) and is at least 4.5:1 —
- *   foreground, muted-foreground, primary-strong, destructive and status-*
- *     on background, card, popover, muted and secondary;
- *   primary-foreground on primary, accent-foreground on accent,
- *   destructive-foreground on destructive, secondary-, card-, popover- and
- *     sidebar-foreground on their surfaces, background on foreground (skip link).
- * Non-text marks (primary fills and strokes, focus, ring, destructive borders)
- * are at least 3:1 against background and card.
- * src/design-system/theme.contrast.test.ts recomputes these from this file.
- * Light examples: #211E1A on stone 15.1:1 · #5F594E on stone 6.3:1 ·
- * white on #A63A0A 6.5:1 · #8C3009 on stone 7.5:1.
+ * Every pair below is checked by theme.contrast.test.ts, which reads this file
+ * and recomputes the ratios for all four themes. Text pairs are at least
+ * 4.5:1 and fills, focus rings and control boundaries at least 3:1. Two values
+ * are load-bearing: white on the light primary is 6.93:1, while white on the
+ * brighter dark primary would be only 3.69:1 — which is why dark primary
+ * buttons use the canvas ink for their label, not white. The decorative
+ * divider is 1.39:1 and must never be used as a form-control boundary; use
+ * --border-strong for anything a user has to find and operate.
  */
 :root {
+  /* Type scale base. 17px desktop, 16px on small screens (below). */
   --font-size: 17px;
-  --background: #f6f4ef;
-  --foreground: #211e1a;
-  --card: #fbfaf6;
-  --card-foreground: #211e1a;
-  --popover: #fffefb;
-  --popover-foreground: #211e1a;
-  --primary: #a63a0a;
+
+  /* Canvas and surfaces */
+  --background: #f7f8fc;
+  --card: #ffffff;
+  --card-foreground: #19172b;
+  --popover: #ffffff;
+  --popover-foreground: #19172b;
+  --muted: #eceef6;
+  /* Selected / subtle accent surface. Always pairs with dark text. */
+  --secondary: #eeebff;
+  --secondary-foreground: #19172b;
+
+  /* Text */
+  --foreground: #19172b;
+  --muted-foreground: #656176;
+
+  /* Brand action. White on #534ab7 is 6.93:1. */
+  --primary: #534ab7;
   --primary-foreground: #ffffff;
-  --primary-strong: #8c3009;
-  --secondary: #e9e6de;
-  --secondary-foreground: #211e1a;
-  --muted: #eeebe3;
-  --muted-foreground: #5f594e;
-  --accent: #a63a0a;
+  --primary-hover: #453c9f;
+  /* Link and strong accent text: 5.93:1 even on the lavender surface. */
+  --primary-strong: #534ab7;
+  --accent: #534ab7;
   --accent-foreground: #ffffff;
+
   --destructive: #b3261e;
   --destructive-foreground: #ffffff;
-  --border: rgba(33, 30, 26, 0.16);
-  --border-strong: rgba(33, 30, 26, 0.34);
-  --input: rgba(33, 30, 26, 0.22);
-  --input-background: #fffefb;
-  --switch-background: #c9c4b8;
-  --ring: #a63a0a;
-  --focus: #8c3009;
+
+  /* Decorative divider only — 1.39:1, never a control boundary. */
+  --border: #dcd9e8;
+  /* Form-control boundary — 3.44:1 on a white surface. */
+  --border-strong: #8d879f;
+  --input: #8d879f;
+  --input-background: #ffffff;
+  --switch-background: #c7c5d6;
+
+  --ring: #534ab7;
+  --focus: #534ab7;
   --focus-width: 3px;
-  /* Evidence-status system — icons and text always accompany these. */
-  --status-confirmed: #1b6b40;
+
+  /* Evidence and status. Each is paired with an icon and words, never hue alone. */
+  --status-confirmed: #16724f;
   --status-simulation: #44546e;
-  --status-target: #8c3009;
-  --status-future: #5f594e;
-  --chart-1: #a63a0a;
-  --chart-2: #1b6b40;
+  --status-target: #7a5300;
+  --status-future: #656176;
+
+  --chart-1: #534ab7;
+  --chart-2: #16724f;
   --chart-3: #44546e;
-  --chart-4: #8a6d1f;
-  --radius: 0.5rem;
-  --sidebar: #fbfaf6;
-  --sidebar-foreground: #211e1a;
-  --sidebar-border: rgba(33, 30, 26, 0.16);
-  --shadow-card: 0 1px 2px rgba(33, 30, 26, 0.05);
-  --shadow-raised: 0 6px 20px rgba(33, 30, 26, 0.1);
+  --chart-4: #7a5300;
+
+  --radius: 0.625rem;
+  --sidebar: #ffffff;
+  --sidebar-foreground: #19172b;
+  --sidebar-border: #dcd9e8;
+
+  --shadow-card: 0 1px 2px rgba(25, 23, 43, 0.06);
+  --shadow-raised: 0 12px 32px rgba(25, 23, 43, 0.16);
+
   --ease-settle: cubic-bezier(0.16, 1, 0.3, 1);
-  --dur-tap: 90ms;
+  --dur-tap: 120ms;
   --dur-move: 180ms;
-  --dur-enter: 320ms;
-  /*
-   * App frame heights, without their 1px border. TopBar, Sidebar and MobileNav
-   * read these, and so does the scroll padding further down, so the space the
-   * browser keeps clear can never drift from the bars' real height.
-   */
+  --dur-enter: 240ms;
+
   --app-top-bar-height: 4rem;
   --app-bottom-bar-height: 3.5rem;
-  /* Breathing room between a focused control and the bar beside it. */
   --app-bar-gap: 0.75rem;
 }
 
@@ -101,105 +110,144 @@
 }
 
 .dark {
-  --background: #1b1916;
-  --foreground: #ece8e0;
-  --card: #242119;
-  --card-foreground: #ece8e0;
-  --popover: #242119;
-  --popover-foreground: #ece8e0;
-  /* White on #c24f16 is 4.75:1 (the earlier #d3591d was 4.03:1, below AA).
-     As a fill it is 3.70:1 on background #1b1916 and 3.39:1 on card #242119,
-     so filled points and icons still pass 3:1 non-text contrast. It is not
-     for text on dark surfaces: use primary-strong for links (6.38:1). */
-  --primary: #c24f16;
-  --primary-foreground: #ffffff;
-  --primary-strong: #e8813f;
-  --secondary: #2e2a22;
-  --secondary-foreground: #ece8e0;
-  --muted: #2e2a22;
-  --muted-foreground: #aca596;
-  --accent: #c24f16;
-  --accent-foreground: #ffffff;
-  /* Used both as text (errors) and as the danger-button fill. #ef6b61 is
-     5.80:1 on background, 5.32:1 on card, 4.72:1 on secondary/muted. No red
-     can carry white text at 4.5:1 and also be 4.5:1 text on these surfaces
-     (the earlier #e0564c was 3.75:1 under white and 4.29:1 on card), so the
-     danger button uses dark ink: #1b1916 on #ef6b61 is 5.80:1. */
-  --destructive: #ef6b61;
-  --destructive-foreground: #1b1916;
-  --border: rgba(236, 232, 224, 0.16);
-  --border-strong: rgba(236, 232, 224, 0.36);
-  --input: rgba(236, 232, 224, 0.2);
-  --input-background: #27231b;
-  --switch-background: #4c4638;
-  --ring: #e8813f;
-  --focus: #ffa06a;
-  --status-confirmed: #4cb07a;
-  --status-simulation: #93a5c2;
-  --status-target: #e8813f;
-  --status-future: #aca596;
-  --chart-1: #e8813f;
-  --chart-2: #4cb07a;
-  --chart-3: #93a5c2;
-  --chart-4: #c2a44a;
-  --sidebar: #242119;
-  --sidebar-foreground: #ece8e0;
-  --sidebar-border: rgba(236, 232, 224, 0.16);
-  --shadow-card: 0 1px 2px rgba(0, 0, 0, 0.3);
-  --shadow-raised: 0 8px 24px rgba(0, 0, 0, 0.45);
+  --background: #0b0a14;
+  --card: #14122a;
+  --card-foreground: #f0eefc;
+  --popover: #14122a;
+  --popover-foreground: #f0eefc;
+  --muted: #1b1930;
+  --secondary: #24203d;
+  --secondary-foreground: #f0eefc;
+
+  --foreground: #f0eefc;
+  --muted-foreground: #a7a2cf;
+
+  /* Ink on #8b6cff is 5.33:1. White on it is only 3.69:1, so the button text
+     is the deep canvas ink, never white. */
+  --primary: #8b6cff;
+  --primary-foreground: #0b0a14;
+  --primary-hover: #a18aff;
+  --primary-strong: #b7a7ff;
+  --accent: #8b6cff;
+  --accent-foreground: #0b0a14;
+
+  --destructive: #f2786c;
+  --destructive-foreground: #0b0a14;
+
+  --border: #353147;
+  --border-strong: #7f789c;
+  --input: #7f789c;
+  --input-background: #0f0d1e;
+  --switch-background: #4a4660;
+
+  --ring: #c1b3ff;
+  --focus: #c1b3ff;
+
+  --status-confirmed: #29c48d;
+  --status-simulation: #9db2d8;
+  --status-target: #e0b257;
+  --status-future: #a7a2cf;
+
+  --chart-1: #8b6cff;
+  --chart-2: #29c48d;
+  --chart-3: #9db2d8;
+  --chart-4: #e0b257;
+
+  --sidebar: #14122a;
+  --sidebar-foreground: #f0eefc;
+  --sidebar-border: #353147;
+
+  --shadow-card: 0 1px 2px rgba(0, 0, 0, 0.5);
+  --shadow-raised: 0 16px 40px rgba(0, 0, 0, 0.6);
 }
 
 /* Increased-contrast preference: darker ink, stronger borders, deeper accent. */
 [data-contrast='high'] {
-  --background: #fffdf9;
-  --foreground: #111009;
+  --background: #ffffff;
   --card: #ffffff;
-  --card-foreground: #111009;
+  --card-foreground: #0a0912;
   --popover: #ffffff;
-  --popover-foreground: #111009;
-  --primary: #7a2a05;
-  --primary-strong: #5e1f02;
-  --secondary: #e6e2d8;
-  --muted: #f0ede6;
-  --muted-foreground: #2f2b25;
+  --popover-foreground: #0a0912;
+  --muted: #f1f2f9;
+  --secondary: #e6e1ff;
+  --secondary-foreground: #0a0912;
+
+  --foreground: #0a0912;
+  --muted-foreground: #2f2c3d;
+
+  /* White on #3a3194 is 10.26:1. */
+  --primary: #3a3194;
+  --primary-foreground: #ffffff;
+  --primary-hover: #2d2676;
+  --primary-strong: #3a3194;
+  --accent: #3a3194;
+  --accent-foreground: #ffffff;
+
   --destructive: #8f1a13;
-  --border: rgba(17, 16, 9, 0.7);
-  --border-strong: rgba(17, 16, 9, 0.9);
-  --input: rgba(17, 16, 9, 0.8);
+  --destructive-foreground: #ffffff;
+
+  /* At this setting even the decorative divider is a real boundary. */
+  --border: #0a0912;
+  --border-strong: #0a0912;
+  --input: #0a0912;
+  --input-background: #ffffff;
+  --switch-background: #5a5668;
+
+  --ring: #0a0912;
+  --focus: #0a0912;
+  --focus-width: 4px;
+
   --status-confirmed: #0f4d2c;
   --status-simulation: #2c3a52;
-  --status-target: #5e1f02;
-  --status-future: #3a362f;
-  --focus: #000000;
-  --focus-width: 4px;
+  --status-target: #5a3d00;
+  --status-future: #2f2c3d;
+
+  --sidebar: #ffffff;
+  --sidebar-foreground: #0a0912;
+  --sidebar-border: #0a0912;
 }
 .dark[data-contrast='high'] {
   --background: #000000;
-  --foreground: #ffffff;
-  --card: #0d0c0a;
+  --card: #0a0914;
   --card-foreground: #ffffff;
-  --popover: #0d0c0a;
+  --popover: #0a0914;
   --popover-foreground: #ffffff;
-  /* Black on #ff9a5c is 10.03:1; #ff9a5c is 10.03:1 on background and 9.34:1 on card. */
-  --primary: #ff9a5c;
+  --muted: #121022;
+  --secondary: #241f3f;
+  --secondary-foreground: #ffffff;
+
+  --foreground: #ffffff;
+  --muted-foreground: #dedaf5;
+
+  /* Black on #b9a3ff is 9.75:1. */
+  --primary: #b9a3ff;
   --primary-foreground: #000000;
-  --primary-strong: #ffb98a;
-  --secondary: #262320;
-  --muted: #1a1815;
-  --muted-foreground: #e6e2da;
-  /* Black on #ff7b70 is 8.32:1 (white, inherited from .dark, was 2.52:1). */
-  --destructive: #ff7b70;
+  --primary-hover: #cdbcff;
+  --primary-strong: #d6c9ff;
+  --accent: #b9a3ff;
+  --accent-foreground: #000000;
+
+  --destructive: #ff9b92;
   --destructive-foreground: #000000;
-  --border: rgba(255, 255, 255, 0.7);
-  --border-strong: rgba(255, 255, 255, 0.9);
-  --input: rgba(255, 255, 255, 0.8);
+
+  --border: #ffffff;
+  --border-strong: #ffffff;
+  --input: #ffffff;
   --input-background: #000000;
-  --status-confirmed: #7fe0a8;
-  --status-simulation: #b9c8e6;
-  --status-target: #ffb98a;
-  --status-future: #e6e2da;
+  --switch-background: #6f6a86;
+
+  --ring: #ffffff;
   --focus: #ffffff;
   --focus-width: 4px;
+
+  --status-confirmed: #5fe0ae;
+  --status-simulation: #bccbe8;
+  --status-target: #f2cd82;
+  --status-future: #dedaf5;
+
+  --sidebar: #0a0914;
+  --sidebar-foreground: #ffffff;
+  --sidebar-border: #ffffff;
 }
 
 @theme inline {
@@ -293,8 +341,8 @@
      on the body sans at a firm weight. Sentence case throughout. */
   h1,
   h2 {
-    font-family: var(--font-serif);
     font-weight: 600;
+    letter-spacing: -0.015em;
     text-wrap: balance;
   }
   h1 {

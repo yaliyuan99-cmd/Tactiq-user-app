@@ -1,4 +1,8 @@
-/* Tailwind v4 first, then the Tactiq tokens and type. */
-@import 'tailwindcss';
+/*
+ * Order matters. Every `@import` must precede other rules, and the font layer
+ * is imported first so the `@font-face` blocks are emitted ahead of Tailwind's
+ * output. Importing fonts after Tailwind is what silently dropped them before.
+ */
 @import './fonts.css';
+@import 'tailwindcss';
 @import './theme.css';

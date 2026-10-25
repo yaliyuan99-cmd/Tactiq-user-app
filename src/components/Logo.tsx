@@ -14,7 +14,7 @@ export function Logo({ size = 'md', to, className }: LogoProps) {
     <>
       <Hand className={cn('shrink-0 text-primary', size === 'sm' ? 'h-4 w-4' : 'h-5 w-5')} aria-hidden="true" />
       <span
-        className={cn('font-serif font-semibold tracking-tight', size === 'sm' ? 'text-base' : 'text-xl')}>
+        className={cn('font-semibold tracking-[-0.03em]', size === 'sm' ? 'text-base' : 'text-xl')}>
         Tactiq
       </span>
     </>

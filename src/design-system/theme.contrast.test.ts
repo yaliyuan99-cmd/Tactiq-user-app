@@ -102,21 +102,46 @@ describe('theme contrast', () => {
     expect(failures(THEMES[theme] ?? {}, NON_TEXT_PAIRS, 3)).toEqual([]);
   });
 
-  it('dark primary carries white text at AA and still reads as a fill', () => {
+  it('the dark primary is labelled with ink, because white on it would fail', () => {
     const tokens = THEMES.dark ?? {};
-    expect(tokens.primary).toBe('#c24f16');
-    expect(tokens.accent).toBe('#c24f16');
-    expect(tokens['primary-strong']).toBe('#e8813f');
-    expect(contrastRatio('#ffffff', '#c24f16')).toBeCloseTo(4.75, 2);
-    expect(contrastRatio('#c24f16', '#1b1916')).toBeCloseTo(3.7, 2);
-    expect(contrastRatio('#c24f16', '#242119')).toBeCloseTo(3.39, 2);
-    expect(contrastRatio('#e8813f', '#1b1916')).toBeCloseTo(6.38, 2);
+    expect(tokens.primary).toBe('#8b6cff');
+    expect(tokens.accent).toBe('#8b6cff');
+    expect(tokens['primary-foreground']).toBe('#0b0a14');
+    expect(tokens['primary-strong']).toBe('#b7a7ff');
+    // The reason the label is ink and not white.
+    expect(contrastRatio('#0b0a14', '#8b6cff')).toBeCloseTo(5.33, 2);
+    expect(contrastRatio('#ffffff', '#8b6cff')).toBeCloseTo(3.69, 2);
+    // Still reads as a fill against both dark surfaces.
+    expect(contrastRatio('#8b6cff', '#0b0a14')).toBeGreaterThanOrEqual(3);
+    expect(contrastRatio('#8b6cff', '#14122a')).toBeGreaterThanOrEqual(3);
   });
 
-  it('high-contrast dark primary uses black text at well over AA', () => {
-    const tokens = THEMES['high-contrast dark'] ?? {};
-    expect(tokens.primary).toBe('#ff9a5c');
-    expect(tokens['primary-foreground']).toBe('#000000');
-    expect(contrastRatio('#000000', '#ff9a5c')).toBeCloseTo(10.03, 2);
+  it('the light primary carries white text well above AA', () => {
+    const tokens = THEMES.light ?? {};
+    expect(tokens.primary).toBe('#534ab7');
+    expect(tokens['primary-foreground']).toBe('#ffffff');
+    expect(contrastRatio('#ffffff', '#534ab7')).toBeCloseTo(6.93, 2);
+    // The link colour stays readable on the lavender selection surface.
+    expect(contrastRatio(tokens['primary-strong'] ?? '', tokens.secondary ?? '')).toBeGreaterThanOrEqual(4.5);
+  });
+
+  it('high-contrast themes flip the primary label to the opposite extreme', () => {
+    const hcDark = THEMES['high-contrast dark'] ?? {};
+    expect(hcDark.primary).toBe('#b9a3ff');
+    expect(hcDark['primary-foreground']).toBe('#000000');
+    expect(contrastRatio('#000000', '#b9a3ff')).toBeCloseTo(9.75, 2);
+    const hcLight = THEMES['high-contrast light'] ?? {};
+    expect(hcLight.primary).toBe('#3a3194');
+    expect(hcLight['primary-foreground']).toBe('#ffffff');
+    expect(contrastRatio('#ffffff', '#3a3194')).toBeCloseTo(10.26, 2);
+  });
+
+  it('the decorative divider is never strong enough to be a control boundary', () => {
+    for (const [name, tokens] of Object.entries(THEMES)) {
+      const divider = contrastRatio(tokens.border ?? '', tokens.card ?? '');
+      const control = contrastRatio(tokens['border-strong'] ?? '', tokens.card ?? '');
+      expect(control, `${name}: border-strong must reach 3:1 on a surface`).toBeGreaterThanOrEqual(3);
+      expect(control, `${name}: border-strong must be at least as strong as the divider`).toBeGreaterThanOrEqual(divider);
+    }
   });
 });
