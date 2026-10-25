@@ -102,38 +102,61 @@ describe('theme contrast', () => {
     expect(failures(THEMES[theme] ?? {}, NON_TEXT_PAIRS, 3)).toEqual([]);
   });
 
-  it('the dark primary is labelled with ink, because white on it would fail', () => {
+  it('the dark primary is labelled with ink, because white on it would fail badly', () => {
     const tokens = THEMES.dark ?? {};
-    expect(tokens.primary).toBe('#8b6cff');
-    expect(tokens.accent).toBe('#8b6cff');
-    expect(tokens['primary-foreground']).toBe('#0b0a14');
-    expect(tokens['primary-strong']).toBe('#b7a7ff');
-    // The reason the label is ink and not white.
-    expect(contrastRatio('#0b0a14', '#8b6cff')).toBeCloseTo(5.33, 2);
-    expect(contrastRatio('#ffffff', '#8b6cff')).toBeCloseTo(3.69, 2);
-    // Still reads as a fill against both dark surfaces.
-    expect(contrastRatio('#8b6cff', '#0b0a14')).toBeGreaterThanOrEqual(3);
-    expect(contrastRatio('#8b6cff', '#14122a')).toBeGreaterThanOrEqual(3);
+    expect(tokens.primary).toBe('#5eead4');
+    expect(tokens.accent).toBe('#5eead4');
+    expect(tokens['primary-foreground']).toBe('#082f2a');
+    expect(tokens['primary-strong']).toBe('#a4e7de');
+    expect(contrastRatio('#082f2a', '#5eead4')).toBeCloseTo(9.79, 2);
+    expect(contrastRatio('#ffffff', '#5eead4')).toBeLessThan(2);
+    expect(contrastRatio('#5eead4', '#0c1717')).toBeGreaterThanOrEqual(3);
+    expect(contrastRatio('#5eead4', '#122322')).toBeGreaterThanOrEqual(3);
   });
 
-  it('the light primary carries white text well above AA', () => {
+  it('the light primary carries white text above AA', () => {
     const tokens = THEMES.light ?? {};
-    expect(tokens.primary).toBe('#534ab7');
+    expect(tokens.primary).toBe('#0f766e');
     expect(tokens['primary-foreground']).toBe('#ffffff');
-    expect(contrastRatio('#ffffff', '#534ab7')).toBeCloseTo(6.93, 2);
-    // The link colour stays readable on the lavender selection surface.
+    expect(contrastRatio('#ffffff', '#0f766e')).toBeCloseTo(5.47, 2);
     expect(contrastRatio(tokens['primary-strong'] ?? '', tokens.secondary ?? '')).toBeGreaterThanOrEqual(4.5);
   });
 
   it('high-contrast themes flip the primary label to the opposite extreme', () => {
     const hcDark = THEMES['high-contrast dark'] ?? {};
-    expect(hcDark.primary).toBe('#b9a3ff');
+    expect(hcDark.primary).toBe('#7cf0dc');
     expect(hcDark['primary-foreground']).toBe('#000000');
-    expect(contrastRatio('#000000', '#b9a3ff')).toBeCloseTo(9.75, 2);
+    expect(contrastRatio('#000000', '#7cf0dc')).toBeGreaterThanOrEqual(7);
     const hcLight = THEMES['high-contrast light'] ?? {};
-    expect(hcLight.primary).toBe('#3a3194');
+    expect(hcLight.primary).toBe('#0b544e');
     expect(hcLight['primary-foreground']).toBe('#ffffff');
-    expect(contrastRatio('#ffffff', '#3a3194')).toBeCloseTo(10.26, 2);
+    expect(contrastRatio('#ffffff', '#0b544e')).toBeGreaterThanOrEqual(7);
+  });
+
+  it('success is a different hue from the teal brand, and a warning token exists', () => {
+    // Two colours of similar brightness can still be told apart by hue, which is
+    // what matters here: a success tick must not read as "this is the brand".
+    // Contrast ratio would be meaningless between two light mints, so measure hue.
+    const hue = (color: string): number => {
+      const hex = color.replace('#', '');
+      const [r, g, b] = [0, 2, 4].map((o) => parseInt(hex.slice(o, o + 2), 16) / 255) as [number, number, number];
+      const max = Math.max(r, g, b);
+      const min = Math.min(r, g, b);
+      if (max === min) return 0;
+      const d = max - min;
+      const h = max === r ? ((g - b) / d + (g < b ? 6 : 0)) : max === g ? (b - r) / d + 2 : (r - g) / d + 4;
+      return h * 60;
+    };
+    const separation = (a: string, b: string): number => {
+      const diff = Math.abs(hue(a) - hue(b)) % 360;
+      return diff > 180 ? 360 - diff : diff;
+    };
+    for (const [name, tokens] of Object.entries(THEMES)) {
+      expect(separation(tokens.primary ?? '', tokens['status-confirmed'] ?? ''), `${name}: success hue vs brand hue`).toBeGreaterThanOrEqual(25);
+      expect(tokens.warning, `${name}: a warning token exists`).toBeTruthy();
+      expect(tokens['warning-foreground'], `${name}: the warning fill has a readable label`).toBeTruthy();
+      expect(contrastRatio(tokens['warning-foreground'] ?? '', tokens.warning ?? ''), `${name}: warning label`).toBeGreaterThanOrEqual(4.5);
+    }
   });
 
   it('the decorative divider is never strong enough to be a control boundary', () => {

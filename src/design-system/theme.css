@@ -1,88 +1,89 @@
 @custom-variant dark (&:is(.dark *));
 
 /*
- * Tactiq design tokens — violet and ink.
+ * Tactiq design tokens — deep teal, cool white and ink.
  *
- * The identity comes from the project's earlier violet work (archived at
- * tactiq0.netlify.app/showcase): a cool near-black ink, a violet action colour
- * and a lavender selection surface. It is carried into a calm companion
- * application rather than a marketing page, so there is no glow, no gradient
- * and no full-bleed imagery — violet marks what you can act on and what is
- * selected, and everything else stays quiet.
+ * One system for the public product pages and the signed-in app. Teal marks
+ * what you can act on, what is selected and real progress; everything else
+ * stays neutral, so the interface reads as an instrument rather than a brand
+ * exercise. Success is a separate green and warnings a separate amber, so the
+ * brand colour is never mistaken for "this worked".
  *
  * Colour never carries meaning alone: evidence labels, status pills and
- * contact states all pair their colour with an icon and words.
+ * contact states pair their colour with an icon and words.
  *
- * Every pair below is checked by theme.contrast.test.ts, which reads this file
- * and recomputes the ratios for all four themes. Text pairs are at least
- * 4.5:1 and fills, focus rings and control boundaries at least 3:1. Two values
- * are load-bearing: white on the light primary is 6.93:1, while white on the
- * brighter dark primary would be only 3.69:1 — which is why dark primary
- * buttons use the canvas ink for their label, not white. The decorative
- * divider is 1.39:1 and must never be used as a form-control boundary; use
- * --border-strong for anything a user has to find and operate.
+ * Every pair is recomputed by theme.contrast.test.ts across all four themes:
+ * text at 4.5:1 or better, fills, focus rings and control boundaries at 3:1 or
+ * better. Two values are load-bearing. White on the light primary is 5.47:1,
+ * while white on the bright dark primary would be about 1.5:1 — which is why
+ * dark primary buttons carry the deep ink as their label. The decorative
+ * divider is only 1.33:1 and must never be used as a form-control boundary;
+ * anything a user has to find and operate uses --border-strong.
  */
 :root {
   /* Type scale base. 17px desktop, 16px on small screens (below). */
   --font-size: 17px;
 
   /* Canvas and surfaces */
-  --background: #f7f8fc;
+  --background: #f7faf9;
   --card: #ffffff;
-  --card-foreground: #19172b;
+  --card-foreground: #102a2a;
   --popover: #ffffff;
-  --popover-foreground: #19172b;
-  --muted: #eceef6;
-  /* Selected / subtle accent surface. Always pairs with dark text. */
-  --secondary: #eeebff;
-  --secondary-foreground: #19172b;
+  --popover-foreground: #102a2a;
+  --muted: #eef3f1;
+  /* Selected / subtle accent surface. Always pairs with ink text. */
+  --secondary: #e5f3ef;
+  --secondary-foreground: #102a2a;
 
   /* Text */
-  --foreground: #19172b;
-  --muted-foreground: #656176;
+  --foreground: #102a2a;
+  --muted-foreground: #566b68;
 
-  /* Brand action. White on #534ab7 is 6.93:1. */
-  --primary: #534ab7;
+  /* Brand action. White on #0f766e is 5.47:1. */
+  --primary: #0f766e;
   --primary-foreground: #ffffff;
-  --primary-hover: #453c9f;
-  /* Link and strong accent text: 5.93:1 even on the lavender surface. */
-  --primary-strong: #534ab7;
-  --accent: #534ab7;
+  --primary-hover: #115e59;
+  --primary-strong: #0f766e;
+  --accent: #0f766e;
   --accent-foreground: #ffffff;
 
   --destructive: #b3261e;
   --destructive-foreground: #ffffff;
+  --warning: #7a5300;
+  --warning-foreground: #ffffff;
 
-  /* Decorative divider only — 1.39:1, never a control boundary. */
-  --border: #dcd9e8;
-  /* Form-control boundary — 3.44:1 on a white surface. */
-  --border-strong: #8d879f;
-  --input: #8d879f;
+  /* Decorative divider only — 1.33:1, never a control boundary. */
+  --border: #d7e3df;
+  /* Form-control boundary — 3.63:1 on a white surface. */
+  --border-strong: #708c87;
+  --input: #708c87;
   --input-background: #ffffff;
-  --switch-background: #c7c5d6;
+  --switch-background: #b9c9c5;
 
-  --ring: #534ab7;
-  --focus: #534ab7;
+  --ring: #0f766e;
+  --focus: #0f766e;
   --focus-width: 3px;
 
-  /* Evidence and status. Each is paired with an icon and words, never hue alone. */
-  --status-confirmed: #16724f;
+  /* Evidence and status. Always paired with an icon and words, never hue alone.
+     Success is deliberately a different green from the teal brand, so a brand
+     surface is never mistaken for a success state. */
+  --status-confirmed: #166534;
   --status-simulation: #44546e;
   --status-target: #7a5300;
-  --status-future: #656176;
+  --status-future: #566b68;
 
-  --chart-1: #534ab7;
-  --chart-2: #16724f;
+  --chart-1: #0f766e;
+  --chart-2: #166534;
   --chart-3: #44546e;
   --chart-4: #7a5300;
 
   --radius: 0.625rem;
   --sidebar: #ffffff;
-  --sidebar-foreground: #19172b;
-  --sidebar-border: #dcd9e8;
+  --sidebar-foreground: #102a2a;
+  --sidebar-border: #d7e3df;
 
-  --shadow-card: 0 1px 2px rgba(25, 23, 43, 0.06);
-  --shadow-raised: 0 12px 32px rgba(25, 23, 43, 0.16);
+  --shadow-card: 0 1px 2px rgba(16, 42, 42, 0.06);
+  --shadow-raised: 0 12px 32px rgba(16, 42, 42, 0.16);
 
   --ease-settle: cubic-bezier(0.16, 1, 0.3, 1);
   --dur-tap: 120ms;
@@ -110,52 +111,56 @@
 }
 
 .dark {
-  --background: #0b0a14;
-  --card: #14122a;
-  --card-foreground: #f0eefc;
-  --popover: #14122a;
-  --popover-foreground: #f0eefc;
-  --muted: #1b1930;
-  --secondary: #24203d;
-  --secondary-foreground: #f0eefc;
+  --background: #0c1717;
+  --card: #122322;
+  --card-foreground: #e9f5f2;
+  --popover: #122322;
+  --popover-foreground: #e9f5f2;
+  --muted: #17302e;
+  --secondary: #183b35;
+  --secondary-foreground: #e9f5f2;
 
-  --foreground: #f0eefc;
-  --muted-foreground: #a7a2cf;
+  --foreground: #e9f5f2;
+  --muted-foreground: #a3b9b3;
 
-  /* Ink on #8b6cff is 5.33:1. White on it is only 3.69:1, so the button text
-     is the deep canvas ink, never white. */
-  --primary: #8b6cff;
-  --primary-foreground: #0b0a14;
-  --primary-hover: #a18aff;
-  --primary-strong: #b7a7ff;
-  --accent: #8b6cff;
-  --accent-foreground: #0b0a14;
+  /* Deep ink on #5eead4 is 9.79:1. White on it would be 1.5:1, so the button
+     label is always the deep ink, never white. */
+  --primary: #5eead4;
+  --primary-foreground: #082f2a;
+  --primary-hover: #8af0dd;
+  --primary-strong: #a4e7de;
+  --accent: #5eead4;
+  --accent-foreground: #082f2a;
 
-  --destructive: #f2786c;
-  --destructive-foreground: #0b0a14;
+  /* #f58478 clears 4.5:1 on all four dark surfaces; the supplied #f2786c
+     reached only 4.48:1 on the selected surface. */
+  --destructive: #f58478;
+  --destructive-foreground: #082f2a;
+  --warning: #e0b257;
+  --warning-foreground: #082f2a;
 
-  --border: #353147;
-  --border-strong: #7f789c;
-  --input: #7f789c;
-  --input-background: #0f0d1e;
-  --switch-background: #4a4660;
+  --border: #2b4540;
+  --border-strong: #78918c;
+  --input: #78918c;
+  --input-background: #0a1414;
+  --switch-background: #3f5a55;
 
-  --ring: #c1b3ff;
-  --focus: #c1b3ff;
+  --ring: #99f6e4;
+  --focus: #99f6e4;
 
-  --status-confirmed: #29c48d;
+  --status-confirmed: #86efac;
   --status-simulation: #9db2d8;
   --status-target: #e0b257;
-  --status-future: #a7a2cf;
+  --status-future: #a3b9b3;
 
-  --chart-1: #8b6cff;
-  --chart-2: #29c48d;
+  --chart-1: #5eead4;
+  --chart-2: #86efac;
   --chart-3: #9db2d8;
   --chart-4: #e0b257;
 
-  --sidebar: #14122a;
-  --sidebar-foreground: #f0eefc;
-  --sidebar-border: #353147;
+  --sidebar: #122322;
+  --sidebar-foreground: #e9f5f2;
+  --sidebar-border: #2b4540;
 
   --shadow-card: 0 1px 2px rgba(0, 0, 0, 0.5);
   --shadow-raised: 0 16px 40px rgba(0, 0, 0, 0.6);
@@ -165,87 +170,91 @@
 [data-contrast='high'] {
   --background: #ffffff;
   --card: #ffffff;
-  --card-foreground: #0a0912;
+  --card-foreground: #04100f;
   --popover: #ffffff;
-  --popover-foreground: #0a0912;
-  --muted: #f1f2f9;
-  --secondary: #e6e1ff;
-  --secondary-foreground: #0a0912;
+  --popover-foreground: #04100f;
+  --muted: #eef3f1;
+  --secondary: #d7ece6;
+  --secondary-foreground: #04100f;
 
-  --foreground: #0a0912;
-  --muted-foreground: #2f2c3d;
+  --foreground: #04100f;
+  --muted-foreground: #22302e;
 
-  /* White on #3a3194 is 10.26:1. */
-  --primary: #3a3194;
+  /* White on #0b544e is 7.76:1. */
+  --primary: #0b544e;
   --primary-foreground: #ffffff;
-  --primary-hover: #2d2676;
-  --primary-strong: #3a3194;
-  --accent: #3a3194;
+  --primary-hover: #073f3b;
+  --primary-strong: #0b544e;
+  --accent: #0b544e;
   --accent-foreground: #ffffff;
 
   --destructive: #8f1a13;
   --destructive-foreground: #ffffff;
+  --warning: #5a3d00;
+  --warning-foreground: #ffffff;
 
-  /* At this setting even the decorative divider is a real boundary. */
-  --border: #0a0912;
-  --border-strong: #0a0912;
-  --input: #0a0912;
+  /* At this setting even the decorative divider becomes a real boundary. */
+  --border: #04100f;
+  --border-strong: #04100f;
+  --input: #04100f;
   --input-background: #ffffff;
-  --switch-background: #5a5668;
+  --switch-background: #4a5a57;
 
-  --ring: #0a0912;
-  --focus: #0a0912;
+  --ring: #04100f;
+  --focus: #04100f;
   --focus-width: 4px;
 
-  --status-confirmed: #0f4d2c;
+  --status-confirmed: #0b4a22;
   --status-simulation: #2c3a52;
   --status-target: #5a3d00;
-  --status-future: #2f2c3d;
+  --status-future: #22302e;
 
   --sidebar: #ffffff;
-  --sidebar-foreground: #0a0912;
-  --sidebar-border: #0a0912;
+  --sidebar-foreground: #04100f;
+  --sidebar-border: #04100f;
 }
 .dark[data-contrast='high'] {
   --background: #000000;
-  --card: #0a0914;
+  --card: #06100f;
   --card-foreground: #ffffff;
-  --popover: #0a0914;
+  --popover: #06100f;
   --popover-foreground: #ffffff;
-  --muted: #121022;
-  --secondary: #241f3f;
+  --muted: #0d1b1a;
+  --secondary: #11322d;
   --secondary-foreground: #ffffff;
 
   --foreground: #ffffff;
-  --muted-foreground: #dedaf5;
+  --muted-foreground: #d7eae6;
 
-  /* Black on #b9a3ff is 9.75:1. */
-  --primary: #b9a3ff;
+  /* Black on #7cf0dc is 11.9:1. */
+  --primary: #7cf0dc;
   --primary-foreground: #000000;
-  --primary-hover: #cdbcff;
-  --primary-strong: #d6c9ff;
-  --accent: #b9a3ff;
+  --primary-hover: #a6f5e8;
+  --primary-strong: #b6f3e9;
+  --accent: #7cf0dc;
   --accent-foreground: #000000;
 
   --destructive: #ff9b92;
   --destructive-foreground: #000000;
+  --warning: #f2cd82;
+  --warning-foreground: #000000;
 
   --border: #ffffff;
   --border-strong: #ffffff;
   --input: #ffffff;
   --input-background: #000000;
-  --switch-background: #6f6a86;
+  --switch-background: #5f716e;
 
   --ring: #ffffff;
   --focus: #ffffff;
   --focus-width: 4px;
 
-  --status-confirmed: #5fe0ae;
+  --status-confirmed: #9ff3b8;
   --status-simulation: #bccbe8;
   --status-target: #f2cd82;
-  --status-future: #dedaf5;
+  --status-future: #d7eae6;
 
-  --sidebar: #0a0914;
+  --sidebar: #06100f;
   --sidebar-foreground: #ffffff;
   --sidebar-border: #ffffff;
 }
