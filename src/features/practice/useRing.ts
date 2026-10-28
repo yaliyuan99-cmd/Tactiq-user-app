@@ -7,6 +7,10 @@
  * emergency arming cue exactly once each. Inputs drive the simulated ring in
  * Demo Mode and are silent no-ops when a hardware ring is active.
  *
+ * `activating` is true from the squeeze until the window opens (GATE_HOLD_MS).
+ * A tap in that moment is still dropped, but it is reported as the window
+ * still opening — a polite announcement, not an interrupting error.
+ *
  * Call it once per screen and pass the returned object down (PracticeSurface,
  * SqueezeControl and EmergencyHoldButton all take it as `ring`). A second
  * instance on the same screen would announce everything twice unless it is
@@ -28,9 +32,24 @@ import {
   ringResultFromEvent,
   type RingResult,
 } from './ringResults';
-import type { RingController, UseRingOptions } from './ringController';
+import type { RingController as SharedRingController, UseRingOptions } from './ringController';
 
-export type { RingController, UseRingOptions } from './ringController';
+export type { UseRingOptions } from './ringController';
+
+/**
+ * What a practice screen reads from `useRing`: the shared controller plus the
+ * activation phase, which only this hook can report (it comes from the ring's
+ * event stream, not from the device state).
+ */
+export interface RingController extends SharedRingController {
+  /**
+   * A squeeze has been received and the command window has not opened yet —
+   * the GATE_HOLD_MS wait. Show it as "opening" rather than as closed, so a
+   * quick tap in that moment is explained, not blamed. Always false with a
+   * hardware ring: the protocol reports only armed and idle.
+   */
+  readonly activating: boolean;
+}
 
 /** How long a recognised contact keeps its visual-confirmation flash. */
 export const FLASH_MS = 700;
@@ -63,6 +82,7 @@ export function useRing(options: UseRingOptions = {}): RingController {
   const windowMs = state.commandWindowMs;
 
   const [press, setPress] = useState<PressState>(IDLE_PRESS);
+  const [activating, setActivating] = useState(false);
   const [lastResult, setLastResult] = useState<RingResult | null>(null);
   const [flash, setFlash] = useState<ContactKey | null>(null);
   const [clock, setClock] = useState(() => Date.now());
@@ -72,6 +92,7 @@ export function useRing(options: UseRingOptions = {}): RingController {
   if (trackedMode !== mode) {
     setTrackedMode(mode);
     setPress(IDLE_PRESS);
+    setActivating(false);
     setLastResult(null);
     setFlash(null);
   }
@@ -136,7 +157,11 @@ export function useRing(options: UseRingOptions = {}): RingController {
 
     return subscribe((event) => {
       switch (event.type) {
+        case 'activating':
+          setActivating(event.active);
+          return;
         case 'gate': {
+          setActivating(false);
           const wasArmed = gateRef.current.armed;
           gateRef.current = { armed: event.armed, closesAt: event.closesAt };
           if (!event.armed) setPress(IDLE_PRESS);
@@ -214,6 +239,7 @@ export function useRing(options: UseRingOptions = {}): RingController {
     canOperate: mock !== null,
     canReceive: describeDeviceState(state).canReceiveCommands,
     armed,
+    activating: activating && !armed,
     closesAt,
     windowMs,
     remainingMs,

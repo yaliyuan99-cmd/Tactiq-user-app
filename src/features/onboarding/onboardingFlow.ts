@@ -1,10 +1,11 @@
 /**
  * Pure decisions for the onboarding flow: which step to resume at, what to
  * save when the user moves, how progress and the step change are worded,
- * which controls a step shows, and the "All set" summary. No React here.
+ * which controls a step shows, and the summary on the last step. No React
+ * here. The links off the last step live in nextSteps.ts.
  */
 import { ONBOARDING_LAST_STEP, ONBOARDING_STEPS, type OnboardingStepId } from '@/domain/onboarding';
-import type { Hand, TextSize, UserPreferences } from '@/domain/models';
+import type { ContrastPreference, Hand, TextSize, UserPreferences } from '@/domain/models';
 import { COMMAND_WINDOW_LONG_MS, COMMAND_WINDOW_MS } from '@/domain/timing';
 import type { DeviceMode } from '@/services/device/types';
 
@@ -55,31 +56,23 @@ export const NEW_PROFILE_SETUP_PATCH: Pick<UserPreferences, 'onboardingCompleted
 /** "Skip setup": leave the flow, keep the furthest step so the dashboard can offer "Resume setup". */
 export const SKIP_SETUP_PATCH: Pick<UserPreferences, 'onboardingCompleted'> = { onboardingCompleted: true };
 
-/** "Go to the dashboard" (or any next-step link) on the last step. */
+/**
+ * Setup is finished. Saved as soon as the user reaches the last step, not when
+ * they press the button there: the last step says setup is finished, so the
+ * dashboard must already be open to them.
+ */
 export const FINISH_SETUP_PATCH: Pick<UserPreferences, 'onboardingCompleted' | 'onboardingStep'> = {
   onboardingCompleted: true,
   onboardingStep: ONBOARDING_LAST_STEP,
 };
 
-/**
- * "Open calibration now" leaves setup for the calibration page. Calibration
- * sits behind the onboarding gate, so setup is marked as left (as with Skip
- * setup) and the resume point moves past the calibration step.
- */
-export function calibrationDetourPatch(
-  savedStep: number,
-  index: number,
-): Pick<UserPreferences, 'onboardingCompleted' | 'onboardingStep'> {
-  return { onboardingCompleted: true, onboardingStep: savedStepAfterMove(savedStep, index + 1) };
-}
-
-/** "Step 3 of 8 — Which hand" */
+/** "Step 3 of 4 — Your first command" */
 export function progressText(index: number): string {
   const i = clampStepIndex(index);
   return `Step ${i + 1} of ${STEP_COUNT} — ${stepAt(i).title}`;
 }
 
-/** "Step 3 of 8: Which hand." — announced when the step changes. */
+/** "Step 3 of 4: Your first command." — announced when the step changes. */
 export function stepAnnouncement(index: number): string {
   const i = clampStepIndex(index);
   return `Step ${i + 1} of ${STEP_COUNT}: ${stepAt(i).title}.`;
@@ -93,28 +86,60 @@ export interface StepControls {
   readonly continueLabel: string;
   readonly continueAction: ContinueAction;
   /**
-   * How loud the continue control is. 'secondary' on the first-lesson step,
-   * whose embedded lesson owns the filled "Start lesson" button: two filled
-   * buttons would not say which action the step is asking for.
+   * How loud the continue control is. 'secondary' on the first-command step,
+   * whose ring surface owns the filled "Squeeze" button: two filled buttons
+   * would not say which action the step is asking for.
    */
   readonly continueVariant: 'primary' | 'secondary';
-  /** "Skip setup" in the top bar; hidden on the last step, where nothing is left to skip. */
+  /** The "leave setup" control in the top bar; hidden on the last step, where nothing is left to leave. */
   readonly showSkipSetup: boolean;
 }
 
-/** The controls under a step. The calibration step's primary button already means "not now", so it has no separate skip. */
+/** The controls under a step. Every step but the last is optional, so every one can be skipped. */
 export function stepControls(index: number): StepControls {
   const i = clampStepIndex(index);
   const step = stepAt(i);
   const isLast = i === ONBOARDING_LAST_STEP;
-  const isCalibration = step.id === 'calibration';
   return {
     showBack: i > 0,
-    showSkip: step.optional && !isCalibration,
-    continueLabel: isLast ? 'Go to the dashboard' : isCalibration ? 'Calibrate after setup' : 'Continue',
+    showSkip: step.optional,
+    continueLabel: isLast ? 'Go to the dashboard' : 'Continue',
     continueAction: isLast ? 'finish' : 'next',
-    continueVariant: step.id === 'first_lesson' ? 'secondary' : 'primary',
+    continueVariant: step.id === 'first_command' ? 'secondary' : 'primary',
     showSkipSetup: !isLast,
+  };
+}
+
+export interface SkipSetupWords {
+  readonly label: string;
+  readonly title: string;
+  readonly description: string;
+  readonly confirmLabel: string;
+  readonly cancelLabel: string;
+}
+
+/**
+ * The top-bar control that leaves setup, and its confirmation. Once setup has
+ * been recorded as finished — the user reached the last step, or skipped
+ * earlier and came back through "Resume setup" — there is nothing left to
+ * skip, so it says it leaves instead of claiming the choices are unfinished.
+ */
+export function skipSetupWords(setupFinished: boolean): SkipSetupWords {
+  if (setupFinished) {
+    return {
+      label: 'Leave setup',
+      title: 'Leave setup?',
+      description: 'Your choices are saved. You can come back to setup from the dashboard.',
+      confirmLabel: 'Leave setup',
+      cancelLabel: 'Stay here',
+    };
+  }
+  return {
+    label: 'Skip setup',
+    title: 'Skip setup?',
+    description: 'You can finish it later from the dashboard.',
+    confirmLabel: 'Skip setup',
+    cancelLabel: 'Keep setting up',
   };
 }
 
@@ -166,12 +191,13 @@ export function sentence(text: string): string {
 }
 
 /* ------------------------------------------------------------------ */
-/* Summary on "All set"                                                 */
+/* Summary on the last step                                             */
 /* ------------------------------------------------------------------ */
 
 export interface ChoiceSummaryInput {
   readonly hand: Hand;
   readonly textSize: TextSize;
+  readonly contrast: ContrastPreference;
   readonly audioAnnouncements: boolean;
   readonly longerInteractionTime: boolean;
   readonly deviceMode: DeviceMode;
@@ -179,7 +205,7 @@ export interface ChoiceSummaryInput {
   readonly deviceStatusLabel: string;
 }
 
-export type ChoiceSummaryId = 'hand' | 'ring' | 'text_size' | 'audio' | 'longer_time';
+export type ChoiceSummaryId = 'hand' | 'ring' | 'text_size' | 'contrast' | 'audio' | 'longer_time';
 
 export interface ChoiceSummaryItem {
   readonly id: ChoiceSummaryId;
@@ -210,6 +236,7 @@ export function summariseChoices(input: ChoiceSummaryInput): readonly ChoiceSumm
     { id: 'hand', label: 'Hand', value: `${HAND_LABELS[input.hand]} hand` },
     { id: 'ring', label: 'Ring', value: ring },
     { id: 'text_size', label: 'Text size', value: TEXT_SIZE_LABELS[input.textSize] },
+    { id: 'contrast', label: 'Increased contrast', value: input.contrast === 'high' ? 'On' : 'Off' },
     { id: 'audio', label: 'Audio announcements', value: input.audioAnnouncements ? 'On' : 'Off' },
     {
       id: 'longer_time',

@@ -5,6 +5,7 @@ import { getContact } from '@/domain/contacts';
 import { formatDateTime } from '@/lib/time';
 import { useCalibration } from '@/services/ServicesProvider';
 import { CalibrationPanel } from './CalibrationPanel';
+import { RESULTS_WHAT_WAS_RECORDED } from './calibrationCopy';
 import { remainingPoints } from './calibrationFlow';
 import { evidenceSentence, resultsHeading, resultsSentence } from './calibrationWording';
 import { SamplesTable } from './SamplesTable';
@@ -12,7 +13,12 @@ import type { CalibrationSession } from './calibrationSessionTypes';
 
 export const RESULTS_HEADING_ID = 'calibrate-results-heading';
 
-/** After a run: complete or incomplete, what to repeat, when, what the evidence means, and where to go next. */
+/**
+ * After a run: complete or incomplete, what to repeat, when, what was in fact
+ * recorded, what the evidence label means, and where to go next. "Complete"
+ * here means every point has its accepted taps — never that a ring has been
+ * adjusted.
+ */
 export function ResultsView({ session }: { session: CalibrationSession }) {
   const calibration = useCalibration();
   const headingRef = useRef<HTMLHeadingElement>(null);
@@ -55,7 +61,8 @@ export function ResultsView({ session }: { session: CalibrationSession }) {
           </div>
         )}
 
-        <p className="mt-5">{evidenceSentence(profile.evidence)}</p>
+        <p className="mt-5">{RESULTS_WHAT_WAS_RECORDED}</p>
+        <p className="mt-2">{evidenceSentence(profile.evidence)}</p>
 
         <div className="mt-6 flex flex-wrap gap-3">
           <ButtonLink to={ROUTES.simulator} variant={complete ? 'primary' : 'secondary'}>

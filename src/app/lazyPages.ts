@@ -1,6 +1,7 @@
 /** One code-split chunk per page. Each module's default export is the page. */
 import { lazy } from 'react';
 
+export const HomePage = lazy(() => import('@/features/home/HomePage'));
 export const SignInPage = lazy(() => import('@/features/auth/SignInPage'));
 export const SignUpPage = lazy(() => import('@/features/auth/SignUpPage'));
 export const ForgotPasswordPage = lazy(() => import('@/features/auth/ForgotPasswordPage'));

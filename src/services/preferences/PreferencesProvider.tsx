@@ -1,7 +1,23 @@
+/**
+ * The preferences in force, merged from their two owners.
+ *
+ * Appearance (theme, text size, contrast, reduced motion) belongs to this
+ * browser and is shared by every profile signed in here; the rest (hand,
+ * feedback, timing, setup progress) belongs to the person and is stored under
+ * the signed-in profile's own key. `usePreferences()` hands back one merged
+ * `UserPreferences`, so no screen has to know which half a field came from.
+ * See './storedPreferences' for how the two records are read and written.
+ */
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { DEFAULT_PREFERENCES, type UserPreferences } from '@/domain/models';
 import { STORAGE_KEYS, type StorageAdapter } from '@/services/storage/StorageAdapter';
-import { NO_RECOVERY, readStoredPreferences, type PreferencesRecovery } from './storedPreferences';
+import {
+  NO_RECOVERY,
+  readStoredPreferences,
+  writePreferences,
+  type PreferencesRecovery,
+  type StoredPreferences,
+} from './storedPreferences';
 
 export type { PreferencesRecovery } from './storedPreferences';
 
@@ -12,6 +28,10 @@ export const PREFERENCES_REPLACED_NOTE =
 /** Shown when nothing stored could be read, so the defaults are in force and setup looks unfinished. */
 export const PREFERENCES_UNREADABLE_NOTE =
   'Your saved settings could not be read, so Tactiq is using the defaults. Setup choices you had made are not being used.';
+
+/** Said in Settings, because one half of these follows the browser and the other half the person. */
+export const PREFERENCES_OWNERSHIP_NOTE =
+  'Appearance applies to this browser; the rest follows your profile.';
 
 export interface PreferencesContextValue {
   readonly preferences: UserPreferences;
@@ -80,7 +100,28 @@ export function applyPreferencesToDocument(prefs: UserPreferences, systemDark: b
   root.classList.toggle('force-reduced-motion', prefs.reducedMotion);
 }
 
-export function PreferencesProvider({ storage, children }: { storage: StorageAdapter; children: ReactNode }) {
+/** The state after a save: what is stored is what is on screen, so nothing is left to report. */
+function saved(preferences: UserPreferences): StoredPreferences {
+  return { preferences, ...NO_RECOVERY, legacyProfileFields: [] };
+}
+
+export interface PreferencesProviderProps {
+  /**
+   * The signed-in profile's storage view, so the person's half of the
+   * preferences is read and written under that profile.
+   */
+  readonly storage: StorageAdapter;
+  /**
+   * The signed-in account id. Given one, the person's preferences left in the
+   * device-wide record by a build from before profiles existed are claimed
+   * once, into this profile. Omitted (or null while nobody is signed in), the
+   * record is left exactly as it is for the profile that signs in next.
+   */
+  readonly scopeId?: string | null;
+  readonly children: ReactNode;
+}
+
+export function PreferencesProvider({ storage, scopeId, children }: PreferencesProviderProps) {
   const [stored, setStored] = useState(() => readStoredPreferences(storage));
   const preferences = stored.preferences;
   /**
@@ -109,11 +150,25 @@ export function PreferencesProvider({ storage, children }: { storage: StorageAda
     };
   }, []);
 
-  // Cross-tab and cross-service changes.
+  /**
+   * A different profile signed in, so the person's half of the preferences is
+   * theirs and has to be read again. The first run is skipped: the initial
+   * state already holds that read.
+   */
+  const identity = useRef({ storage, scopeId });
+  useEffect(() => {
+    if (identity.current.storage === storage && identity.current.scopeId === scopeId) return;
+    identity.current = { storage, scopeId };
+    const next = readStoredPreferences(storage);
+    latest.current = next.preferences;
+    setStored(next);
+  }, [storage, scopeId]);
+
+  // Cross-tab and cross-service changes, to either half.
   useEffect(
     () =>
       storage.subscribe((key) => {
-        if (key !== STORAGE_KEYS.preferences) return;
+        if (key !== STORAGE_KEYS.preferences && key !== STORAGE_KEYS.profilePreferences) return;
         const next = readStoredPreferences(storage);
         latest.current = next.preferences;
         setStored(next);
@@ -128,12 +183,25 @@ export function PreferencesProvider({ storage, children }: { storage: StorageAda
   const apply = useCallback(
     (next: UserPreferences) => {
       latest.current = next;
-      // What is stored now is what is on screen, so nothing is left to warn about.
-      setStored({ preferences: next, ...NO_RECOVERY });
-      setPersisted(storage.set(STORAGE_KEYS.preferences, next));
+      setStored(saved(next));
+      setPersisted(writePreferences(storage, next));
     },
     [storage],
   );
+
+  /**
+   * One-time claim: a browser last used before profiles existed keeps the
+   * person's preferences in the device-wide record, where the next profile to
+   * sign in would read them as its own. The first signed-in profile takes them
+   * over — saving writes the device record with appearance only — so nobody
+   * else inherits somebody's hand, feedback or setup progress. Practice data
+   * is never adopted this way; Settings asks about that (see
+   * '@/services/storage/legacyMigration').
+   */
+  useEffect(() => {
+    if (!scopeId || stored.legacyProfileFields.length === 0) return;
+    apply(latest.current);
+  }, [scopeId, stored, apply]);
 
   const update = useCallback(
     (patch: Partial<UserPreferences>) => {

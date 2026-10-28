@@ -11,9 +11,9 @@ import { generateDemoEvents } from '@/services/demo/demoHistory';
 import { STORAGE_KEYS, type StorageAdapter } from '@/services/storage/StorageAdapter';
 import { ChangeNotifier, type Unsubscribe } from '@/services/useSubscription';
 import { capHistory, isGestureEvent, sortChronologically } from './events';
-import { eventsToCsv, eventsToJson } from './export';
-import { filterEvents, summariseEvents } from './summarise';
-import type { HistoryFilter, HistoryService, NewGestureEvent } from './types';
+import { describeExportScope, eventsToCsv, eventsToJson } from './export';
+import { filterEvents, isNarrowingFilter, summariseEvents } from './summarise';
+import type { ExportScope, HistoryFilter, HistoryService, NewGestureEvent } from './types';
 
 export { intendedToken } from './summarise';
 
@@ -58,6 +58,9 @@ export class LocalHistoryService implements HistoryService {
       evidence: input.evidence,
       seeded: input.seeded ?? false,
       ...(input.lessonId ? { lessonId: input.lessonId } : {}),
+      // Omitted for command records: that is the default, and leaving it out
+      // keeps new records the same shape as the ones already stored.
+      ...(input.kind && input.kind !== 'command' ? { kind: input.kind } : {}),
     };
     if (!isGestureEvent(event)) throw new Error('This activity record is not valid, so it was not saved.');
     this.write(sortChronologically([...this.events(), event]));
@@ -65,11 +68,19 @@ export class LocalHistoryService implements HistoryService {
   }
 
   summarise(filter?: HistoryFilter): ActivitySummary {
-    return summariseEvents(filterEvents(this.events(), filter, new Date()), filter?.range ?? 'all');
+    return summariseEvents(
+      filterEvents(this.events(), filter, new Date()),
+      filter?.range ?? 'all',
+      isNarrowingFilter(filter),
+    );
   }
 
   count(): number {
     return this.events().length;
+  }
+
+  countMatching(filter?: HistoryFilter): number {
+    return filterEvents(this.events(), filter, new Date()).length;
   }
 
   clear(): void {
@@ -92,14 +103,25 @@ export class LocalHistoryService implements HistoryService {
     return removed;
   }
 
-  /** Oldest first. */
-  exportJson(): string {
-    return eventsToJson(this.events(), nowIso());
+  /** Oldest first, with the scope of the file inside it. */
+  exportJson(filter?: HistoryFilter): string {
+    return eventsToJson(this.matching(filter), nowIso(), this.exportScope(filter));
   }
 
-  /** Oldest first. */
-  exportCsv(): string {
-    return eventsToCsv(this.events());
+  /** Oldest first. Pair it with `exportScope()`: the table itself carries no scope line. */
+  exportCsv(filter?: HistoryFilter): string {
+    return eventsToCsv(this.matching(filter));
+  }
+
+  exportScope(filter?: HistoryFilter): ExportScope {
+    const filtersApplied = isNarrowingFilter(filter);
+    const summary = this.summarise(filter);
+    return {
+      filtersApplied,
+      filter: filter ?? null,
+      text: describeExportScope({ total: this.count(), filtersApplied, summary }),
+      counts: summary.counts,
+    };
   }
 
   seedDemo(now: Date = new Date()): void {
@@ -125,6 +147,11 @@ export class LocalHistoryService implements HistoryService {
   /** Stops listening to storage. Only needed when a service is discarded before the page unloads. */
   dispose(): void {
     this.notifier.dispose();
+  }
+
+  /** Oldest first, through the filter. */
+  private matching(filter?: HistoryFilter): GestureEvent[] {
+    return filterEvents(this.events(), filter, new Date());
   }
 
   private events(): GestureEvent[] {

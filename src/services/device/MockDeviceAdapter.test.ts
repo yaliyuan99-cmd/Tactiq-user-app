@@ -53,11 +53,15 @@ describe('MockDeviceAdapter', () => {
   it('re-emits ring events and mirrors the gate in state', () => {
     const { adapter, events, types } = setup();
     adapter.controls.squeeze();
+    expect(types()).toEqual(['activating']);
+    expect(events[0]).toMatchObject({ type: 'activating', active: true });
     vi.advanceTimersByTime(GATE_HOLD_MS);
     const closesAt = Date.now() + COMMAND_WINDOW_MS;
-    expect(types()).toEqual(['gate', 'state']);
+    // The activating phase ends as the window opens, before the gate event.
+    expect(types()).toEqual(['activating', 'activating', 'gate', 'state']);
+    expect(events[1]).toMatchObject({ type: 'activating', active: false });
     expect(adapter.getState().gate).toEqual({ armed: true, closesAt });
-    expect(events[1]).toMatchObject({ type: 'state', state: { gate: { armed: true, closesAt } } });
+    expect(events[3]).toMatchObject({ type: 'state', state: { gate: { armed: true, closesAt } } });
 
     events.length = 0;
     adapter.controls.tap('index_base');
@@ -69,6 +73,16 @@ describe('MockDeviceAdapter', () => {
     vi.advanceTimersByTime(800);
     adapter.controls.pressEnd('middle_tip');
     expect(types()).toEqual(['press', 'reject']);
+  });
+
+  it('reports a tap during the activating phase as the window still opening', () => {
+    const { adapter, events } = setup();
+    adapter.controls.squeeze();
+    adapter.controls.tap('ring_tip');
+    expect(events.filter((e) => e.type === 'reject')).toEqual([
+      expect.objectContaining({ type: 'reject', reason: 'window_opening', contact: 'ring_tip' }),
+    ]);
+    expect(adapter.getRingSnapshot()).toMatchObject({ activating: true, armed: false });
   });
 
   it('updates state before the gate event reaches listeners', () => {
@@ -132,6 +146,7 @@ describe('MockDeviceAdapter', () => {
   it('destroy stops timers and listeners but leaves the ring usable', () => {
     const { adapter, events } = setup();
     adapter.controls.squeeze();
+    events.length = 0;
     adapter.destroy();
     vi.advanceTimersByTime(GATE_HOLD_MS);
     expect(events).toEqual([]);
@@ -139,6 +154,6 @@ describe('MockDeviceAdapter', () => {
     adapter.subscribe((event) => again.push(event));
     adapter.controls.squeeze();
     vi.advanceTimersByTime(GATE_HOLD_MS);
-    expect(again.map((e) => e.type)).toEqual(['gate', 'state']);
+    expect(again.map((e) => e.type)).toEqual(['activating', 'activating', 'gate', 'state']);
   });
 });

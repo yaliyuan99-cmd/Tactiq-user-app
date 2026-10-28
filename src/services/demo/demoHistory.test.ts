@@ -1,7 +1,9 @@
 import { resolveCommand } from '@/domain/commands';
 import { siblingContact } from '@/domain/contacts';
 import { TAP_MAX_MS } from '@/domain/timing';
+import { eventKind, isAccuracyAttempt } from '@/services/history/classify';
 import { isGestureEvent } from '@/services/history/events';
+import { summariseEvents } from '@/services/history/summarise';
 import { DEMO_HISTORY_SEED, generateDemoEvents } from './demoHistory';
 import { mulberry32, pick, randomInt } from './prng';
 
@@ -68,6 +70,37 @@ describe('generateDemoEvents', () => {
     expect(events.every((e) => e.seeded && e.evidence === 'simulated')).toBe(true);
     expect(new Set(events.map((e) => e.id)).size).toBe(events.length);
     expect(events.some((e) => e.outcome === 'emergency' || e.outcome === 'emergency_cancelled' || e.token === 'emergency')).toBe(false);
+  });
+
+  it('is separable as samples, and holds only command records', () => {
+    const events = generateDemoEvents(nows[0]!);
+    expect(events.every((e) => e.seeded)).toBe(true);
+    expect(events.every((e) => eventKind(e) === 'command')).toBe(true);
+    expect(events.every((e) => !('kind' in e))).toBe(true);
+    const summary = summariseEvents(events, 'all');
+    expect(summary.counts.seeded).toBe(events.length);
+    expect(summary.counts.own).toBe(0);
+    expect(summary.counts.activations).toBe(0);
+    expect(summary.counts.emergency).toBe(0);
+    expect(summary.byEvidence.measured.records).toBe(0);
+    expect(summary.byEvidence.simulated.records).toBe(events.length);
+  });
+
+  it('never scores a free-practice tap as a right answer', () => {
+    const events = generateDemoEvents(nows[0]!);
+    const free = events.filter((e) => e.mode === 'free');
+    expect(free.length).toBeGreaterThan(0);
+    expect(free.every((e) => e.targetContact === null && e.targetToken === undefined)).toBe(true);
+    expect(free.some((e) => e.outcome === 'recognised')).toBe(true);
+    expect(free.every((e) => !isAccuracyAttempt(e))).toBe(true);
+
+    const summary = summariseEvents(events, 'all');
+    expect(summary.counts.untargeted).toBe(free.length);
+    expect(summary.counts.attempts).toBe(events.length - free.length);
+    expect(summary.counts.attempts + summary.counts.untargeted).toBe(events.length);
+    // Guided practice carries a few misses, so the figure is never a flat 100%.
+    expect(summary.accuracy.rate).toBeLessThan(1);
+    expect(summary.accuracy.rate).toBeGreaterThan(0.7);
   });
 
   it('contains only simulator practice, never lesson records', () => {

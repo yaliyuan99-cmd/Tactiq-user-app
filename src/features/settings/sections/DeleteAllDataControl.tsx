@@ -13,12 +13,14 @@ export const DELETE_ALL_SIGN_OUT_FAILED =
   'Local data was deleted, but signing out did not finish. Check your connection, then sign out from Account.';
 
 /**
- * Deletes every Tactiq value in this browser, then signs out and opens
- * sign-in. A remembered Bluetooth ring is forgotten first, so the ring
- * connection does not outlive the data.
+ * Deletes every Tactiq value in this browser — every profile's records, not
+ * only the signed-in one's — then signs out and opens sign-in. It works on the
+ * device-wide store for that reason: the signed-in profile's own view cannot
+ * reach anybody else's keys. A remembered Bluetooth ring is forgotten first,
+ * so the ring connection does not outlive the data.
  */
 export function DeleteAllDataControl() {
-  const { storage } = useServices();
+  const { deviceStorage } = useServices();
   const { signOut } = useAuth();
   const { state, forget, setMode } = useDevice();
   const navigate = useNavigate();
@@ -39,7 +41,7 @@ export function DeleteAllDataControl() {
     } catch {
       signedOut = false;
     }
-    storage.clear();
+    deviceStorage.clear();
     if (!signedOut) {
       setBusy(false);
       setOpen(false);
@@ -70,7 +72,7 @@ export function DeleteAllDataControl() {
         busy={busy}
         typeToConfirm={DELETE_ALL_PHRASE}
         title="Delete all local data?"
-        description="This permanently removes every Tactiq profile, preference, calibration, lesson record, shortcut and activity record in this browser, then signs you out. It cannot be undone. Download your data first if you want a copy."
+        description="This permanently removes every Tactiq profile in this browser and everything saved under each of them — preferences, calibration, lesson records, shortcuts and activity — then signs you out. It cannot be undone. Download your data first if you want a copy."
         confirmLabel="Delete everything"
         onCancel={() => {
           if (!busy) setOpen(false);

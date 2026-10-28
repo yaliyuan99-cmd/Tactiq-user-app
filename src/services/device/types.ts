@@ -81,6 +81,13 @@ export interface DeviceCapabilities {
 export type RejectReason =
   /** A tap arrived while the ring was not armed. */
   | 'not_armed'
+  /**
+   * A tap arrived after the squeeze but before the command window had opened
+   * (inside GATE_HOLD_MS). The press is still dropped — the timing rule does
+   * not change — but it is not the user doing the wrong thing, so it is kept
+   * apart from 'not_armed' and described as the window still opening.
+   */
+  | 'window_opening'
   /** Longer than a tap, shorter than an emergency hold — dropped, never guessed (P7). */
   | 'indeterminate_duration'
   /** The window timed out while nothing was pressed. */
@@ -91,6 +98,14 @@ export type RejectReason =
 export type DeviceEvent =
   | { readonly type: 'state'; readonly state: DeviceState; readonly at: number }
   | { readonly type: 'gate'; readonly armed: boolean; readonly closesAt: number | null; readonly at: number }
+  /**
+   * Mock ring only: a squeeze has been received and the command window has
+   * not opened yet (`active: true`), or that phase has ended (`active:
+   * false`, emitted just before the window opens, or when the squeeze is
+   * abandoned). A hardware ring reports no such phase — the protocol has only
+   * armed and idle — so this event never comes from one.
+   */
+  | { readonly type: 'activating'; readonly active: boolean; readonly at: number }
   /** Mock ring only: a contact press began inside an open window. */
   | { readonly type: 'press'; readonly contact: ContactKey; readonly at: number }
   /** Mock ring only, every ~100 ms during a hold on the emergency point. */

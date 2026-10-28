@@ -30,20 +30,47 @@ afterEach(() => {
 });
 
 describe('RingStateMachine gate and window', () => {
-  it('arms only after the squeeze has been held for the gate time', () => {
+  it('arms only after the squeeze has been held for the gate time, and says it is activating until then', () => {
     const { machine, events } = setup();
     machine.squeeze();
     vi.advanceTimersByTime(GATE_HOLD_MS - 1);
-    expect(events).toEqual([]);
+    expect(events).toEqual([{ type: 'activating', active: true, at: START }]);
+    expect(machine.getSnapshot()).toMatchObject({ activating: true, armed: false, closesAt: null });
     vi.advanceTimersByTime(1);
     const armedAt = START + GATE_HOLD_MS;
-    expect(events).toEqual([{ type: 'gate', armed: true, closesAt: armedAt + COMMAND_WINDOW_MS, at: armedAt }]);
+    expect(events).toEqual([
+      { type: 'activating', active: true, at: START },
+      { type: 'activating', active: false, at: armedAt },
+      { type: 'gate', armed: true, closesAt: armedAt + COMMAND_WINDOW_MS, at: armedAt },
+    ]);
     expect(machine.getSnapshot()).toEqual({
+      activating: false,
       armed: true,
       closesAt: armedAt + COMMAND_WINDOW_MS,
       pressing: null,
       emergencyFired: false,
     });
+  });
+
+  it('reports the activating phase once however many times the squeeze repeats', () => {
+    const { machine, ofType } = setup();
+    machine.squeeze();
+    machine.squeeze();
+    machine.squeeze();
+    expect(ofType('activating')).toEqual([{ type: 'activating', active: true, at: START }]);
+  });
+
+  it('ends the activating phase when the squeeze is abandoned before the window opens', () => {
+    const { machine, ofType } = setup();
+    machine.squeeze();
+    machine.closeWindow();
+    expect(ofType('activating')).toEqual([
+      { type: 'activating', active: true, at: START },
+      { type: 'activating', active: false, at: START },
+    ]);
+    expect(machine.getSnapshot()).toMatchObject({ activating: false, armed: false });
+    vi.advanceTimersByTime(GATE_HOLD_MS + COMMAND_WINDOW_MS);
+    expect(ofType('gate')).toEqual([]);
   });
 
   it('closes the window after the command window with a gate event and no reject', () => {
@@ -124,6 +151,29 @@ describe('RingStateMachine taps', () => {
       { type: 'reject', reason: 'not_armed', contact: 'middle_base', durationMs: null, at: START },
     ]);
     expect(machine.getSnapshot().pressing).toBeNull();
+  });
+
+  it('keeps a tap during the activating phase apart from a tap on a sleeping ring', () => {
+    const { machine, ofType } = setup();
+    machine.squeeze();
+    vi.advanceTimersByTime(GATE_HOLD_MS - 10);
+    machine.pressStart('index_tip');
+    machine.pressEnd('index_tip');
+    expect(ofType('reject')).toEqual([
+      { type: 'reject', reason: 'window_opening', contact: 'index_tip', durationMs: null, at: START + GATE_HOLD_MS - 10 },
+    ]);
+    expect(ofType('token')).toEqual([]);
+    // The timing rule is unchanged: the window still opens at the gate time, not sooner.
+    vi.advanceTimersByTime(10);
+    expect(machine.getSnapshot()).toMatchObject({ activating: false, armed: true });
+  });
+
+  it('reports a tap straight after the window opens as a command, not as still opening', () => {
+    const { machine, ofType, armNow } = setup();
+    armNow();
+    machine.tap('index_tip', 100);
+    expect(ofType('reject')).toEqual([]);
+    expect(ofType('token')).toEqual([expect.objectContaining({ token: 'confirm' })]);
   });
 
   it('rejects a 700 ms press on the index fingertip as indeterminate', () => {
@@ -280,12 +330,14 @@ describe('RingStateMachine cancel and destroy', () => {
     expect(ofType('token')).toEqual([]);
   });
 
-  it('destroy clears every timer', () => {
+  it('destroy clears every timer and the activating phase, silently', () => {
     const { machine, events } = setup();
     machine.squeeze();
+    events.length = 0;
     machine.destroy();
     vi.advanceTimersByTime(10_000);
     expect(events).toEqual([]);
+    expect(machine.getSnapshot().activating).toBe(false);
     expect(vi.getTimerCount()).toBe(0);
   });
 });

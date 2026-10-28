@@ -1,16 +1,19 @@
-import { Link, useLocation } from 'react-router';
+import { Link } from 'react-router';
 import { cn } from '@/lib/cn';
-import { navCurrent, PRIMARY_NAV_ITEMS } from './navItems';
+import { PRIMARY_NAV_ITEMS, sectionCurrent } from './navItems';
+import { useNavPathname, useShellSection } from './ShellSection';
 
 /**
- * Fixed bottom bar below lg: the five primary destinations, icon above label.
+ * Fixed bottom bar below lg: the five primary destinations, icon above a label
+ * that is always visible. Everything grouped under them is in the More dialog.
  *
  * Its height is --app-bottom-bar-height (see src/design-system/theme.css),
  * which is also the scroll padding that keeps a focused control from ending up
  * behind this bar.
  */
 export function MobileNav() {
-  const { pathname } = useLocation();
+  const pathname = useNavPathname();
+  const { path } = useShellSection();
   return (
     <nav
       aria-label="Main"
@@ -19,12 +22,12 @@ export function MobileNav() {
     >
       <ul className="mx-auto grid max-w-xl grid-cols-5">
         {PRIMARY_NAV_ITEMS.map((item) => {
-          const current = navCurrent(item.to, pathname, item.exact);
+          const current = sectionCurrent(item, pathname);
           const Icon = item.icon;
           return (
             <li key={item.id} className="min-w-0">
               <Link
-                to={item.to}
+                to={path(item.to)}
                 aria-current={current}
                 className={cn(
                   'relative flex min-h-[var(--app-bottom-bar-height)] flex-col items-center justify-center gap-0.5 px-0 py-1.5 text-center text-[length:min(0.75rem,12px)] leading-tight no-underline hyphens-auto break-words',

@@ -2,8 +2,9 @@ import { ONBOARDING_LAST_STEP } from '@/domain/onboarding';
 import { PREFERENCES_UNREADABLE_NOTE } from '@/services/preferences/PreferencesProvider';
 import { MemoryStorageAdapter, STORAGE_KEYS, WRITES_BLOCKED_NOTE } from '@/services/storage/StorageAdapter';
 import { screen, waitFor, within } from '@/test/renderApp';
-import { LESSON_DONE, WELCOME_HONESTY } from './onboardingCopy';
-import { currentPathname, politeRegion, renderOnboarding, storedPreferences, tabTo } from './testing/renderOnboarding';
+import { FIRST_COMMAND_DONE_TITLE, SETUP_HONESTY } from './onboardingCopy';
+import { stepIndexOf } from './onboardingFlow';
+import { currentPathname, politeRegion, renderOnboarding, storedPreferences, tabTo, tabToRadio } from './testing/renderOnboarding';
 
 /** Keeps something under the preferences key that cannot be read back. */
 class UnreadablePreferences extends MemoryStorageAdapter {
@@ -26,8 +27,6 @@ class NoWrites extends MemoryStorageAdapter {
   }
 }
 
-vi.mock('@/features/train/LessonRunner', () => import('./testing/MockLessonRunner'));
-
 function heading() {
   return screen.getByRole('heading', { level: 1 });
 }
@@ -38,7 +37,7 @@ describe('OnboardingPage: storage problems', () => {
 
     expect(screen.getByText('Your saved setup could not be read')).toBeInTheDocument();
     expect(screen.getByText(PREFERENCES_UNREADABLE_NOTE)).toBeInTheDocument();
-    expect(heading()).toHaveTextContent('Welcome');
+    expect(heading()).toHaveTextContent('Which hand');
   });
 
   it('says nothing about storage on an ordinary first run', async () => {
@@ -54,11 +53,11 @@ describe('OnboardingPage: storage problems', () => {
 });
 
 describe('OnboardingPage: frame and first step', () => {
-  it('starts a new user at step 1 with its own frame, progress and the honesty line', async () => {
+  it('opens on a choice, not on an explanation, with its own frame and the honesty note', async () => {
     await renderOnboarding();
     expect(document.title).toBe('Set up Tactiq · Tactiq');
     expect(screen.getAllByRole('heading', { level: 1 })).toHaveLength(1);
-    expect(heading()).toHaveTextContent('Welcome');
+    expect(heading()).toHaveTextContent('Which hand');
     expect(heading()).toHaveAttribute('id', 'page-title');
 
     expect(screen.getByRole('link', { name: 'Skip to main content' })).toHaveAttribute('href', '#main-content');
@@ -72,88 +71,77 @@ describe('OnboardingPage: frame and first step', () => {
 
     const progress = screen.getByRole('progressbar', { name: 'Setup progress' });
     expect(progress).toHaveAttribute('aria-valuenow', '1');
-    expect(progress).toHaveAttribute('aria-valuemax', '8');
-    expect(progress).toHaveAttribute('aria-valuetext', 'Step 1 of 8 — Welcome');
-    expect(screen.getByText('Step 1 of 8 — Welcome')).toBeInTheDocument();
+    expect(progress).toHaveAttribute('aria-valuemax', '4');
+    expect(progress).toHaveAttribute('aria-valuetext', 'Step 1 of 4 — Which hand');
+    expect(screen.getByText('Step 1 of 4 — Which hand')).toBeInTheDocument();
 
-    expect(screen.getByText(WELCOME_HONESTY)).toBeInTheDocument();
+    expect(screen.getByText(SETUP_HONESTY)).toBeInTheDocument();
     expect(screen.getByText('Simulated')).toBeInTheDocument();
-    expect(screen.getByRole('figure', { name: /eight contact points on a right hand/ })).toBeInTheDocument();
+    // The one choice is on screen straight away, and the first step can be skipped like the rest.
+    expect(screen.getByRole('group', { name: 'Which hand will wear the ring?' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Skip this step' })).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Back' })).not.toBeInTheDocument();
-    expect(screen.queryByRole('button', { name: 'Skip this step' })).not.toBeInTheDocument();
   });
 
   it('Continue moves to step 2, focuses the new h1, announces it and saves progress', async () => {
     const { user, storage } = await renderOnboarding();
     await user.click(screen.getByRole('button', { name: 'Continue' }));
 
-    expect(heading()).toHaveTextContent('Accessibility preferences');
+    expect(heading()).toHaveTextContent('A few preferences');
     expect(heading()).toHaveFocus();
     expect(screen.getByRole('progressbar', { name: 'Setup progress' })).toHaveAttribute(
       'aria-valuetext',
-      'Step 2 of 8 — Accessibility preferences',
+      'Step 2 of 4 — A few preferences',
     );
-    await waitFor(() => expect(politeRegion()).toHaveTextContent('Step 2 of 8: Accessibility preferences.'));
-    expect(storedPreferences(storage)?.onboardingStep).toBe(1);
-    expect(storedPreferences(storage)?.onboardingCompleted).toBe(false);
+    await waitFor(() => expect(politeRegion()).toHaveTextContent('Step 2 of 4: A few preferences.'));
+    expect(storedPreferences(storage).onboardingStep).toBe(1);
+    expect(storedPreferences(storage).onboardingCompleted).toBe(false);
   });
 
   it('Back returns to the previous step without lowering the saved step', async () => {
     const { user, storage } = await renderOnboarding();
     await user.click(screen.getByRole('button', { name: 'Continue' }));
     await user.click(screen.getByRole('button', { name: 'Continue' }));
-    expect(heading()).toHaveTextContent('Which hand');
+    expect(heading()).toHaveTextContent('Your first command');
 
     await user.click(screen.getByRole('button', { name: 'Back' }));
-    expect(heading()).toHaveTextContent('Accessibility preferences');
+    expect(heading()).toHaveTextContent('A few preferences');
     expect(heading()).toHaveFocus();
-    await waitFor(() => expect(politeRegion()).toHaveTextContent('Step 2 of 8: Accessibility preferences.'));
-    expect(storedPreferences(storage)?.onboardingStep).toBe(2);
+    await waitFor(() => expect(politeRegion()).toHaveTextContent('Step 2 of 4: A few preferences.'));
+    expect(storedPreferences(storage).onboardingStep).toBe(2);
   });
 
-  it('Skip this step moves past optional steps and saves progress', async () => {
-    const { user, storage } = await renderOnboarding({ preferences: { onboardingStep: 1 } });
-    expect(heading()).toHaveTextContent('Accessibility preferences');
+  it('Skip this step moves through all three optional steps to the end', async () => {
+    const { user, storage } = await renderOnboarding();
     await user.click(screen.getByRole('button', { name: 'Skip this step' }));
-    expect(heading()).toHaveTextContent('Which hand');
+    expect(heading()).toHaveTextContent('A few preferences');
     await user.click(screen.getByRole('button', { name: 'Skip this step' }));
-    expect(heading()).toHaveTextContent('Demo Mode or a ring');
+    expect(heading()).toHaveTextContent('Your first command');
     await user.click(screen.getByRole('button', { name: 'Skip this step' }));
-    expect(heading()).toHaveTextContent('Calibration');
-    // Calibration's own primary action already means "not now".
+    expect(heading()).toHaveTextContent('You are ready');
     expect(screen.queryByRole('button', { name: 'Skip this step' })).not.toBeInTheDocument();
-    await user.click(screen.getByRole('button', { name: 'Calibrate after setup' }));
-    expect(heading()).toHaveTextContent('Feedback');
-    await user.click(screen.getByRole('button', { name: 'Skip this step' }));
-    expect(heading()).toHaveTextContent('First lesson');
-    await user.click(screen.getByRole('button', { name: 'Skip this step' }));
-    expect(heading()).toHaveTextContent('All set');
-    expect(screen.queryByRole('button', { name: 'Skip this step' })).not.toBeInTheDocument();
-    expect(screen.queryByRole('button', { name: 'Skip setup' })).not.toBeInTheDocument();
-    expect(storedPreferences(storage)?.onboardingStep).toBe(ONBOARDING_LAST_STEP);
+    expect(screen.queryByRole('button', { name: /setup$/ })).not.toBeInTheDocument();
+    expect(storedPreferences(storage).onboardingStep).toBe(ONBOARDING_LAST_STEP);
   });
 });
 
 describe('OnboardingPage: resuming and leaving', () => {
   it('resumes at the saved step', async () => {
-    await renderOnboarding({ preferences: { onboardingStep: 3 } });
-    expect(heading()).toHaveTextContent('Demo Mode or a ring');
-    expect(screen.getByText('Step 4 of 8 — Demo Mode or a ring')).toBeInTheDocument();
+    await renderOnboarding({ preferences: { onboardingStep: stepIndexOf('first_command') } });
+    expect(heading()).toHaveTextContent('Your first command');
+    expect(screen.getByText('Step 3 of 4 — Your first command')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Back' })).toBeInTheDocument();
   });
 
   it('resumes at the last step and stops there', async () => {
-    // Out-of-range stored values are replaced before they reach the flow
-    // (readStoredPreferences), and initialStepIndex clamps what is left —
-    // see onboardingFlow.test.ts. Here the furthest real step opens "All set".
     await renderOnboarding({ preferences: { onboardingStep: ONBOARDING_LAST_STEP, onboardingCompleted: true } });
-    expect(heading()).toHaveTextContent('All set');
+    expect(heading()).toHaveTextContent('You are ready');
     expect(screen.getByRole('button', { name: 'Go to the dashboard' })).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Skip setup' })).not.toBeInTheDocument();
   });
 
   it('Skip setup asks first, then marks setup left, keeps the step and goes to the dashboard', async () => {
-    const { user, storage } = await renderOnboarding({ preferences: { onboardingStep: 2 } });
+    const { user, storage } = await renderOnboarding({ preferences: { onboardingStep: 1 } });
     const skip = screen.getByRole('button', { name: 'Skip setup' });
 
     await user.click(skip);
@@ -162,49 +150,56 @@ describe('OnboardingPage: resuming and leaving', () => {
     await user.click(within(dialog).getByRole('button', { name: 'Keep setting up' }));
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
     expect(skip).toHaveFocus();
-    expect(storedPreferences(storage)?.onboardingCompleted).toBe(false);
+    expect(storedPreferences(storage).onboardingCompleted).toBe(false);
 
     await user.click(skip);
     dialog = screen.getByRole('dialog', { name: 'Skip setup?' });
     await user.click(within(dialog).getByRole('button', { name: 'Skip setup' }));
     expect(await screen.findByRole('heading', { name: 'Dashboard stub' })).toBeInTheDocument();
     expect(currentPathname()).toBe('/dashboard');
-    expect(storedPreferences(storage)).toMatchObject({ onboardingCompleted: true, onboardingStep: 2 });
+    expect(storedPreferences(storage)).toMatchObject({ onboardingCompleted: true, onboardingStep: 1 });
+  });
+
+  it('offers to leave, not to skip, once setup has already been recorded as finished', async () => {
+    const { user } = await renderOnboarding({ preferences: { onboardingStep: ONBOARDING_LAST_STEP, onboardingCompleted: true } });
+    // Back from the last step: the choices are saved, so there is nothing left to skip.
+    await user.click(screen.getByRole('button', { name: 'Back' }));
+    expect(screen.queryByRole('button', { name: 'Skip setup' })).not.toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: 'Leave setup' }));
+    const dialog = screen.getByRole('dialog', { name: 'Leave setup?' });
+    expect(dialog).toHaveAccessibleDescription('Your choices are saved. You can come back to setup from the dashboard.');
   });
 });
 
 describe('OnboardingPage: keyboard only', () => {
-  it('can be completed from start to finish with the keyboard', async () => {
+  it('can be completed from start to finish with the keyboard, running the command on the way', async () => {
     const { user, storage } = await renderOnboarding();
-    const titles = [
-      'Accessibility preferences',
-      'Which hand',
-      'Demo Mode or a ring',
-      'Calibration',
-      'Feedback',
-      'First lesson',
-      'All set',
-    ];
 
-    for (const title of titles) {
-      const continueName = heading().textContent === 'Calibration' ? 'Calibrate after setup' : 'Continue';
-      await tabTo(user, continueName);
-      await user.keyboard('{Enter}');
-      expect(heading()).toHaveTextContent(title);
-      expect(heading()).toHaveFocus();
+    // Step 1: choose the left hand with the arrow keys.
+    expect(await tabToRadio(user)).toBe(screen.getByRole('radio', { name: 'Right' }));
+    await user.keyboard('{ArrowUp}');
+    expect(screen.getByRole('radio', { name: 'Left' })).toBeChecked();
+    await tabTo(user, 'Continue');
+    await user.keyboard('{Enter}');
+    expect(heading()).toHaveTextContent('A few preferences');
+    expect(heading()).toHaveFocus();
 
-      if (title === 'Which hand') {
-        await user.tab();
-        expect(screen.getByRole('radio', { name: 'Right' })).toHaveFocus();
-        await user.keyboard('{ArrowUp}');
-        expect(screen.getByRole('radio', { name: 'Left' })).toBeChecked();
-      }
-      if (title === 'First lesson') {
-        await tabTo(user, 'Finish lesson');
-        await user.keyboard('{Enter}');
-        expect(screen.getByText(LESSON_DONE)).toBeInTheDocument();
-      }
-    }
+    // Step 2: leave the preferences as they are.
+    await tabTo(user, 'Continue');
+    await user.keyboard('{Enter}');
+    expect(heading()).toHaveTextContent('Your first command');
+    expect(heading()).toHaveFocus();
+
+    // Step 3: squeeze, then tap the index fingertip, both from the keyboard.
+    await tabTo(user, 'Squeeze the ring');
+    await user.keyboard('{Enter}');
+    await tabTo(user, 'Index fingertip, Confirm, target');
+    await user.keyboard('{Enter}');
+    expect(await screen.findByText(FIRST_COMMAND_DONE_TITLE)).toBeInTheDocument();
+
+    await tabTo(user, 'Continue');
+    await user.keyboard('{Enter}');
+    expect(heading()).toHaveTextContent('You are ready');
 
     await tabTo(user, 'Go to the dashboard');
     await user.keyboard('{Enter}');

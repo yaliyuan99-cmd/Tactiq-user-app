@@ -17,8 +17,8 @@ export function PrivacySection() {
     <HelpSection id="privacy" collapsible lede={lede}>
       <HelpSubsection title="No analytics">
         <p className="max-w-prose">
-          Tactiq has no analytics, advertising or tracking. The app’s fonts load from Google Fonts, which receives an
-          ordinary web request.
+          Tactiq has no analytics, advertising or tracking. Everything the page needs, including its type, is served
+          from Tactiq’s own address, so no third-party service is contacted as you use it.
         </p>
       </HelpSubsection>
 

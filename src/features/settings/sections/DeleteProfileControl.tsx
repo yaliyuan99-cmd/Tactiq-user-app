@@ -5,12 +5,23 @@ import { ROUTES } from '@/app/routes';
 import type { SignedOutLocationState } from '@/app/routing/redirects';
 import { Button, ConfirmDialog } from '@/components';
 import { useAuth } from '@/services/auth/AuthProvider';
+import { useServices } from '@/services/ServicesProvider';
+import { clearScope } from '@/services/storage/scopedStorage';
 
 export const PROFILE_NOT_DELETED = 'The profile was not deleted. Try again in a moment.';
 
-/** Demo Mode: removes the signed-in local profile, then opens sign-in. */
+/**
+ * Demo Mode: removes the signed-in local profile and everything saved under
+ * it, then opens sign-in.
+ *
+ * The profile's own records go with it. Leaving them would leave practice data
+ * in the browser that no profile can open and that no screen can show, which
+ * neither the user nor the data export could then account for. What belongs to
+ * the browser — appearance settings and the remembered ring — stays.
+ */
 export function DeleteProfileControl({ displayName }: { displayName: string }) {
-  const { deleteAccount } = useAuth();
+  const { deleteAccount, user } = useAuth();
+  const { deviceStorage } = useServices();
   const navigate = useNavigate();
   const [open, setOpen] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -19,6 +30,8 @@ export function DeleteProfileControl({ displayName }: { displayName: string }) {
   const confirm = async () => {
     setBusy(true);
     setError(null);
+    // Read before the account goes: afterwards there is no signed-in user to ask.
+    const scopeId = user?.id ?? null;
     try {
       await deleteAccount();
     } catch (cause) {
@@ -27,6 +40,8 @@ export function DeleteProfileControl({ displayName }: { displayName: string }) {
       setError(cause instanceof Error && cause.message ? cause.message : PROFILE_NOT_DELETED);
       return;
     }
+    // Only once the profile is really gone, so a failed deletion leaves the data intact.
+    if (scopeId) clearScope(deviceStorage, scopeId);
     const state: SignedOutLocationState = { signedOut: true };
     navigate(ROUTES.signIn, { replace: true, state });
   };
@@ -47,7 +62,7 @@ export function DeleteProfileControl({ displayName }: { displayName: string }) {
         destructive
         busy={busy}
         title="Delete this profile?"
-        description={`This removes the profile “${displayName}” from this browser and signs you out. Preferences, calibration, lessons and activity stay in this browser; use Delete all local data to remove those too.`}
+        description={`This removes the profile “${displayName}” from this browser, along with its calibration, lessons, shortcuts, activity and its own preferences, then signs you out. This browser's appearance settings and remembered ring stay, as do any other profiles. It cannot be undone.`}
         confirmLabel="Delete profile"
         onCancel={() => {
           if (!busy) setOpen(false);

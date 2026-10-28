@@ -2,9 +2,17 @@
  * One place that builds the local services on a shared storage adapter and
  * hands them to screens. Screens use the hooks below; tests pass their own
  * `services` or a MemoryStorageAdapter.
+ *
+ * Whose data: the services know nothing about accounts. They are built on the
+ * storage view they are given, and `AppProviders` gives them the signed-in
+ * profile's view (see '@/services/storage/scopedStorage'), so activity,
+ * calibration, lessons and shortcuts can only ever be that profile's. Signing
+ * in as somebody else builds the services again on that profile's view, and
+ * the ones built before are disposed.
  */
-import { createContext, useCallback, useContext, useMemo, type ReactNode } from 'react';
+import { createContext, useCallback, useContext, useEffect, useMemo, useRef, type ReactNode } from 'react';
 import { LocalStorageAdapter, type StorageAdapter } from './storage/StorageAdapter';
+import { SIGNED_OUT_SCOPE_ID, rootStorage, scopedStorage, storageScopeId } from './storage/scopedStorage';
 import type { HistoryService } from './history/types';
 import type { CalibrationService } from './calibration/types';
 import type { TrainingService } from './training/types';
@@ -16,7 +24,16 @@ import { LocalCommandMappingService } from './commands/LocalCommandMappingServic
 import { useSubscription, type SubscribeFn } from './useSubscription';
 
 export interface AppServices {
+  /** The signed-in profile's view: the only data these services can reach. */
   readonly storage: StorageAdapter;
+  /**
+   * The store underneath, holding the device-wide keys, the auth records and
+   * every profile's data. For device-wide work only — deleting everything in
+   * this browser, or asking what a pre-profiles build left behind.
+   */
+  readonly deviceStorage: StorageAdapter;
+  /** Whose data these services hold, or null when the storage is not scoped to anyone. */
+  readonly scopeId: string | null;
   readonly history: HistoryService;
   readonly calibration: CalibrationService;
   readonly training: TrainingService;
@@ -26,11 +43,31 @@ export interface AppServices {
 export function createServices(storage: StorageAdapter): AppServices {
   return {
     storage,
+    deviceStorage: rootStorage(storage),
+    scopeId: storageScopeId(storage),
     history: new LocalHistoryService(storage),
     calibration: new LocalCalibrationService(storage),
     training: new LocalTrainingService(storage),
     commands: new LocalCommandMappingService(storage),
   };
+}
+
+interface Disposable {
+  dispose(): void;
+}
+
+function isDisposable(service: object): service is Disposable {
+  return typeof (service as { dispose?: unknown }).dispose === 'function';
+}
+
+/**
+ * Stops the services listening to storage. Called when the signed-in profile
+ * changes, so one session's subscriptions do not pile up behind the next.
+ */
+export function disposeServices(services: AppServices): void {
+  for (const service of [services.history, services.calibration, services.training, services.commands]) {
+    if (isDisposable(service)) service.dispose();
+  }
 }
 
 const ServicesContext = createContext<AppServices | null>(null);
@@ -40,14 +77,39 @@ export interface ServicesProviderProps {
   readonly services?: AppServices;
   /** Storage to build the local services on. Defaults to the browser's localStorage. */
   readonly storage?: StorageAdapter;
+  /**
+   * The signed-in account id, which decides whose data the services read and
+   * write. `null` means nobody is signed in, and gets a scope of its own so no
+   * profile's records are reachable. Leaving it out builds the services on
+   * `storage` as it is, which is what a test with one store wants.
+   */
+  readonly scopeId?: string | null;
   readonly children: ReactNode;
 }
 
-export function ServicesProvider({ services, storage, children }: ServicesProviderProps): JSX.Element {
-  const value = useMemo(
-    () => services ?? createServices(storage ?? new LocalStorageAdapter()),
-    [services, storage],
-  );
+export function ServicesProvider({ services, storage, scopeId, children }: ServicesProviderProps): JSX.Element {
+  // One fallback adapter for the life of the provider: a new LocalStorageAdapter
+  // per profile would add a window listener each time somebody signs in.
+  const fallback = useMemo(() => storage ?? new LocalStorageAdapter(), [storage]);
+  const value = useMemo(() => {
+    if (services) return services;
+    if (scopeId === undefined) return createServices(fallback);
+    return createServices(scopedStorage(fallback, scopeId ?? SIGNED_OUT_SCOPE_ID));
+  }, [services, fallback, scopeId]);
+
+  /**
+   * Disposing happens when the identity changes, not on unmount: the services
+   * cannot be rebuilt once disposed, and an unmount is the page going away.
+   * Only services built here are disposed — injected ones belong to the caller.
+   */
+  const owned = services ? null : value;
+  const previous = useRef<AppServices | null>(null);
+  useEffect(() => {
+    const prior = previous.current;
+    previous.current = owned;
+    if (prior && prior !== owned) disposeServices(prior);
+  }, [owned]);
+
   return <ServicesContext.Provider value={value}>{children}</ServicesContext.Provider>;
 }
 

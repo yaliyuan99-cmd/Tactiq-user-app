@@ -1,5 +1,6 @@
 import { CONTACT_KEYS, type ContactKey } from '@/domain/contacts';
 import type { RingResult } from '@/features/practice';
+import * as calibrationCopy from './calibrationCopy';
 import {
   MAX_MISSES_PER_POINT,
   acceptedFor,
@@ -15,7 +16,9 @@ import {
   runForRemaining,
   sampleNumber,
   type CalibrationRun,
+  type ResumeContext,
 } from './calibrationFlow';
+import { startFreshLabel, startState } from './calibrationScreenState';
 import { ALL_DONE, ok, profile, times, tooLong, wrong } from './testing/profiles';
 
 describe('coverage', () => {
@@ -93,32 +96,86 @@ describe('runs and prompts', () => {
 });
 
 describe('resumability', () => {
-  const context = { hand: 'right', evidence: 'simulated' } as const;
+  /** Demo Mode: the simulated ring has no device id. */
+  const demo: ResumeContext = { hand: 'right', evidence: 'simulated', deviceId: null };
+  /** A connected bench ring, which does. */
+  const ringA: ResumeContext = { hand: 'right', evidence: 'measured', deviceId: 'ring_a' };
 
-  it('starts fresh with no profile or a complete one', () => {
-    expect(resumability(null, context)).toEqual({ kind: 'fresh' });
-    expect(resumability(profile(ALL_DONE, { status: 'complete' }), context)).toEqual({ kind: 'fresh' });
+  it('starts fresh with no profile, a complete one or one never begun', () => {
+    expect(resumability(null, demo)).toEqual({ kind: 'fresh' });
+    expect(resumability(profile(ALL_DONE, { status: 'complete' }), demo)).toEqual({ kind: 'fresh' });
+    expect(resumability(profile([], { status: 'not_started' }), demo)).toEqual({ kind: 'fresh' });
   });
 
   it('resumes an unfinished profile with the points still needing taps', () => {
     const p = profile(times(3, ok('index_tip')), { status: 'incomplete' });
-    expect(resumability(p, context)).toEqual({ kind: 'resume', points: CONTACT_KEYS.slice(1) });
-    expect(resumability({ ...p, status: 'in_progress' }, context).kind).toBe('resume');
+    expect(resumability(p, demo)).toEqual({ kind: 'resume', points: CONTACT_KEYS.slice(1) });
+    expect(resumability({ ...p, status: 'in_progress' }, demo).kind).toBe('resume');
   });
 
-  it('refuses to mix hands or rings', () => {
+  it('resumes a measured profile when the same ring is connected again', () => {
+    const p = profile(times(3, ok('index_tip')), { status: 'incomplete', evidence: 'measured', deviceId: 'ring_a' });
+    expect(resumability(p, ringA)).toEqual({ kind: 'resume', points: CONTACT_KEYS.slice(1) });
+  });
+
+  it('refuses to mix hands', () => {
     const p = profile([], { status: 'incomplete' });
-    const otherHand = resumability(p, { ...context, hand: 'left' });
-    expect(otherHand).toMatchObject({ kind: 'blocked' });
-    expect(otherHand.kind === 'blocked' && otherHand.reason).toContain('right hand');
-    const hardware = resumability(p, { ...context, evidence: 'measured' });
+    const otherHand = resumability(p, { ...demo, hand: 'left' });
+    expect(otherHand).toEqual({
+      kind: 'blocked',
+      reason:
+        'Your unfinished calibration is for your right hand, but Tactiq is now set to your left hand. Start again to record this hand.',
+    });
+  });
+
+  it('refuses to mix a simulated ring with a connected one', () => {
+    const p = profile([], { status: 'incomplete' });
+    const hardware = resumability(p, ringA);
     expect(hardware.kind === 'blocked' && hardware.reason).toBe(
-      'Your unfinished calibration used the simulated ring. Start again to calibrate with the connected ring.',
+      'Your unfinished calibration used the simulated ring, so its taps cannot be added to taps from the connected ring. Start again to record with the connected ring.',
     );
-    const demo = resumability({ ...p, evidence: 'measured' }, context);
-    expect(demo.kind === 'blocked' && demo.reason).toBe(
-      'Your unfinished calibration used a connected ring. Start again to calibrate in Demo Mode.',
+    const toDemo = resumability({ ...p, evidence: 'measured', deviceId: 'ring_a' }, demo);
+    expect(toDemo.kind === 'blocked' && toDemo.reason).toBe(
+      'Your unfinished calibration used a connected ring, so its taps cannot be added to taps from the simulated ring. Start again to record in Demo Mode.',
     );
+  });
+
+  it('refuses a resume when the ring connected now is a different ring', () => {
+    const p = profile(times(3, ok('index_tip')), { status: 'incomplete', evidence: 'measured', deviceId: 'ring_a' });
+    const otherRing = resumability(p, { ...ringA, deviceId: 'ring_b' });
+    expect(otherRing.kind === 'blocked' && otherRing.reason).toBe(
+      'Your unfinished calibration came from a different ring. One calibration cannot hold taps from two rings and still say which ring they came from, so start again to record with the ring connected now.',
+    );
+  });
+
+  it('refuses a resume when the unfinished taps do not say which ring recorded them', () => {
+    const p = profile(times(3, ok('index_tip')), { status: 'incomplete', evidence: 'measured', deviceId: null });
+    const unknownRing = resumability(p, ringA);
+    expect(unknownRing.kind === 'blocked' && unknownRing.reason).toBe(
+      'Your unfinished calibration did not record which ring it came from, so its taps cannot be added to taps from the ring connected now. Start again to record with this ring.',
+    );
+  });
+
+  it('turns every refusal into one screen that offers to start again', () => {
+    const unfinished = profile(times(3, ok('index_tip')), { status: 'incomplete', evidence: 'measured', deviceId: 'ring_a' });
+    const refusals: readonly ResumeContext[] = [
+      { ...ringA, hand: 'left' },
+      { ...ringA, deviceId: 'ring_b' },
+      demo,
+    ];
+    for (const context of refusals) {
+      const refused = resumability(unfinished, context);
+      expect(refused.kind).toBe('blocked');
+      if (refused.kind !== 'blocked') continue;
+      // The words name a way on, so the screen is never a dead end.
+      expect(refused.reason).toMatch(/start again/i);
+      expect(startState({ resumable: refused, ringOffline: false })).toEqual({ kind: 'restart', reason: refused.reason });
+    }
+    // The button says what starting again costs: the stored taps.
+    expect(startFreshLabel(unfinished)).toBe('Start again');
+    expect(startFreshLabel(null)).toBe('Start calibration');
+    // A ring that cannot send anything is the one state that outranks the refusal.
+    expect(startState({ resumable: resumability(unfinished, demo), ringOffline: true })).toEqual({ kind: 'ring_offline' });
   });
 });
 
@@ -161,5 +218,34 @@ describe('attemptFromResult', () => {
     expect(
       attemptFromResult({ ...base, kind: 'rejected', reason: 'indeterminate_duration', contact: 'ring_base', durationMs: null }),
     ).toEqual({ kind: 'ring_message' });
+  });
+});
+
+/** Every string the calibration screens show, whatever shape the module holds it in. */
+function strings(value: unknown): readonly string[] {
+  if (typeof value === 'string') return [value];
+  if (Array.isArray(value)) return value.flatMap((item: unknown) => strings(item));
+  if (value !== null && typeof value === 'object') return Object.values(value).flatMap((item: unknown) => strings(item));
+  return [];
+}
+
+describe('what the calibration copy claims', () => {
+  const all = strings(calibrationCopy);
+
+  it('says calibration records prompted taps, and says what it does not do', () => {
+    expect(all.length).toBeGreaterThan(10);
+    expect(calibrationCopy.CALIBRATE_LEDE).toContain('records which point the tap landed on');
+    expect(calibrationCopy.CALIBRATE_WHAT_IT_DOES).toContain('Nothing is sent to a ring');
+    expect(calibrationCopy.CALIBRATE_WHAT_IT_DOES).toContain('no sensor is adjusted');
+    expect(calibrationCopy.RESULTS_WHAT_WAS_RECORDED).toContain('does not change how a ring senses your touch');
+  });
+
+  it('never claims the taps teach, train or tune the ring', () => {
+    for (const text of all) {
+      expect(text).not.toMatch(/\b(teach|teaches|teaching|taught|tune|tunes|tuning|tuned)\b/i);
+      expect(text).not.toMatch(/train(s|ing)? (the|a|your) ring/i);
+      expect(text).not.toMatch(/(improve|increase)[sd]? (the )?(accuracy|recognition)/i);
+      expect(text).not.toMatch(/adjusts? (the|a|your) (ring|sensor)/i);
+    }
   });
 });

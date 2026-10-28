@@ -1,5 +1,5 @@
 import { HISTORY_CAP, capHistory, isGestureEvent, sortChronologically } from './events';
-import { makeGestureEvent } from './testing';
+import { makeActivationEvent, makeGestureEvent, makeLegacyActivationEvent } from './testing';
 
 describe('isGestureEvent', () => {
   it('accepts a record without targetToken (records saved before the field existed)', () => {
@@ -23,6 +23,26 @@ describe('isGestureEvent', () => {
     ['an empty string', ''],
   ])('rejects a targetToken that is %s', (_label, targetToken) => {
     expect(isGestureEvent({ ...makeGestureEvent(), targetToken })).toBe(false);
+  });
+
+  it('accepts a record without kind, and a stored activation kind', () => {
+    const legacy = makeLegacyActivationEvent();
+    expect('kind' in legacy).toBe(false);
+    expect(isGestureEvent(legacy)).toBe(true);
+    const activation = makeActivationEvent();
+    const stored: unknown = JSON.parse(JSON.stringify(activation));
+    expect(isGestureEvent(stored)).toBe(true);
+    expect(stored).toEqual(activation);
+    expect(isGestureEvent({ ...makeGestureEvent(), kind: 'command' })).toBe(true);
+  });
+
+  it.each([
+    ['an unknown kind', 'squeeze'],
+    ['null', null],
+    ['a number', 1],
+    ['an empty string', ''],
+  ])('rejects a kind that is %s', (_label, kind) => {
+    expect(isGestureEvent({ ...makeGestureEvent(), kind })).toBe(false);
   });
 
   it('rejects non-objects and records missing required fields', () => {

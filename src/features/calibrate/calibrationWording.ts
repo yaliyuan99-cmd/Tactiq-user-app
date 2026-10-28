@@ -2,6 +2,13 @@
  * Everything calibration says, as pure functions: prompts, the feedback after
  * each tap, what an announcement carries when it is spoken, and the results
  * summary. British/Australian spelling, sentence case, plain words.
+ *
+ * What calibration does, and therefore what this file may say it does: it
+ * names one of the eight points, records which point the tap landed on, and
+ * repeats until every point has enough accepted taps. It does not adjust a
+ * ring, it does not measure a sensor, and it sends nothing to firmware. The
+ * record is for the app: it checks its own prompts against it and shows which
+ * points still need repeating.
  */
 import { resolveCommand } from '@/domain/commands';
 import { CONTACT_KEYS, getContact, type ContactKey } from '@/domain/contacts';
@@ -144,8 +151,8 @@ export function missesSentence(misses: number): string {
 /** What the evidence label on a calibration means, in one or two sentences. */
 export function evidenceSentence(evidence: CalibrationProfile['evidence']): string {
   return evidence === 'simulated'
-    ? 'The simulated ring always detects the point you choose, so these results show that you practised the routine. They say nothing about how well a ring would sense your touch.'
-    : 'These taps were detected by the connected bench prototype. They are a record of this session, not a validated accuracy result.';
+    ? 'The simulated ring reports whichever point you choose, so this record shows that you rehearsed the routine and which points you found. It says nothing about any sensor, and nothing was adjusted.'
+    : 'These taps were reported by the connected bench prototype, which is unvalidated. They are a record of this one session on the bench, not a working wearable and not an accuracy result. Nothing was adjusted on the ring.';
 }
 
 /** "9 of 24 taps". */

@@ -62,6 +62,14 @@ export const EMERGENCY_ARMING_MESSAGE =
   'Emergency hold is being counted. Keep holding for five seconds, or let go to cancel.';
 
 /**
+ * A tap that arrived between the squeeze and the window opening. The press is
+ * still dropped — the gate time is a research value and is not shortened —
+ * but nothing was done wrong, so this says what the ring is doing and what to
+ * do next, and it is announced politely rather than interrupting.
+ */
+export const WINDOW_OPENING_MESSAGE = 'Still opening the command window — tap again in a moment.';
+
+/**
  * Turns one device event into a result. Returns null for every event that is
  * not an outcome (gate, press, hold progress, status lines).
  */
@@ -180,6 +188,9 @@ export function describeRingResult(result: RingResult, mapping: ShortcutMapping)
       switch (result.reason) {
         case 'not_armed':
           return same('The ring is asleep. Squeeze first, then tap.', 'reject', 'Not recognised: ring asleep');
+        // 'armed' is a polite feedback kind: this belongs with the window opening, not with an error.
+        case 'window_opening':
+          return same(WINDOW_OPENING_MESSAGE, 'armed', 'Command window still opening');
         case 'indeterminate_duration':
           return describeTooLong(result.contact, result.durationMs);
         case 'window_closed':

@@ -1,20 +1,21 @@
 import { type ReactNode } from 'react';
 import { HelpLink } from '@/app/shell/HelpLink';
 import { Button, Logo, SkipLink } from '@/components';
-import { SKIP_SETUP_LABEL } from './onboardingCopy';
 
 export interface OnboardingLayoutProps {
-  /** Opens the Skip setup confirmation. Omit to hide the button (the last step). */
-  readonly onSkipSetup?: () => void;
+  /** Opens the confirmation for leaving setup. Omit to hide the button (the last step). */
+  readonly onLeaveSetup?: () => void;
+  /** Words for that button: "Skip setup" while setup is unfinished, "Leave setup" once it is not. */
+  readonly leaveSetupLabel: string;
   readonly children: ReactNode;
 }
 
 /**
- * The first-run frame: skip link, a slim banner with the logo, Help and
- * "Skip setup", and the main landmark with a narrow centred column. There is
- * no app navigation here, so setup is one focused task.
+ * The first-run frame: skip link, a slim banner with the logo, Help and the
+ * way out of setup, and the main landmark with a narrow centred column. There
+ * is no app navigation here, so setup is one focused task.
  */
-export function OnboardingLayout({ onSkipSetup, children }: OnboardingLayoutProps) {
+export function OnboardingLayout({ onLeaveSetup, leaveSetupLabel, children }: OnboardingLayoutProps) {
   return (
     <div className="flex min-h-dvh flex-col bg-background text-foreground">
       <SkipLink />
@@ -23,9 +24,9 @@ export function OnboardingLayout({ onSkipSetup, children }: OnboardingLayoutProp
           <Logo />
           <div className="ml-auto flex flex-wrap items-center gap-1">
             <HelpLink />
-            {onSkipSetup && (
-              <Button variant="ghost" size="sm" onClick={onSkipSetup}>
-                {SKIP_SETUP_LABEL}
+            {onLeaveSetup && (
+              <Button variant="ghost" size="sm" onClick={onLeaveSetup}>
+                {leaveSetupLabel}
               </Button>
             )}
           </div>

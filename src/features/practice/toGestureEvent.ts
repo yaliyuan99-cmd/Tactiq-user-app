@@ -1,6 +1,14 @@
 /**
  * Turns a ring result into the activity-history record for it. Pure: the
  * caller decides the source, mode, target and evidence.
+ *
+ * Two kinds of record come out of here. A press aimed at a command is a
+ * command record. The deliberate squeeze that opens the command window is an
+ * activation record (`squeezeGestureEvent`), which carries no contact and no
+ * command and is never a command attempt. Whether a record is scored at all is
+ * decided by `services/history/classify.ts`, from the target the caller passed:
+ * free practice sets no target, so it is recorded and never counted as a right
+ * answer to a question nobody asked.
  */
 import type { CommandToken } from '@/domain/commands';
 import type { ContactKey } from '@/domain/contacts';
@@ -23,7 +31,8 @@ export interface GestureEventContext {
    * squeeze steps and calibration, which prompts a contact rather than a
    * command. It matters on the pinky fingertip, which carries two commands: a
    * brief tap there while Emergency was asked for is a mismatch, not a
-   * recognised attempt.
+   * recognised attempt. Leaving both targets out is what marks a record as
+   * unscored practice, so pass them whenever the exercise knows them.
    */
   readonly targetToken?: CommandToken | null;
   readonly lessonId?: LessonId;
@@ -50,9 +59,18 @@ function outcomeFor(result: RingResult, targetContact: ContactKey | null, target
     case 'emergency_cancelled':
       return 'emergency_cancelled';
     case 'rejected':
-      if (result.reason === 'indeterminate_duration') return 'rejected_duration';
-      if (result.reason === 'hold_released_early') return 'emergency_cancelled';
-      return 'window_closed';
+      switch (result.reason) {
+        case 'indeterminate_duration':
+          return 'rejected_duration';
+        case 'hold_released_early':
+          return 'emergency_cancelled';
+        default:
+          // 'not_armed', 'window_closed' and 'window_opening' all mean the
+          // press met no open command window. History keeps one outcome for
+          // that; which way the window was shut is the ring's wording, not a
+          // figure. A reason added later lands here on purpose.
+          return 'window_closed';
+      }
   }
 }
 
@@ -86,11 +104,15 @@ export function toGestureEvent(result: RingResult, context: GestureEventContext)
 
 /**
  * A deliberate squeeze that opened the command window, for lessons that
- * practise the squeeze itself. Recorded as recognised with no contact or token.
+ * practise the squeeze itself. It is an activation record: `kind` says so, the
+ * outcome says the squeeze was read, and there is no contact or command,
+ * because none was given. Screens label it "Ring activated" (ACTIVATION_LABEL)
+ * and it never counts as a command attempt or a success.
  */
 export function squeezeGestureEvent(context: GestureEventContext, at: number = Date.now()): NewGestureEvent {
   return {
     at: new Date(at).toISOString(),
+    kind: 'activation',
     source: context.source,
     mode: context.mode,
     targetContact: null,

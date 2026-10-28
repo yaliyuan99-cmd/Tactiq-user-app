@@ -5,6 +5,7 @@
  */
 import { vi } from 'vitest';
 
+vi.mock('@/features/home/HomePage', async () => (await import('./pageStubs')).stubPage('Public home'));
 vi.mock('@/features/auth/SignInPage', async () => (await import('./pageStubs')).stubPage('Sign in'));
 vi.mock('@/features/auth/SignUpPage', async () => (await import('./pageStubs')).stubPage('Create a profile'));
 vi.mock('@/features/auth/ForgotPasswordPage', async () => (await import('./pageStubs')).stubPage('Forgot password'));

@@ -2,11 +2,20 @@ import { useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router';
 import { ROUTES } from '@/app/routes';
 import { Button, ButtonLink, Callout, ConfirmDialog, SwitchField } from '@/components';
-import { CALIBRATION_SAMPLES_PER_CONTACT } from '@/domain/timing';
 import { useFeedback } from '@/services/feedback/FeedbackProvider';
 import { CalibrationPanel } from './CalibrationPanel';
-import { MAX_MISSES_PER_POINT, remainingPoints } from './calibrationFlow';
-import { numberWord, pointPhrase, progressText } from './calibrationWording';
+import {
+  CONNECT_RING_LABEL,
+  RESTART_DESCRIPTION_LEAD,
+  RING_OFFLINE_DESCRIPTION,
+  START_HEADINGS,
+  SWITCH_TO_DEMO_LABEL,
+  WHAT_HAPPENS_HEADING,
+  WHAT_HAPPENS_STEPS,
+} from './calibrationCopy';
+import { remainingPoints } from './calibrationFlow';
+import { replacesStoredTaps, startFreshLabel } from './calibrationScreenState';
+import { pointPhrase, progressText } from './calibrationWording';
 import { LastCalibrationPanel } from './LastCalibrationPanel';
 import type { CalibrationSession } from './calibrationSessionTypes';
 
@@ -14,15 +23,14 @@ export const START_HEADING_ID = 'calibrate-start-heading';
 
 const LINK_CLASSES = 'font-medium text-primary-strong underline';
 
-function timesWords(n: number): string {
-  if (n === 1) return 'once';
-  if (n === 2) return 'twice';
-  return `${numberWord(n)} times`;
-}
-
-/** Before a run: Start or Resume first, with the hand and speech settings, then what will happen. Also shown after Pause. */
+/**
+ * The screen before a run. It is in exactly one of four states (see
+ * calibrationScreenState.ts), and each state gets one description and one
+ * next action — never a warning about a missing ring beside advice that
+ * assumes one.
+ */
 export function StartView({ session }: { session: CalibrationSession }) {
-  const { profile, resumable, ring, returnedToStart } = session;
+  const { profile, startState, returnedToStart } = session;
   const { canSpeak } = useFeedback();
   const headingRef = useRef<HTMLHeadingElement>(null);
   const [confirmingRestart, setConfirmingRestart] = useState(false);
@@ -31,85 +39,80 @@ export function StartView({ session }: { session: CalibrationSession }) {
     if (returnedToStart) headingRef.current?.focus();
   }, [returnedToStart]);
 
-  const canResume = resumable.kind === 'resume';
-  const hardwareOffline = !ring.isDemo && !ring.canReceive;
+  const offline = startState.kind === 'ring_offline';
+  const freshLabel = startFreshLabel(profile);
   // Replacing an unfinished profile loses its taps, so ask first.
-  const replacesTaps = profile !== null && profile.status !== 'complete' && profile.samples.length > 0;
-  const startFresh = () => (replacesTaps ? setConfirmingRestart(true) : session.start());
-  const remaining = remainingPoints(profile);
-  const first = remaining[0];
+  const startFresh = () => (replacesStoredTaps(profile) ? setConfirmingRestart(true) : session.start());
+  const first = remainingPoints(profile)[0];
 
   return (
     <div className="grid grid-cols-1 gap-6 lg:grid-cols-[minmax(0,3fr)_minmax(0,2fr)] lg:items-start">
-      <CalibrationPanel
-        ref={headingRef}
-        headingId={START_HEADING_ID}
-        heading={canResume ? 'Pick up where you left off' : 'Ready to calibrate'}
-      >
-        {canResume && (
-          <p className="mb-4 text-lg">
-            {progressText(profile)} accepted so far.{' '}
-            {first ? `Resuming carries on from the ${pointPhrase(first)}.` : 'Resume to finish.'}
-          </p>
-        )}
-        <p className="mb-3">
-          Hand: <strong>{session.hand === 'left' ? 'Left hand' : 'Right hand'}</strong>.{' '}
-          <Link to={`${ROUTES.settings}#hand`} className={LINK_CLASSES}>
-            Change hand in Settings
-          </Link>
-        </p>
-
-        <SwitchField
-          label="Read prompts aloud"
-          description={
-            canSpeak
-              ? 'Speaks each prompt and result in your browser’s voice. Screen readers announce them either way.'
-              : 'This browser cannot speak aloud. Prompts and results are still shown and announced to screen readers.'
-          }
-          checked={session.readAloud && canSpeak}
-          onChange={session.setReadAloud}
-          disabled={!canSpeak}
-          containerClassName="mb-5"
-        />
-
-        {resumable.kind === 'blocked' && (
-          <Callout kind="info" className="mb-5">
-            {resumable.reason}
-          </Callout>
-        )}
-
-        {hardwareOffline ? (
-          <Callout kind="warning" title="No ring is connected">
-            <p>Connect the bench ring to calibrate with it, or switch back to Demo Mode on the Connect page.</p>
-            <ButtonLink to={ROUTES.connect} className="mt-3">
-              Connect a ring
-            </ButtonLink>
-          </Callout>
+      <CalibrationPanel ref={headingRef} headingId={START_HEADING_ID} heading={START_HEADINGS[startState.kind]}>
+        {offline ? (
+          <>
+            <p className="mb-4 text-lg">{RING_OFFLINE_DESCRIPTION}</p>
+            <div className="flex flex-wrap gap-3">
+              <ButtonLink to={ROUTES.connect}>{CONNECT_RING_LABEL}</ButtonLink>
+              <Button variant="secondary" onClick={session.switchToDemo}>
+                {SWITCH_TO_DEMO_LABEL}
+              </Button>
+            </div>
+          </>
         ) : (
-          <div className="flex flex-wrap gap-3">
-            {canResume ? (
-              <>
-                <Button onClick={session.resume}>Resume calibration</Button>
-                <Button variant="secondary" onClick={startFresh}>
-                  Start again
-                </Button>
-              </>
-            ) : (
-              <Button onClick={startFresh}>Start calibration</Button>
+          <>
+            {startState.kind === 'resume' && (
+              <p className="mb-4 text-lg">
+                {progressText(profile)} accepted so far.{' '}
+                {first ? `Resuming carries on from the ${pointPhrase(first)}.` : 'Resume to finish.'}
+              </p>
             )}
-          </div>
-        )}
+            {startState.kind === 'restart' && (
+              <Callout kind="info" className="mb-5">
+                {`${startState.reason} ${RESTART_DESCRIPTION_LEAD}`}
+              </Callout>
+            )}
 
-        <h3 className="mt-7">What happens</h3>
-        <ol className="mt-2 grid list-decimal gap-1.5 pl-6">
-          <li>We name a point and say how to find it.</li>
-          <li>You tap it {timesWords(CALIBRATION_SAMPLES_PER_CONTACT)}.</li>
-          <li>
-            We move to the next point. If a point has not registered after {numberWord(MAX_MISSES_PER_POINT)} tries, we
-            move on and mark it to repeat.
-          </li>
-          <li>You can pause or stop at any time. Your taps are kept.</li>
-        </ol>
+            <p className="mb-3">
+              Hand: <strong>{session.hand === 'left' ? 'Left hand' : 'Right hand'}</strong>.{' '}
+              <Link to={`${ROUTES.settings}#hand`} className={LINK_CLASSES}>
+                Change hand in Settings
+              </Link>
+            </p>
+
+            <SwitchField
+              label="Read prompts aloud"
+              description={
+                canSpeak
+                  ? 'Speaks each prompt and result in your browser’s voice. Screen readers announce them either way.'
+                  : 'This browser cannot speak aloud. Prompts and results are still shown and announced to screen readers.'
+              }
+              checked={session.readAloud && canSpeak}
+              onChange={session.setReadAloud}
+              disabled={!canSpeak}
+              containerClassName="mb-5"
+            />
+
+            <div className="flex flex-wrap gap-3">
+              {startState.kind === 'resume' ? (
+                <>
+                  <Button onClick={session.resume}>Resume calibration</Button>
+                  <Button variant="secondary" onClick={startFresh}>
+                    {freshLabel}
+                  </Button>
+                </>
+              ) : (
+                <Button onClick={startFresh}>{freshLabel}</Button>
+              )}
+            </div>
+
+            <h3 className="mt-7">{WHAT_HAPPENS_HEADING}</h3>
+            <ol className="mt-2 grid list-decimal gap-1.5 pl-6">
+              {WHAT_HAPPENS_STEPS.map((step) => (
+                <li key={step}>{step}</li>
+              ))}
+            </ol>
+          </>
+        )}
       </CalibrationPanel>
 
       {profile && <LastCalibrationPanel profile={profile} />}

@@ -1,4 +1,5 @@
 import type { RejectReason } from '@/services/device/types';
+import { classifyEvent, eventKind, isAccuracyAttempt } from '@/services/history/classify';
 import { isGestureEvent } from '@/services/history/events';
 import type { RingResult } from './ringResults';
 import { evidenceForDevice, squeezeGestureEvent, toGestureEvent, type GestureEventContext } from './toGestureEvent';
@@ -30,7 +31,7 @@ function asStored(event: ReturnType<typeof toGestureEvent>) {
 }
 
 describe('toGestureEvent', () => {
-  it('records a free-practice command as recognised with no target', () => {
+  it('records a free-practice command as recognised with no target, and never as a scored answer', () => {
     const event = toGestureEvent(confirmTap, free);
     expect(event).toEqual({
       at: ISO,
@@ -44,6 +45,17 @@ describe('toGestureEvent', () => {
       evidence: 'simulated',
     });
     expect(isGestureEvent(asStored(event))).toBe(true);
+    // Nothing was asked for, so the record carries neither target.
+    expect(event).not.toHaveProperty('targetToken');
+    expect(classifyEvent(asStored(event))).toBe('untargeted');
+    expect(isAccuracyAttempt(asStored(event))).toBe(false);
+  });
+
+  it('records a command record without a kind, which reads back as a command', () => {
+    const event = toGestureEvent(confirmTap, guided('index_tip'));
+    expect(event).not.toHaveProperty('kind');
+    expect(eventKind(asStored(event))).toBe('command');
+    expect(isAccuracyAttempt(asStored(event))).toBe(true);
   });
 
   it('records a command on the target as recognised', () => {
@@ -82,6 +94,10 @@ describe('toGestureEvent', () => {
 
   it('records a window timeout reject as window_closed', () => {
     expect(toGestureEvent(rejected('window_closed', null), free).outcome).toBe('window_closed');
+  });
+
+  it('records a tap that beat the window open as window_closed too: history has one outcome for a shut window', () => {
+    expect(toGestureEvent(rejected('window_opening', null), guided('ring_base')).outcome).toBe('window_closed');
   });
 
   it('records a too-long press as rejected_duration with its duration', () => {
@@ -168,13 +184,14 @@ describe('toGestureEvent', () => {
 });
 
 describe('squeezeGestureEvent', () => {
-  it('records a squeeze as recognised with no contact, token or duration', () => {
+  it('records a squeeze as an activation with no contact, token or duration', () => {
     const event = squeezeGestureEvent(
       { source: 'training', mode: 'lesson', lessonId: 'squeeze_to_activate', evidence: 'simulated' },
       AT,
     );
     expect(event).toEqual({
       at: ISO,
+      kind: 'activation',
       source: 'training',
       mode: 'lesson',
       targetContact: null,
@@ -186,6 +203,13 @@ describe('squeezeGestureEvent', () => {
       lessonId: 'squeeze_to_activate',
     });
     expect(isGestureEvent(asStored(event))).toBe(true);
+  });
+
+  it('is never a command attempt, and never a success', () => {
+    const stored = asStored(squeezeGestureEvent({ source: 'training', mode: 'lesson', evidence: 'simulated' }, AT));
+    expect(eventKind(stored)).toBe('activation');
+    expect(classifyEvent(stored)).toBe('activation');
+    expect(isAccuracyAttempt(stored)).toBe(false);
   });
 
   it('defaults to the current time and omits an absent lesson', () => {

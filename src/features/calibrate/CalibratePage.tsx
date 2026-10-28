@@ -1,26 +1,38 @@
 /**
- * /dashboard/calibrate — guided calibration for all eight contact points.
+ * /dashboard/calibrate — the calibration routine for all eight contact points.
  *
  * Start → a run of prompts (three accepted taps per point) → results. Pause
  * returns to the start screen with Resume; Stop keeps the taps and leaves.
- * With the simulated ring this practises the routine; nothing is tuned.
+ *
+ * What it does: it names a point, records which point the tap landed on, and
+ * repeats. It does not teach or tune a ring, and it sends nothing to firmware
+ * — domain/protocol.ts defines only PING, phone to ring.
  */
 import { EvidenceLabel, PageHeader } from '@/components';
-import { CALIBRATION_SAMPLES_PER_CONTACT } from '@/domain/timing';
 import { usePageTitle } from '@/lib/usePageTitle';
-import { numberWord } from './calibrationWording';
+import {
+  CALIBRATE_LEDE,
+  CALIBRATE_WHAT_IT_DOES,
+  DEMO_EVIDENCE_DETAIL,
+  MEASURED_EVIDENCE_DETAIL,
+  UNAVAILABLE_EVIDENCE_DETAIL,
+} from './calibrationCopy';
+import { evidenceView } from './calibrationScreenState';
 import { ResultsView } from './ResultsView';
 import { RunningView } from './RunningView';
 import { StartView } from './StartView';
 import { useCalibrationSession } from './useCalibrationSession';
 
-export const DEMO_EVIDENCE_DETAIL =
-  'the simulated ring always detects the point you choose, so this practises the routine rather than tuning a sensor';
+const EVIDENCE_LABELS = {
+  simulated: { kind: 'simulated', detail: DEMO_EVIDENCE_DETAIL },
+  measured: { kind: 'measured', detail: MEASURED_EVIDENCE_DETAIL },
+  unavailable: { kind: 'not_available', detail: UNAVAILABLE_EVIDENCE_DETAIL },
+} as const;
 
 export default function CalibratePage() {
   usePageTitle('Calibrate');
   const session = useCalibrationSession();
-  const taps = numberWord(CALIBRATION_SAMPLES_PER_CONTACT);
+  const evidence = EVIDENCE_LABELS[evidenceView({ isDemo: session.ring.isDemo, canReceive: session.ring.canReceive })];
 
   return (
     <>
@@ -28,15 +40,10 @@ export default function CalibratePage() {
         title="Calibrate"
         lede={
           <>
-            <p>
-              Teach Tactiq how you touch each point. It takes about a minute: {taps} taps on each of the eight points.
-            </p>
+            <p>{CALIBRATE_LEDE}</p>
+            <p className="mt-2">{CALIBRATE_WHAT_IT_DOES}</p>
             <p className="mt-2">
-              {session.ring.isDemo ? (
-                <EvidenceLabel kind="simulated" detail={DEMO_EVIDENCE_DETAIL} />
-              ) : (
-                <EvidenceLabel kind="measured" detail="bench prototype" />
-              )}
+              <EvidenceLabel kind={evidence.kind} detail={evidence.detail} />
             </p>
           </>
         }

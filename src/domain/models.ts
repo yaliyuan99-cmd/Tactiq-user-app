@@ -162,6 +162,23 @@ export interface TrainingSummary {
 
 export type GestureEventSource = 'simulator' | 'training' | 'calibration' | 'device';
 export type GestureEventMode = 'guided' | 'free' | 'lesson' | 'calibration' | 'device';
+
+/**
+ * What a record describes.
+ * - `command`: a press aimed at a command — a tap, a five-second hold, or a
+ *   press that was dropped. This is the default, so records saved before the
+ *   field existed still read correctly.
+ * - `activation`: the deliberate squeeze that opens the command window. It
+ *   carries no contact point and no command, and it is never a command
+ *   attempt, right or wrong.
+ */
+export const GESTURE_EVENT_KINDS = ['command', 'activation'] as const;
+export type GestureEventKind = (typeof GESTURE_EVENT_KINDS)[number];
+
+/** The evidence a stored record can carry. Nothing in this app is validated performance. */
+export const RECORD_EVIDENCE = ['simulated', 'measured'] as const;
+export type RecordEvidence = (typeof RECORD_EVIDENCE)[number];
+
 export type GestureOutcome =
   /** A tap was recognised as a command (in guided modes: it matched the target). */
   | 'recognised'
@@ -183,21 +200,28 @@ export interface GestureEvent {
   readonly mode: GestureEventMode;
   readonly targetContact: ContactKey | null;
   /**
-   * The command the exercise asked for. Set by guided practice, lessons and
-   * calibration when known. It disambiguates a target contact that carries two
-   * commands: on the pinky fingertip, a guided Emergency hold answered with a
-   * brief tap is an attempt at `emergency`, not at `quick_action_1`. Absent on
-   * free practice and on records saved before this field existed.
+   * The command the exercise asked for. Set by guided practice and lessons
+   * when known. It disambiguates a target contact that carries two commands:
+   * on the pinky fingertip, a guided Emergency hold answered with a brief tap
+   * is an attempt at `emergency`, not at `quick_action_1`. Absent on free
+   * practice, on calibration (which prompts a point, not a command) and on
+   * records saved before this field existed.
    */
   readonly targetToken?: CommandToken;
   readonly detectedContact: ContactKey | null;
   readonly token: CommandToken | null;
   readonly durationMs: number | null;
   readonly outcome: GestureOutcome;
-  readonly evidence: 'simulated' | 'measured';
+  readonly evidence: RecordEvidence;
   /** True for the seeded sample records in Demo Mode. */
   readonly seeded: boolean;
   readonly lessonId?: LessonId;
+  /**
+   * See GESTURE_EVENT_KINDS. Absent on records saved before the field existed;
+   * `eventKind()` reads those as command records (and infers the old squeeze
+   * records, which carried no contact, token or duration at all).
+   */
+  readonly kind?: GestureEventKind;
 }
 
 export type HistoryRange = 'today' | '7d' | 'all';
@@ -210,17 +234,113 @@ export interface CommandPerformance {
   readonly rate: number | null;
 }
 
-export interface ActivitySummary {
-  readonly range: HistoryRange;
+/**
+ * A rate with the counts it came from, so a percentage is never carried — or
+ * shown — on its own.
+ */
+export interface AttemptRate {
   readonly attempts: number;
   readonly successes: number;
+  /** successes / attempts, or null when there are no attempts. */
+  readonly rate: number | null;
+}
+
+/**
+ * What a record is, for counting. Every record falls into exactly one class,
+ * and the classes are the one definition of the accuracy denominator. The
+ * rules live in `services/history/classify.ts`.
+ */
+export const ACTIVITY_RECORD_CLASSES = ['activation', 'attempt', 'untargeted', 'emergency'] as const;
+export type ActivityRecordClass = (typeof ACTIVITY_RECORD_CLASSES)[number];
+
+/** Records in a view, counted by class. `activations + attempts + untargeted + emergency === total`. */
+export interface ActivityCounts {
+  /** Every record in the view, whatever its class. */
+  readonly total: number;
+  /** Squeezes that opened the command window. Never command attempts. */
+  readonly activations: number;
+  /** Attempts at something that was asked for: the accuracy denominator. */
+  readonly attempts: number;
+  /** Of `attempts`, those attributed to one command — exactly what `perCommand` sums to. */
+  readonly commandAttempts: number;
+  /** Of `attempts`, calibration prompts, which ask for a contact point and no command. */
+  readonly contactAttempts: number;
+  /** Command records with nothing asked for (free practice): recorded, never scored. */
+  readonly untargeted: number;
+  /** Emergency holds, and presses that answered an Emergency prompt. Scored apart from taps. */
+  readonly emergency: number;
+  /** Demo Mode sample records among `total`. */
+  readonly seeded: number;
+  /** `total` minus `seeded`: the records the user made. */
+  readonly own: number;
+}
+
+/** Every outcome in a view, counted, whatever its class — so nothing is silently dropped. */
+export type OutcomeCounts = Readonly<Record<GestureOutcome, number>>;
+
+/**
+ * The emergency hold, scored on its own terms: a five-second hold is never a
+ * recognised tap, so it is never part of the command accuracy figure.
+ */
+export interface EmergencyPerformance {
+  /** Emergency records in view: `completed + cancelled + notHeld`. */
+  readonly attempts: number;
+  /** Five-second holds that completed. Simulation only — nothing is ever sent. */
+  readonly completed: number;
+  /** Holds released before five seconds. */
+  readonly cancelled: number;
+  /** Presses answering an Emergency prompt that were not a hold: a brief tap, or a press that was dropped. */
+  readonly notHeld: number;
+  /** completed / attempts, or null when there are none. */
+  readonly rate: number | null;
+}
+
+/** One evidence's share of a view, so simulated practice is never blended into one figure with bench readings. */
+export interface EvidenceSlice {
+  readonly records: number;
+  readonly accuracy: AttemptRate;
+}
+
+export type EvidenceBreakdown = Readonly<Record<RecordEvidence, EvidenceSlice>>;
+
+export interface ActivitySummary {
+  readonly range: HistoryRange;
+  /**
+   * The accuracy denominator: presses that answered a question the app asked —
+   * guided practice, lesson steps and calibration prompts. Activations, free
+   * practice and emergency holds are excluded, so
+   * `attempts === successes + misclassifications + rejected`.
+   */
+  readonly attempts: number;
+  readonly successes: number;
+  /** Mismatches among `attempts`. */
   readonly misclassifications: number;
+  /** Dropped presses among `attempts`: too long for a tap, or the window had closed. */
   readonly rejected: number;
+  /** Completed emergency holds in view; the same number as `emergency.completed`. */
   readonly emergencies: number;
   readonly mostPractised: { readonly token: CommandToken; readonly count: number } | null;
+  /**
+   * One row per command. The Emergency row always reads zero attempts: a hold
+   * is not a tap, and it is counted in `emergency` instead. The rows sum
+   * exactly to `counts.commandAttempts`.
+   */
   readonly perCommand: readonly CommandPerformance[];
   readonly firstAt: string | null;
   readonly lastAt: string | null;
   readonly includesSeeded: boolean;
   readonly evidence: 'simulated' | 'measured' | 'mixed' | null;
+  /** `attempts` and `successes` with their rate, so the figure never travels alone. */
+  readonly accuracy: AttemptRate;
+  /** The part of `accuracy` attributed to commands: what `perCommand` sums to. */
+  readonly commandAccuracy: AttemptRate;
+  /** The part of `accuracy` from calibration prompts, which name a point and no command. */
+  readonly contactAccuracy: AttemptRate;
+  readonly emergency: EmergencyPerformance;
+  readonly counts: ActivityCounts;
+  readonly outcomes: OutcomeCounts;
+  /** Accuracy per evidence, so a mixed view can separate the two instead of blending them. */
+  readonly byEvidence: EvidenceBreakdown;
+  /** True when the filter behind this summary left records out (see isNarrowingFilter). */
+  readonly filtered: boolean;
 }

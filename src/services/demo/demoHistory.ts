@@ -1,14 +1,19 @@
 /**
  * Sample activity for Demo Mode: about a week of simulated simulator practice, so the
  * dashboard and history screens have something honest to show on first run.
- * Every record is marked `seeded: true` and `evidence: 'simulated'`. The set
- * is deterministic — the same seed and the same "now" always give the same
+ * Every record is marked `seeded: true` and `evidence: 'simulated'`, so a
+ * summary can leave the samples out or show them on their own. The set is
+ * deterministic — the same seed and the same "now" always give the same
  * records — and never includes an emergency.
+ *
+ * Free-practice records carry no target, so they are recorded without being
+ * scored: nothing was asked for, so a recognised command is not a right
+ * answer. Only the guided taps reach the accuracy denominator.
  */
 import { resolveCommand, type CommandToken } from '@/domain/commands';
 import { CONTACT_KEYS, siblingContact, type ContactKey } from '@/domain/contacts';
 import { getLesson, type LessonId } from '@/domain/lessons';
-import type { GestureEvent, GestureEventMode, GestureEventSource, GestureOutcome } from '@/domain/models';
+import type { GestureEvent, GestureEventKind, GestureEventMode, GestureEventSource, GestureOutcome } from '@/domain/models';
 import { daysAgo, startOfDay } from '@/lib/time';
 import { mulberry32, pick, randomInt, type Random } from './prng';
 
@@ -59,6 +64,8 @@ interface Draft {
   durationMs: number;
   outcome: GestureOutcome;
   lessonId?: LessonId;
+  /** Only set for the squeeze that opens the command window; taps are command records. */
+  kind?: GestureEventKind;
   /** Gap before this event within its session (0 for the first). */
   gapMs: number;
   isTap: boolean;
@@ -100,6 +107,10 @@ function tapDraft(
   };
 }
 
+/**
+ * A squeeze step: the record says what it is (`kind: 'activation'`), so it is
+ * never counted as a command attempt, right or wrong.
+ */
 function squeezeDraft(random: Random, lessonId: LessonId, index: number): Draft {
   const gap = randomInt(random, 9_000, 40_000);
   random();
@@ -109,6 +120,7 @@ function squeezeDraft(random: Random, lessonId: LessonId, index: number): Draft 
     source: 'training',
     mode: 'lesson',
     lessonId,
+    kind: 'activation',
     targetContact: null,
     detectedContact: null,
     token: null,
@@ -206,6 +218,7 @@ export function generateDemoEvents(now: Date, seed: number = DEMO_HISTORY_SEED):
           evidence: 'simulated',
           seeded: true,
           ...(draft.lessonId ? { lessonId: draft.lessonId } : {}),
+          ...(draft.kind ? { kind: draft.kind } : {}),
         });
       }
     });

@@ -1,7 +1,7 @@
 import { MemoryStorageAdapter, STORAGE_KEYS } from '@/services/storage/StorageAdapter';
 import { HISTORY_CAP } from './events';
 import { LocalHistoryService, intendedToken } from './LocalHistoryService';
-import { makeGestureEvent } from './testing';
+import { makeActivationEvent, makeCalibrationEvent, makeGestureEvent } from './testing';
 import type { NewGestureEvent } from './types';
 
 const NOW = new Date(2026, 8, 15, 14, 30, 0);
@@ -78,14 +78,121 @@ describe('LocalHistoryService', () => {
     const reread = new LocalHistoryService(storage);
     expect(reread.list()).toEqual([event]);
     expect(intendedToken(reread.list()[0]!)).toBe('emergency');
-    expect(reread.summarise().perCommand.find((c) => c.token === 'emergency')).toEqual({
-      token: 'emergency',
-      attempts: 1,
-      successes: 0,
-      rate: 0,
-    });
-    expect(reread.summarise().perCommand.find((c) => c.token === 'quick_action_1')?.attempts).toBe(0);
+    // A brief tap answering an Emergency prompt is an emergency record, not a
+    // Shortcut 1 attempt — and not a tap attempt either, so the summary and
+    // the per-command rows cannot disagree about it.
+    const summary = reread.summarise();
+    expect(summary.attempts).toBe(0);
+    expect(summary.counts).toMatchObject({ total: 1, attempts: 0, commandAttempts: 0, emergency: 1 });
+    expect(summary.emergency).toEqual({ attempts: 1, completed: 0, cancelled: 0, notHeld: 1, rate: 0 });
+    expect(summary.perCommand.find((c) => c.token === 'emergency')?.attempts).toBe(0);
+    expect(summary.perCommand.find((c) => c.token === 'quick_action_1')?.attempts).toBe(0);
+    expect(summary.perCommand.reduce((sum, row) => sum + row.attempts, 0)).toBe(summary.attempts);
     reread.dispose();
+  });
+
+  it('stores the activation kind and reads it back, and never counts it as an attempt', () => {
+    const event = history.append({
+      kind: 'activation',
+      source: 'training',
+      mode: 'lesson',
+      lessonId: 'squeeze_to_activate',
+      targetContact: null,
+      detectedContact: null,
+      token: null,
+      durationMs: null,
+      outcome: 'recognised',
+      evidence: 'simulated',
+    });
+    expect(event.kind).toBe('activation');
+    expect(storage.get(STORAGE_KEYS.history)).toEqual([event]);
+    const reread = new LocalHistoryService(storage);
+    expect(reread.list()).toEqual([event]);
+    const summary = reread.summarise();
+    expect(summary.counts).toMatchObject({ total: 1, activations: 1, attempts: 0, untargeted: 0, emergency: 0 });
+    expect(summary.accuracy).toEqual({ attempts: 0, successes: 0, rate: null });
+    reread.dispose();
+  });
+
+  it('omits the kind on a command record, so new records match the ones already stored', () => {
+    expect('kind' in history.append(tap())).toBe(false);
+    expect('kind' in history.append(tap({ id: 'explicit', kind: 'command' }))).toBe(false);
+  });
+
+  it('counts the records a filter matches without listing them', () => {
+    history.append(tap({ id: 'mine' }));
+    history.append(makeCalibrationEvent({ id: 'calibration' }));
+    history.seedDemo(NOW);
+    expect(history.countMatching()).toBe(history.count());
+    expect(history.countMatching({ range: 'all', samples: 'exclude' })).toBe(2);
+    expect(history.countMatching({ range: 'all', samples: 'only' })).toBe(history.count() - 2);
+    expect(history.countMatching({ range: 'all', source: 'calibration' })).toBe(1);
+  });
+
+  it('summarises activations, free practice and calibration consistently through the service', () => {
+    history.append(makeActivationEvent({ id: 'squeeze', at: '2026-09-15T01:00:00.000Z' }));
+    history.append(tap({ id: 'free', mode: 'free', targetContact: null, at: '2026-09-15T01:01:00.000Z' }));
+    history.append(makeCalibrationEvent({ id: 'calibration', at: '2026-09-15T01:02:00.000Z' }));
+    history.append(tap({ id: 'guided', at: '2026-09-15T01:03:00.000Z' }));
+    const summary = history.summarise({ range: 'all' });
+    expect(summary.counts).toMatchObject({ total: 4, activations: 1, untargeted: 1, attempts: 2, commandAttempts: 1, contactAttempts: 1 });
+    expect(summary.accuracy).toEqual({ attempts: 2, successes: 2, rate: 1 });
+    expect(summary.perCommand.find((c) => c.token === 'read')?.attempts).toBe(0);
+    expect(summary.perCommand.find((c) => c.token === 'confirm')?.attempts).toBe(1);
+  });
+
+  it('reads records stored before kind and targetToken existed, and summarises them', () => {
+    // Written exactly as an older build left them in localStorage.
+    storage.set(STORAGE_KEYS.history, [
+      {
+        id: 'old-guided',
+        at: '2026-09-15T01:00:00.000Z',
+        source: 'simulator',
+        mode: 'guided',
+        targetContact: 'middle_base',
+        detectedContact: 'middle_base',
+        token: 'next',
+        durationMs: 210,
+        outcome: 'recognised',
+        evidence: 'simulated',
+        seeded: false,
+      },
+      {
+        id: 'old-squeeze',
+        at: '2026-09-15T01:01:00.000Z',
+        source: 'training',
+        mode: 'lesson',
+        lessonId: 'squeeze_to_activate',
+        targetContact: null,
+        detectedContact: null,
+        token: null,
+        durationMs: null,
+        outcome: 'recognised',
+        evidence: 'simulated',
+        seeded: false,
+      },
+      {
+        id: 'old-free',
+        at: '2026-09-15T01:02:00.000Z',
+        source: 'simulator',
+        mode: 'free',
+        targetContact: null,
+        detectedContact: 'index_tip',
+        token: 'confirm',
+        durationMs: 180,
+        outcome: 'recognised',
+        evidence: 'simulated',
+        seeded: false,
+      },
+    ]);
+    expect(history.list().map((e) => e.id)).toEqual(['old-free', 'old-squeeze', 'old-guided']);
+    expect(history.list().every((e) => !('kind' in e))).toBe(true);
+    const summary = history.summarise({ range: 'all' });
+    // The old squeeze is read as an activation, the free tap as unscored practice.
+    expect(summary.counts).toMatchObject({ total: 3, activations: 1, untargeted: 1, attempts: 1, commandAttempts: 1 });
+    expect(summary.accuracy).toEqual({ attempts: 1, successes: 1, rate: 1 });
+    expect(summary.perCommand.find((c) => c.token === 'next')?.attempts).toBe(1);
+    expect(summary.perCommand.find((c) => c.token === 'confirm')?.attempts).toBe(0);
   });
 
   it('rejects an invalid record', () => {
@@ -165,23 +272,63 @@ describe('LocalHistoryService', () => {
     history.append(tap({ id: 'first', at: '2026-09-15T01:00:00.000Z' }));
     const csvLines = history.exportCsv().split('\r\n');
     expect(csvLines).toHaveLength(3);
-    expect(csvLines[0]?.endsWith(',lessonId,targetToken')).toBe(true);
+    expect(csvLines[0]?.endsWith(',lessonId,targetToken,kind')).toBe(true);
     expect(csvLines[1]?.startsWith('first,')).toBe(true);
-    expect(csvLines[1]?.endsWith(',false,,')).toBe(true);
-    expect(csvLines[2]?.endsWith(',false,,confirm')).toBe(true);
+    expect(csvLines[1]?.endsWith(',false,,,command')).toBe(true);
+    expect(csvLines[2]?.endsWith(',false,,confirm,command')).toBe(true);
     const json = JSON.parse(history.exportJson()) as {
       format: string;
       version: number;
       exportedAt: string;
       note: string;
+      filtersApplied: boolean;
+      filter: unknown;
+      scope: string;
       events: { id: string; targetToken?: string }[];
     };
     expect(json.format).toBe('tactiq.history');
-    expect(json.version).toBe(1);
+    expect(json.version).toBe(2);
     expect(json.exportedAt).toBe(NOW.toISOString());
     expect(json.note).toBe('Simulated practice records from the Tactiq user app. Not hardware measurements.');
+    expect(json.filtersApplied).toBe(false);
+    expect(json.filter).toBeNull();
+    expect(json.scope).toBe('All 2 records in this browser. No sample records.');
     expect(json.events.map((e) => e.id)).toEqual(['first', 'second']);
     expect(json.events.map((e) => e.targetToken)).toEqual([undefined, 'confirm']);
+  });
+
+  it('exports a filtered view and says so, in the file and in the scope', () => {
+    history.append(tap({ id: 'old', at: new Date(NOW.getTime() - 9 * DAY).toISOString() }));
+    history.append(tap({ id: 'recent' }));
+    history.seedDemo(NOW);
+    const total = history.count();
+
+    const unfiltered = history.exportScope();
+    expect(unfiltered).toMatchObject({ filtersApplied: false, filter: null });
+    expect(unfiltered.counts.total).toBe(total);
+    expect(unfiltered.text).toMatch(/^All \d+ records in this browser\. Includes \d+ Demo Mode sample records/);
+
+    const filter = { range: 'all', samples: 'exclude' } as const;
+    const scope = history.exportScope(filter);
+    expect(scope.filtersApplied).toBe(true);
+    expect(scope.filter).toEqual(filter);
+    expect(scope.counts).toMatchObject({ total: 2, seeded: 0, own: 2 });
+    expect(scope.text).toBe(`A filtered view: 2 of ${total} records in this browser. No sample records.`);
+
+    const csvLines = history.exportCsv(filter).split('\r\n');
+    expect(csvLines).toHaveLength(3);
+    expect(csvLines.slice(1).map((line) => line.split(',')[0])).toEqual(['old', 'recent']);
+
+    const json = JSON.parse(history.exportJson(filter)) as {
+      filtersApplied: boolean;
+      filter: unknown;
+      scope: string;
+      events: { id: string }[];
+    };
+    expect(json.filtersApplied).toBe(true);
+    expect(json.filter).toEqual(filter);
+    expect(json.scope).toBe(scope.text);
+    expect(json.events.map((e) => e.id)).toEqual(['old', 'recent']);
   });
 
   it('does not call a JSON export free of hardware measurements once a bench record is in it', () => {
@@ -265,7 +412,15 @@ describe('LocalHistoryService', () => {
       expect(history.count()).toBe(count);
       const summary = history.summarise({ range: '7d' });
       expect(summary.includesSeeded).toBe(true);
-      expect(summary.attempts).toBe(count);
+      expect(summary.counts.total).toBe(count);
+      expect(summary.counts.seeded).toBe(count);
+      expect(summary.counts.own).toBe(0);
+      expect(summary.counts.activations).toBe(0);
+      // Guided taps are scored; the free-practice records are recorded and not scored.
+      expect(summary.counts.untargeted).toBeGreaterThan(0);
+      expect(summary.counts.attempts + summary.counts.untargeted).toBe(count);
+      expect(summary.attempts).toBe(summary.counts.attempts);
+      expect(summary.attempts).toBeLessThan(count);
       expect(summary.emergencies).toBe(0);
     });
 

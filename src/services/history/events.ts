@@ -6,7 +6,13 @@
 import { isCommandToken } from '@/domain/commands';
 import { isContactKey } from '@/domain/contacts';
 import { isLessonId } from '@/domain/lessons';
-import type { GestureEvent, GestureEventMode, GestureEventSource, GestureOutcome } from '@/domain/models';
+import {
+  GESTURE_EVENT_KINDS,
+  type GestureEvent,
+  type GestureEventMode,
+  type GestureEventSource,
+  type GestureOutcome,
+} from '@/domain/models';
 
 /** Most events kept in local history; the oldest are dropped first. */
 export const HISTORY_CAP = 5000;
@@ -48,7 +54,9 @@ export function isGestureEvent(value: unknown): value is GestureEvent {
     oneOf(GESTURE_OUTCOMES, e.outcome) &&
     (e.evidence === 'simulated' || e.evidence === 'measured') &&
     typeof e.seeded === 'boolean' &&
-    (e.lessonId === undefined || isLessonId(e.lessonId))
+    (e.lessonId === undefined || isLessonId(e.lessonId)) &&
+    // Absent on every record saved before the field existed; `eventKind()` reads those.
+    (e.kind === undefined || oneOf(GESTURE_EVENT_KINDS, e.kind))
   );
 }
 

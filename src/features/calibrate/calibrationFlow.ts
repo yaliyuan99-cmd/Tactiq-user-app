@@ -1,7 +1,11 @@
 /**
- * Guided calibration rules, as pure functions: which point to prompt next,
- * what is left, whether a stored profile can be resumed, and what a ring
- * result means for the prompted point. Words live in calibrationWording.ts.
+ * Calibration rules, as pure functions: which point to prompt next, what is
+ * left, whether a stored profile can be continued, and what a ring result
+ * means for the prompted point. Words live in calibrationWording.ts and the
+ * screen's states in calibrationScreenState.ts.
+ *
+ * Calibration here records prompted contacts and nothing else: it does not
+ * adjust a ring, and nothing is sent to firmware.
  *
  * A run is one pass over some points (all eight, the points still needing
  * taps when resuming, or the points marked to repeat). Samples recorded
@@ -100,19 +104,23 @@ export type Resumability =
 export interface ResumeContext {
   readonly hand: Hand;
   readonly evidence: 'simulated' | 'measured';
+  /** The ring recording now: a connected ring's device id, or null in Demo Mode. */
+  readonly deviceId: string | null;
 }
 
 /**
  * Whether the stored profile can be continued. A finished profile starts
- * fresh. A profile for the other hand, or recorded with a different ring,
- * cannot be mixed with new taps.
+ * fresh. A profile for the other hand, for the other kind of ring, or
+ * recorded by a different ring cannot be continued: one profile must not hold
+ * taps from two rings and still carry one evidence label, so the only way on
+ * is a new profile.
  */
 export function resumability(profile: CalibrationProfile | null, context: ResumeContext): Resumability {
   if (!profile || profile.status === 'complete' || profile.status === 'not_started') return { kind: 'fresh' };
   if (profile.hand !== context.hand) {
     return {
       kind: 'blocked',
-      reason: `Your unfinished calibration is for your ${profile.hand} hand, but Tactiq is now set to your ${context.hand} hand. Start again to calibrate this hand.`,
+      reason: `Your unfinished calibration is for your ${profile.hand} hand, but Tactiq is now set to your ${context.hand} hand. Start again to record this hand.`,
     };
   }
   if (profile.evidence !== context.evidence) {
@@ -120,8 +128,18 @@ export function resumability(profile: CalibrationProfile | null, context: Resume
       kind: 'blocked',
       reason:
         profile.evidence === 'simulated'
-          ? 'Your unfinished calibration used the simulated ring. Start again to calibrate with the connected ring.'
-          : 'Your unfinished calibration used a connected ring. Start again to calibrate in Demo Mode.',
+          ? 'Your unfinished calibration used the simulated ring, so its taps cannot be added to taps from the connected ring. Start again to record with the connected ring.'
+          : 'Your unfinished calibration used a connected ring, so its taps cannot be added to taps from the simulated ring. Start again to record in Demo Mode.',
+    };
+  }
+  const recordedBy = profile.deviceId ?? null;
+  if (recordedBy !== context.deviceId) {
+    return {
+      kind: 'blocked',
+      reason:
+        recordedBy === null
+          ? 'Your unfinished calibration did not record which ring it came from, so its taps cannot be added to taps from the ring connected now. Start again to record with this ring.'
+          : 'Your unfinished calibration came from a different ring. One calibration cannot hold taps from two rings and still say which ring they came from, so start again to record with the ring connected now.',
     };
   }
   return { kind: 'resume', points: remainingPoints(profile) };

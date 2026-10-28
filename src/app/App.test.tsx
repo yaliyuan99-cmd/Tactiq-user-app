@@ -22,21 +22,38 @@ async function findPageHeading(name: string) {
   return screen.findByRole('heading', { level: 1, name });
 }
 
-describe('AppRoutes: root and guards', () => {
-  it('sends a signed-in user from / to the dashboard', async () => {
-    renderRoutes({ route: '/' });
-    expect(await findPageHeading('Home')).toBeInTheDocument();
-    expect(currentLocation()).toBe(ROUTES.dashboard);
+describe('AppRoutes: the public page at /', () => {
+  it('renders the public page to a signed-out visitor, with the way in', async () => {
+    renderRoutes({ route: ROUTES.root, signedIn: false });
+    expect(await findPageHeading('Public home')).toBeInTheDocument();
+    expect(currentLocation()).toBe(ROUTES.root);
+    const banner = screen.getByRole('banner');
+    expect(within(banner).getByRole('link', { name: 'Sign in' })).toHaveAttribute('href', ROUTES.signIn);
+    expect(within(banner).getByRole('link', { name: 'Demonstration' })).toHaveAttribute('href', ROUTES.demo);
+    expect(screen.queryByRole('navigation', { name: 'Main' })).not.toBeInTheDocument();
   });
 
-  it('sends a signed-out visitor from / to sign-in', async () => {
-    renderRoutes({ route: '/', signedIn: false });
-    expect(await findPageHeading('Sign in')).toBeInTheDocument();
-    expect(currentLocation()).toBe(ROUTES.signIn);
+  it('renders the same public page to a signed-in user instead of redirecting', async () => {
+    renderRoutes({ route: ROUTES.root });
+    expect(await findPageHeading('Public home')).toBeInTheDocument();
+    expect(currentLocation()).toBe(ROUTES.root);
+    const banner = screen.getByRole('banner');
+    expect(within(banner).getByRole('link', { name: 'Your dashboard' })).toHaveAttribute('href', ROUTES.dashboard);
+    expect(within(banner).getByRole('link', { name: 'Help' })).toHaveAttribute('href', ROUTES.help);
   });
 
-  it('sends a signed-out visitor from /dashboard to sign-in with a next parameter', async () => {
-    renderRoutes({ route: '/dashboard', signedIn: false });
+  it('has one main landmark and one skip link', async () => {
+    renderRoutes({ route: ROUTES.root, signedIn: false });
+    await findPageHeading('Public home');
+    expect(screen.getAllByRole('main')).toHaveLength(1);
+    expect(screen.getAllByRole('link', { name: 'Skip to main content' })).toHaveLength(1);
+    expect(screen.getAllByRole('heading', { level: 1 })).toHaveLength(1);
+  });
+});
+
+describe('AppRoutes: guards', () => {
+  it('sends a signed-out visitor from /dashboard to sign-in with a safe relative next', async () => {
+    renderRoutes({ route: ROUTES.dashboard, signedIn: false });
     expect(await findPageHeading('Sign in')).toBeInTheDocument();
     expect(currentLocation()).toBe('/sign-in?next=%2Fdashboard');
   });
@@ -47,23 +64,30 @@ describe('AppRoutes: root and guards', () => {
     expect(currentLocation()).toBe('/sign-in?next=%2Fdashboard%2Fhistory%3Frange%3D7d');
   });
 
-  it('shows an accessible loading status while the session is being restored', async () => {
+  it('does not bounce back out of sign-in, so there is no loop', async () => {
+    renderRoutes({ route: ROUTES.signIn, signedIn: false });
+    await findPageHeading('Sign in');
+    expect(currentLocation()).toBe(ROUTES.signIn);
+  });
+
+  it('shows an accessible loading status while the session is being restored, and no page content', async () => {
     class PendingAuth extends LocalDemoAuthService {
       getSession() {
         return new Promise<null>(() => undefined);
       }
     }
     const storage = new MemoryStorageAdapter();
-    renderRoutes({ route: '/dashboard', storage, authService: new PendingAuth(storage) });
+    renderRoutes({ route: ROUTES.dashboard, storage, authService: new PendingAuth(storage) });
     const loading = await screen.findByText('Loading…');
     expect(loading.closest('[role="status"]')).not.toBeNull();
     expect(within(screen.getByRole('main')).getByText('Loading…')).toBe(loading);
     expect(currentLocation()).toBe(ROUTES.dashboard);
     expect(screen.queryByRole('navigation', { name: 'Main' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('heading', { level: 1 })).not.toBeInTheDocument();
   });
 
   it('sends a signed-in user whose onboarding is incomplete to onboarding', async () => {
-    renderRoutes({ route: '/dashboard/train', preferences: { onboardingCompleted: false } });
+    renderRoutes({ route: ROUTES.train, preferences: { onboardingCompleted: false } });
     expect(await findPageHeading('Welcome to Tactiq')).toBeInTheDocument();
     expect(currentLocation()).toBe(ROUTES.onboarding);
     expect(screen.queryByRole('navigation', { name: 'Main' })).not.toBeInTheDocument();
@@ -89,8 +113,13 @@ describe('AppRoutes: auth screens', () => {
     expect(currentLocation()).toBe(ROUTES.history);
   });
 
-  it('ignores an unsafe next path', async () => {
-    renderRoutes({ route: `/sign-in?next=${encodeURIComponent('https://evil.example')}` });
+  it.each([
+    ['an absolute URL', 'https://evil.example/phish'],
+    ['a protocol-relative URL', '//evil.example'],
+    ['a backslash host', '/\\evil.example'],
+    ['a javascript: URL', 'javascript:alert(1)'],
+  ])('ignores %s in next and lands on the dashboard', async (_label, next) => {
+    renderRoutes({ route: `/sign-in?next=${encodeURIComponent(next)}` });
     await findPageHeading('Home');
     expect(currentLocation()).toBe(ROUTES.dashboard);
   });
@@ -126,7 +155,11 @@ describe('AppRoutes: auth screens', () => {
   });
 
   it('lets the sign-in page navigate after signing in instead of racing it', async () => {
-    const { user } = renderRoutes({ route: '/sign-in?next=%2Fdashboard%2Fhistory', signedIn: false, children: <SignInProbe /> });
+    const { user } = renderRoutes({
+      route: '/sign-in?next=%2Fdashboard%2Fhistory',
+      signedIn: false,
+      children: <SignInProbe />,
+    });
     await findPageHeading('Sign in');
     await user.click(screen.getByRole('button', { name: 'Probe: continue as guest' }));
     // AuthRoute leaves the signed-in user on the page; the page decides where to go.
@@ -143,27 +176,26 @@ describe('AppRoutes: auth screens', () => {
     expect(screen.queryByRole('link', { name: 'Skip to main content' })).not.toBeInTheDocument();
     expect(screen.queryByRole('link', { name: 'Tactiq home' })).not.toBeInTheDocument();
   });
-
-  it('keeps the public frame for Page not found: one main landmark and one skip link', async () => {
-    renderRoutes({ route: '/no-such-place' });
-    await findPageHeading('Page not found');
-    expect(screen.getAllByRole('main')).toHaveLength(1);
-    expect(screen.getAllByRole('link', { name: 'Skip to main content' })).toHaveLength(1);
-    const banner = screen.getByRole('link', { name: 'Tactiq home' }).closest('header');
-    expect(within(banner as HTMLElement).getByRole('link', { name: 'Help' })).toHaveAttribute('href', ROUTES.help);
-  });
 });
 
 describe('AppRoutes: unknown addresses', () => {
-  it('shows Page not found with a link to the dashboard', async () => {
+  it('shows Page not found in the public frame, with one main landmark and one skip link', async () => {
     renderRoutes({ route: '/no-such-place' });
     expect(await findPageHeading('Page not found')).toBeInTheDocument();
     expect(document.title).toBe('Page not found · Tactiq');
     expect(screen.getByText('/no-such-place')).toBeInTheDocument();
+    expect(screen.getAllByRole('main')).toHaveLength(1);
+    expect(screen.getAllByRole('link', { name: 'Skip to main content' })).toHaveLength(1);
     expect(screen.getByRole('link', { name: 'Go to the dashboard' })).toHaveAttribute('href', ROUTES.dashboard);
   });
 
-  it('shows Page not found inside the shell for an unknown dashboard page', async () => {
+  it('offers the public page, not a protected one, to a signed-out visitor', async () => {
+    renderRoutes({ route: '/no-such-place', signedIn: false });
+    await findPageHeading('Page not found');
+    expect(screen.getByRole('link', { name: 'Go to the home page' })).toHaveAttribute('href', ROUTES.root);
+  });
+
+  it('shows Page not found inside the shell for an unknown account page', async () => {
     const { user } = renderRoutes({ route: '/dashboard/nowhere' });
     expect(await findPageHeading('Page not found')).toBeInTheDocument();
     expect(screen.getAllByRole('navigation', { name: 'Main' }).length).toBeGreaterThan(0);

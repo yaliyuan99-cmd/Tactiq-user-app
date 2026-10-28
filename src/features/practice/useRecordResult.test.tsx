@@ -140,6 +140,7 @@ describe('useRecordSqueeze', () => {
     });
     expect(event).toMatchObject({
       at: new Date(AT).toISOString(),
+      kind: 'activation',
       outcome: 'recognised',
       token: null,
       detectedContact: null,
@@ -147,5 +148,9 @@ describe('useRecordSqueeze', () => {
       lessonId: 'squeeze_to_activate',
     });
     expect(get().services.history.count()).toBe(1);
+    // "Ring activated": recorded, and never part of an accuracy figure.
+    const summary = get().services.history.summarise({ range: 'all' });
+    expect(summary.counts).toMatchObject({ total: 1, activations: 1, attempts: 0 });
+    expect(summary.accuracy).toEqual({ attempts: 0, successes: 0, rate: null });
   });
 });

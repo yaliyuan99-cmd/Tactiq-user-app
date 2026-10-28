@@ -1,5 +1,5 @@
-import { BATTERY_UNAVAILABLE_NOTE, DEVICE_NAME, NUS_SERVICE_UUID } from '@/domain/protocol';
-import { COMMAND_WINDOW_MS } from '@/domain/timing';
+import { BATTERY_UNAVAILABLE_NOTE, DEVICE_NAME, MAX_FIRMWARE_VERSION_LENGTH, NUS_SERVICE_UUID } from '@/domain/protocol';
+import { COMMAND_WINDOW_MS, EMERGENCY_HOLD_MS } from '@/domain/timing';
 import { MemoryStorageAdapter, STORAGE_KEYS } from '@/services/storage/StorageAdapter';
 import { INSECURE_CONTEXT_REASON, WEB_BLUETOOTH_UNAVAILABLE_REASON } from './capabilities';
 import { loadDeviceRecord, saveDeviceRecord } from './deviceStorage';
@@ -273,5 +273,83 @@ describe('WebBluetoothDeviceAdapter after connecting', () => {
     await adapter.disconnect();
     device.tx.notify('TOK,next,middle_base,1,100\n');
     expect(ofType('token')).toEqual([]);
+  });
+});
+
+describe('WebBluetoothDeviceAdapter reading what the ring writes', () => {
+  /** A connected ring with a clock the test moves, so held time is real. */
+  async function connected() {
+    const storage = new MemoryStorageAdapter();
+    const bluetooth = new FakeBluetooth();
+    const device = bluetooth.next as FakeBluetoothDevice;
+    let now = NOW;
+    const adapter = new WebBluetoothDeviceAdapter(storage, {
+      navigator: { bluetooth },
+      window: SECURE,
+      now: () => now,
+    });
+    const events: DeviceEvent[] = [];
+    adapter.subscribe((event) => events.push(event));
+    await adapter.connect();
+    events.length = 0;
+    return {
+      adapter,
+      device,
+      events,
+      advance: (ms: number) => {
+        now += ms;
+      },
+      at: () => now,
+      tokens: () => events.filter((e) => e.type === 'token'),
+    };
+  }
+
+  it('refuses an emergency token from the wire that no squeeze and hold could have produced', async () => {
+    const ring = await connected();
+    ring.device.tx.notify(`TOK,emergency,pinky_tip,9000,${EMERGENCY_HOLD_MS}\n`);
+    expect(ring.tokens()).toEqual([]);
+    // Nothing is hidden: the raw line is still in the connection log.
+    expect(ring.events.filter((e) => e.type === 'line')).toHaveLength(1);
+    expect(ring.adapter.diagnostics().refusedEmergencies).toBe(1);
+  });
+
+  it('accepts one emergency after a window that was open long enough, and drops the retransmissions', async () => {
+    const ring = await connected();
+    ring.device.tx.notify('GATE,armed,1000\n');
+    ring.advance(EMERGENCY_HOLD_MS);
+    const line = `TOK,emergency,pinky_tip,${1000 + EMERGENCY_HOLD_MS},${EMERGENCY_HOLD_MS}\n`;
+    ring.device.tx.notify(line);
+    ring.device.tx.notify(line);
+    ring.device.tx.notify(line);
+    expect(ring.tokens()).toEqual([
+      expect.objectContaining({ type: 'token', token: 'emergency', contact: 'pinky_tip' }),
+    ]);
+    expect(ring.adapter.diagnostics().duplicateEmergencies).toBe(2);
+  });
+
+  it('ignores impossible numbers in a line and counts them', async () => {
+    const ring = await connected();
+    ring.device.tx.notify('TOK,confirm,index_tip,-1,160\nTOK,confirm,index_tip,100,-160\nSTA,battery,120\n');
+    expect(ring.tokens()).toEqual([]);
+    expect(ring.events.filter((e) => e.type === 'battery')).toEqual([]);
+    expect(ring.adapter.diagnostics().invalidLines).toBe(3);
+  });
+
+  it('keeps an unreadable firmware string out of the device state', async () => {
+    const ring = await connected();
+    ring.device.tx.notify(`STA,hello,${'v'.repeat(MAX_FIRMWARE_VERSION_LENGTH + 1)}\n`);
+    expect(ring.events.filter((e) => e.type === 'hello')).toEqual([]);
+    expect(ring.adapter.getState().device?.firmwareVersion).toBeNull();
+    ring.device.tx.notify('STA,hello,bench-fw\n');
+    expect(ring.adapter.getState().device?.firmwareVersion).toBe('bench-fw');
+  });
+
+  it('drops an over-long line without letting its tail arrive as a line of its own', async () => {
+    const ring = await connected();
+    ring.device.tx.notify(`TOK,confirm,index_tip,100,${'9'.repeat(600)}`);
+    ring.device.tx.notify('TOK,next,middle_base,200,120\nSTA,pong\n');
+    expect(ring.events.filter((e) => e.type === 'line').map((e) => (e.type === 'line' ? e.raw : ''))).toEqual(['STA,pong']);
+    expect(ring.tokens()).toEqual([]);
+    expect(ring.adapter.diagnostics().droppedLines).toBe(1);
   });
 });

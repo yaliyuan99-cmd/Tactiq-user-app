@@ -1,16 +1,20 @@
 /**
  * The onboarding flow controller: the current step, saving progress, focus
  * and announcements on every step change, and the ways out of setup.
+ *
+ * Reaching the last step is what finishes setup, not pressing the button
+ * there: that step says setup is finished, so the dashboard has to be open to
+ * the user from the moment it appears.
  */
 import { useCallback, useEffect, useRef, useState, type RefObject } from 'react';
 import { useNavigate } from 'react-router';
 import { ROUTES } from '@/app/routes';
+import { ONBOARDING_LAST_STEP } from '@/domain/onboarding';
 import { useFeedback } from '@/services/feedback/FeedbackProvider';
 import { usePreferences } from '@/services/preferences/PreferencesProvider';
 import {
   FINISH_SETUP_PATCH,
   SKIP_SETUP_PATCH,
-  calibrationDetourPatch,
   clampStepIndex,
   initialStepIndex,
   stepAnnouncement,
@@ -24,17 +28,15 @@ export interface OnboardingFlow {
   readonly step: OnboardingStep;
   /** The step's h1. Focus moves here whenever the step changes. */
   readonly headingRef: RefObject<HTMLHeadingElement>;
+  /** True once setup has been recorded as finished, so the app is no longer gated. */
+  readonly setupFinished: boolean;
   readonly goTo: (index: number) => void;
   readonly next: () => void;
   readonly back: () => void;
-  /** Marks setup finished without navigating, for links that navigate themselves. */
-  readonly markFinished: () => void;
-  /** Marks setup finished and goes to the dashboard. */
+  /** Goes to the dashboard from the last step. */
   readonly finish: () => void;
   /** Leaves setup (keeping the furthest step) and goes to the dashboard. */
   readonly skipSetup: () => void;
-  /** Saves progress before the "Open calibration now" link navigates. */
-  readonly leaveForCalibration: () => void;
 }
 
 function scrollMainToTop(): void {
@@ -50,6 +52,7 @@ export function useOnboardingFlow(): OnboardingFlow {
   const headingRef = useRef<HTMLHeadingElement>(null);
   const shownIndex = useRef(index);
   const savedStep = preferences.onboardingStep;
+  const setupFinished = preferences.onboardingCompleted && savedStep >= ONBOARDING_LAST_STEP;
 
   useEffect(() => {
     if (shownIndex.current === index) return;
@@ -58,6 +61,11 @@ export function useOnboardingFlow(): OnboardingFlow {
     headingRef.current?.focus({ preventScroll: true });
     announce(stepAnnouncement(index));
   }, [index, announce]);
+
+  // The last step states that setup is finished, so record it before the step is read.
+  useEffect(() => {
+    if (index === ONBOARDING_LAST_STEP && !setupFinished) update(FINISH_SETUP_PATCH);
+  }, [index, setupFinished, update]);
 
   const goTo = useCallback(
     (target: number) => {
@@ -72,8 +80,6 @@ export function useOnboardingFlow(): OnboardingFlow {
   const next = useCallback(() => goTo(index + 1), [goTo, index]);
   const back = useCallback(() => goTo(index - 1), [goTo, index]);
 
-  const markFinished = useCallback(() => update(FINISH_SETUP_PATCH), [update]);
-
   const finish = useCallback(() => {
     update(FINISH_SETUP_PATCH);
     navigate(ROUTES.dashboard);
@@ -84,18 +90,15 @@ export function useOnboardingFlow(): OnboardingFlow {
     navigate(ROUTES.dashboard);
   }, [update, navigate]);
 
-  const leaveForCalibration = useCallback(() => update(calibrationDetourPatch(savedStep, index)), [update, savedStep, index]);
-
   return {
     index,
     step: stepAt(index),
     headingRef,
+    setupFinished,
     goTo,
     next,
     back,
-    markFinished,
     finish,
     skipSetup,
-    leaveForCalibration,
   };
 }

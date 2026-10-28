@@ -1,11 +1,35 @@
 import { CircleAlert, LogOut } from 'lucide-react';
-import { Button } from '@/components';
+import { ROUTES } from '@/app/routes';
+import { Button, ButtonLink } from '@/components';
+import type { SectionId } from '@/app/routing/sections';
 import { useAuth } from '@/services/auth/AuthProvider';
+import { useShellSection } from './ShellSection';
 import { useSignOut } from './useSignOut';
 
-/** "Signed in as <name>", with a note when the profile only lives in this browser. */
-export function SignedInAs() {
+/** Name for the shell region that holds these controls. */
+export function accountRegionLabel(section: SectionId): string {
+  return section === 'demo' ? 'Demonstration' : 'Account';
+}
+
+/**
+ * Who the app thinks you are. In the demonstration that is deliberately
+ * nobody: it is never dressed up as a signed-in session.
+ */
+export function AccountSummary() {
   const { user, mode } = useAuth();
+  const section = useShellSection();
+
+  if (section.id === 'demo') {
+    return (
+      <p className="min-w-0">
+        <span className="font-mono-label block text-muted-foreground">Signed in as</span>
+        <span className="block font-medium">Nobody</span>
+        <span className="block text-sm text-muted-foreground">
+          A demonstration, not an account. Nothing here is kept for you.
+        </span>
+      </p>
+    );
+  }
   if (!user) return null;
   return (
     <p className="min-w-0">
@@ -16,9 +40,24 @@ export function SignedInAs() {
   );
 }
 
-/** Sign out, then go to sign-in. Shows a message if sign-out fails. */
-export function SignOutButton() {
+/** Sign out (account), or the way to keep your progress (demonstration). */
+export function AccountAction() {
+  const section = useShellSection();
   const { signOut, pending, error } = useSignOut();
+
+  if (section.id === 'demo') {
+    return (
+      <div className="grid gap-2">
+        <ButtonLink to={ROUTES.signUp} size="sm" fullWidth>
+          Create a profile
+        </ButtonLink>
+        <ButtonLink to={ROUTES.signIn} size="sm" variant="secondary" fullWidth>
+          Sign in
+        </ButtonLink>
+      </div>
+    );
+  }
+
   return (
     <div className="grid gap-2">
       <Button

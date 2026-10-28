@@ -1,63 +1,40 @@
 import { Link } from 'react-router';
 import { ArrowRight } from 'lucide-react';
-import { ROUTES, lessonRoute } from '@/app/routes';
-import { getLesson } from '@/domain/lessons';
-import { CALIBRATION_SAMPLES_PER_CONTACT } from '@/domain/timing';
+import { ROUTES } from '@/app/routes';
 import { describeDeviceState } from '@/lib/deviceStatus';
 import { useDevice } from '@/services/device/DeviceProvider';
 import { usePreferences } from '@/services/preferences/PreferencesProvider';
-import { DONE_LEDE } from '../onboardingCopy';
+import { useTraining } from '@/services/ServicesProvider';
+import { nextStepLinks } from '../nextSteps';
+import { CHOICES_HEADING, DONE_LEDE, DONE_SETTINGS_LEAD, NEXT_HEADING } from '../onboardingCopy';
 import { summariseChoices } from '../onboardingFlow';
 import { StepLede, StepSection } from './StepSection';
 
-const NEXT_LESSON = getLesson('confirm_and_back');
-
-interface NextLink {
-  readonly to: string;
-  readonly label: string;
-  readonly description: string;
-}
-
-const NEXT_LINKS: readonly NextLink[] = [
-  {
-    to: lessonRoute(NEXT_LESSON.id),
-    label: 'Continue training',
-    description: `Lesson ${NEXT_LESSON.number}: ${NEXT_LESSON.title}. ${NEXT_LESSON.summary}`,
-  },
-  {
-    to: ROUTES.calibrate,
-    label: 'Calibrate',
-    description: `Practise the calibration routine: ${CALIBRATION_SAMPLES_PER_CONTACT} taps on each of the eight points.`,
-  },
-  {
-    to: ROUTES.simulator,
-    label: 'Open the simulator',
-    description: 'Try all nine commands freely on the simulated ring.',
-  },
-];
-
-export interface DoneStepProps {
-  /** Marks setup finished before a link below navigates, so the dashboard pages open instead of returning here. */
-  readonly onLeave: () => void;
-}
-
-export function DoneStep({ onLeave }: DoneStepProps) {
+/**
+ * Step 4: setup is already recorded as finished when this step opens, so what
+ * it says and what the app allows agree. Where to go next is read from real
+ * training progress, never from a fixed lesson.
+ */
+export function DoneStep() {
   const { preferences } = usePreferences();
   const { state } = useDevice();
+  const training = useTraining();
   const choices = summariseChoices({
     hand: preferences.hand,
     textSize: preferences.textSize,
+    contrast: preferences.contrast,
     audioAnnouncements: preferences.audioAnnouncements,
     longerInteractionTime: preferences.longerInteractionTime,
     deviceMode: state.mode,
     deviceStatusLabel: describeDeviceState(state).label,
   });
+  const links = nextStepLinks(training.summary());
 
   return (
     <>
       <StepLede>{DONE_LEDE}</StepLede>
 
-      <StepSection title="Your choices" card>
+      <StepSection title={CHOICES_HEADING} card>
         <dl className="grid gap-3">
           {choices.map((choice) => (
             <div
@@ -70,17 +47,20 @@ export function DoneStep({ onLeave }: DoneStepProps) {
             </div>
           ))}
         </dl>
+        <p>
+          {DONE_SETTINGS_LEAD}{' '}
+          <Link to={ROUTES.settings} className="target-44 font-semibold text-primary-strong underline">
+            Settings
+          </Link>
+          .
+        </p>
       </StepSection>
 
-      <StepSection title="What to do next">
+      <StepSection title={NEXT_HEADING}>
         <ul className="divide-y divide-border border-y border-border">
-          {NEXT_LINKS.map((link) => (
-            <li key={link.to} className="py-3">
-              <Link
-                to={link.to}
-                onClick={onLeave}
-                className="target-44 inline-flex items-center gap-2 font-semibold text-primary-strong underline"
-              >
+          {links.map((link) => (
+            <li key={link.id} className="py-3">
+              <Link to={link.to} className="target-44 inline-flex items-center gap-2 font-semibold text-primary-strong underline">
                 {link.label}
                 <ArrowRight className="h-4 w-4 shrink-0" aria-hidden="true" />
               </Link>

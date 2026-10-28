@@ -4,6 +4,7 @@ import { EMERGENCY_SIMULATION_NOTICE } from '@/domain/evidence';
 import type { DeviceEvent, RejectReason } from '@/services/device/types';
 import {
   EMERGENCY_ARMING_MESSAGE,
+  WINDOW_OPENING_MESSAGE,
   describeGate,
   describeRingResult,
   formatSeconds,
@@ -48,17 +49,20 @@ describe('ringResultFromEvent', () => {
     expect(ringResultFromEvent(event)).toMatchObject({ kind: 'emergency_cancelled', elapsedMs: 0 });
   });
 
-  it.each(['not_armed', 'indeterminate_duration', 'window_closed'] as const)('maps a %s reject to a rejected result', (reason) => {
-    const event: DeviceEvent = { type: 'reject', reason, contact: 'middle_base', durationMs: null, at: AT };
-    expect(ringResultFromEvent(event, 'r4')).toEqual({
-      id: 'r4',
-      at: AT,
-      kind: 'rejected',
-      reason,
-      contact: 'middle_base',
-      durationMs: null,
-    });
-  });
+  it.each(['not_armed', 'window_opening', 'indeterminate_duration', 'window_closed'] as const)(
+    'maps a %s reject to a rejected result',
+    (reason) => {
+      const event: DeviceEvent = { type: 'reject', reason, contact: 'middle_base', durationMs: null, at: AT };
+      expect(ringResultFromEvent(event, 'r4')).toEqual({
+        id: 'r4',
+        at: AT,
+        kind: 'rejected',
+        reason,
+        contact: 'middle_base',
+        durationMs: null,
+      });
+    },
+  );
 
   it('creates an id when none is given', () => {
     const event: DeviceEvent = { type: 'token', token: 'next', contact: 'middle_base', durationMs: 100, at: AT };
@@ -71,6 +75,7 @@ describe('ringResultFromEvent', () => {
     { type: 'hold_progress', contact: 'pinky_tip', elapsedMs: 100, totalMs: 5000, armingCueReached: false, at: AT },
     { type: 'line', raw: 'STA,pong', at: AT },
     { type: 'hello', firmwareVersion: 'fw0.2', at: AT },
+    { type: 'activating', active: true, at: AT },
   ])('returns null for a $type event', (event) => {
     expect(ringResultFromEvent(event)).toBeNull();
   });
@@ -147,6 +152,19 @@ describe('describeRingResult', () => {
       message: 'The ring is asleep. Squeeze first, then tap.',
       feedbackKind: 'reject',
     });
+  });
+
+  it('says the window is still opening, politely, for a tap during the activating phase', () => {
+    const description = describeRingResult(rejected('window_opening', 'index_tip', null), mapping);
+    expect(description).toEqual({
+      message: 'Still opening the command window — tap again in a moment.',
+      visibleMessage: 'Still opening the command window — tap again in a moment.',
+      feedbackKind: 'armed',
+      shortLabel: 'Command window still opening',
+    });
+    expect(description.message).toBe(WINDOW_OPENING_MESSAGE);
+    // The arming kinds are polite; 'reject', 'emergency' and 'emergency_arming' interrupt.
+    expect(['reject', 'emergency', 'emergency_arming']).not.toContain(description.feedbackKind);
   });
 
   it('explains a press that was too long, with its duration to one decimal place', () => {

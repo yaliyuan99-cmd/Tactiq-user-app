@@ -3,8 +3,12 @@
  * Service, docs/PROTOCOL.md). It reports only what the ring sends: tokens,
  * gate changes and its firmware string. The firmware's battery line is a
  * fixed stub, so the battery is always "not reported" here.
+ *
+ * Lines are read through one RingLineReader per connection, which bounds and
+ * validates them and refuses an Emergency token the gate state cannot
+ * account for. `diagnostics()` reports what it dropped.
  */
-import { BATTERY_UNAVAILABLE_NOTE, DEVICE_NAME, LineAssembler, NUS_SERVICE_UUID, PING_COMMAND } from '@/domain/protocol';
+import { BATTERY_UNAVAILABLE_NOTE, DEVICE_NAME, NUS_SERVICE_UUID, PING_COMMAND } from '@/domain/protocol';
 import { COMMAND_WINDOW_MS } from '@/domain/timing';
 import type { StorageAdapter } from '@/services/storage/StorageAdapter';
 import { detectCapabilities, type WindowLike } from './capabilities';
@@ -12,7 +16,7 @@ import { DeviceEventEmitter } from './DeviceEventEmitter';
 import { STATUS_FOR_ERROR, deviceError, mapBluetoothError } from './deviceErrors';
 import { loadDeviceRecord, saveDeviceRecord } from './deviceStorage';
 import { NusConnectError, type NusConnection, openNusConnection, safeGattDisconnect, writeNusLine } from './nusConnection';
-import { interpretRingLine } from './ringLineEvents';
+import { RingLineReader, type RingLineDiagnostics } from './ringLineEvents';
 import { type Clock, systemClock } from './scheduler';
 import type { DeviceAdapter, DeviceCapabilities, DeviceErrorCode, DeviceEventListener, DeviceState } from './types';
 import type {
@@ -53,7 +57,7 @@ export class WebBluetoothDeviceAdapter implements DeviceAdapter {
   private readonly now: Clock;
   private readonly autoReconnect: boolean;
   private readonly emitter = new DeviceEventEmitter();
-  private readonly assembler = new LineAssembler();
+  private readonly reader = new RingLineReader();
   private decoder = new TextDecoder();
   private state: DeviceState;
   private connection: NusConnection | null = null;
@@ -156,6 +160,15 @@ export class WebBluetoothDeviceAdapter implements DeviceAdapter {
     }
   }
 
+  /**
+   * Bounded counts of what this ring sent that could not be believed:
+   * over-long lines, lines that did not parse, and emergency tokens the gate
+   * state made impossible. For the bench log; nothing here is a measurement.
+   */
+  diagnostics(): RingLineDiagnostics {
+    return this.reader.diagnostics();
+  }
+
   configure(options: { commandWindowMs?: number }): void {
     const ms = options.commandWindowMs;
     if (typeof ms !== 'number' || !Number.isFinite(ms) || ms <= 0 || ms === this.state.commandWindowMs) return;
@@ -186,7 +199,7 @@ export class WebBluetoothDeviceAdapter implements DeviceAdapter {
     this.connection = null;
     if (connection) connection.close(true);
     else safeGattDisconnect(this.bluetoothDevice?.gatt);
-    this.assembler.reset();
+    this.reader.reset();
   }
 
   private adoptDevice(device: BluetoothDeviceLike | null): void {
@@ -199,7 +212,7 @@ export class WebBluetoothDeviceAdapter implements DeviceAdapter {
 
   /** Claims "connected" only after notifications have started. */
   private async openSession(device: BluetoothDeviceLike, attempt: number, failureCode?: DeviceErrorCode): Promise<void> {
-    this.assembler.reset();
+    this.reader.reset();
     this.decoder = new TextDecoder();
     this.helloFirmware = null;
     let connection: NusConnection;
@@ -244,7 +257,7 @@ export class WebBluetoothDeviceAdapter implements DeviceAdapter {
     if (!connection) return;
     this.connection = null;
     connection.close(false);
-    this.assembler.reset();
+    this.reader.reset();
     this.fail('disconnected');
     const { device } = connection;
     if (this.autoReconnect && !this.reconnectAttempted && this.bluetoothDevice === device && device.gatt) {
@@ -259,8 +272,8 @@ export class WebBluetoothDeviceAdapter implements DeviceAdapter {
   private handleNotification(tx: BluetoothCharacteristicLike, attempt: number): void {
     if (attempt !== this.attempt || !tx.value) return;
     const text = this.decoder.decode(tx.value, { stream: true });
-    for (const line of this.assembler.push(text)) {
-      const { state, events } = interpretRingLine(line, this.state, this.now());
+    for (const line of this.reader.push(text)) {
+      const { state, events } = this.reader.interpret(line, this.state, this.now());
       this.state = state;
       for (const event of events) {
         if (event.type === 'hello') this.helloFirmware = event.firmwareVersion;

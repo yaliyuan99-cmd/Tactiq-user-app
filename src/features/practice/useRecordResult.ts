@@ -2,6 +2,12 @@
  * Saving practice to activity history. Evidence is never chosen by the
  * caller: it is "simulated" in Demo Mode and "measured" only when a hardware
  * ring is connected.
+ *
+ * What a record counts towards follows from the context the caller passes:
+ * `targetContact` and `targetToken` mark a press as an attempt at something
+ * that was asked for, and only those reach an accuracy figure (see
+ * `services/history/classify.ts`). A free-practice record passes neither, and
+ * `useRecordSqueeze` writes an activation record, which is never an attempt.
  */
 import { useCallback } from 'react';
 import type { GestureEvent } from '@/domain/models';
@@ -30,7 +36,11 @@ export function useRecordResult(): RecordResult {
   );
 }
 
-/** Returns `recordSqueeze(context)`, for lessons that practise opening the command window. */
+/**
+ * Returns `recordSqueeze(context)`, for lessons that practise opening the
+ * command window. It saves an activation record: no contact, no command, and
+ * never counted as a command attempt or a success.
+ */
 export function useRecordSqueeze(): RecordSqueeze {
   const { history } = useServices();
   const { state } = useDevice();

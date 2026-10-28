@@ -19,6 +19,11 @@ export const EMERGENCY_ARMING_CUE_MS = 2000;
  * GATE_TAU_MS — a placeholder pending the bench sweep, which is expected to
  * settle it between 200 and 350 ms. That range is a forecast, not a
  * measurement and not a threshold fixed before testing.
+ *
+ * The value is a research constant and is not tuned to make the interface
+ * feel better. A tap inside this window is still dropped; the app's answer is
+ * to report the phase honestly ("still opening the command window") rather
+ * than to shorten the wait — see the `activating` phase in RingStateMachine.
  */
 export const GATE_HOLD_MS = 150;
 

@@ -8,10 +8,10 @@ import { ROUTES } from '@/app/routes';
 import { currentLocation, renderRoutes } from '@/app/testing/renderRoutes';
 import { ONBOARDING_LAST_STEP } from '@/domain/onboarding';
 import { stepIndexOf } from '@/features/onboarding/onboardingFlow';
-import { STORAGE_KEYS } from '@/services/storage/StorageAdapter';
+import { readStoredPreferences } from '@/services/preferences/storedPreferences';
+import type { StorageAdapter } from '@/services/storage/StorageAdapter';
 import type { UserPreferences } from '@/domain/models';
 
-vi.mock('@/features/train/LessonRunner', () => import('@/features/onboarding/testing/MockLessonRunner'));
 vi.mock('@/features/calibrate/CalibratePage', async () => (await import('./testing/pageStubs')).stubPage('Calibrate'));
 vi.mock('@/features/help/HelpPage', async () => (await import('./testing/pageStubs')).stubPage('Help'));
 
@@ -21,10 +21,15 @@ async function findStepHeading(name: string) {
   return screen.findByRole('heading', { level: 1, name });
 }
 
+/** The preferences in force, read the way the app reads them (renderRoutes seeds one unscoped store). */
+function storedPreferences(storage: StorageAdapter): UserPreferences {
+  return readStoredPreferences(storage).preferences;
+}
+
 describe('AppRoutes: onboarding frame', () => {
   it('renders exactly one main landmark, one skip link and one banner with Help and Skip setup', async () => {
     renderRoutes({ route: ROUTES.onboarding, preferences: NOT_STARTED });
-    await findStepHeading('Welcome');
+    await findStepHeading('Which hand');
     expect(document.title).toBe('Set up Tactiq · Tactiq');
 
     const mains = screen.getAllByRole('main');
@@ -47,7 +52,7 @@ describe('AppRoutes: onboarding frame', () => {
 
   it('keeps one main landmark when the onboarding gate redirects there', async () => {
     renderRoutes({ route: ROUTES.train, preferences: NOT_STARTED });
-    await findStepHeading('Welcome');
+    await findStepHeading('Which hand');
     expect(currentLocation()).toBe(ROUTES.onboarding);
     expect(screen.getAllByRole('main')).toHaveLength(1);
     expect(screen.getAllByRole('link', { name: 'Skip to main content' })).toHaveLength(1);
@@ -55,7 +60,7 @@ describe('AppRoutes: onboarding frame', () => {
 
   it('moves focus to the onboarding main from the skip link', async () => {
     const { user } = renderRoutes({ route: ROUTES.onboarding, preferences: NOT_STARTED });
-    await findStepHeading('Welcome');
+    await findStepHeading('Which hand');
     await user.tab();
     expect(screen.getByRole('link', { name: 'Skip to main content' })).toHaveFocus();
     await user.keyboard('{Enter}');
@@ -70,9 +75,9 @@ describe('AppRoutes: onboarding frame', () => {
     };
     try {
       const { user } = renderRoutes({ route: ROUTES.onboarding, preferences: NOT_STARTED });
-      await findStepHeading('Welcome');
+      await findStepHeading('Which hand');
       await user.click(screen.getByRole('button', { name: 'Continue' }));
-      const heading = await findStepHeading('Accessibility preferences');
+      const heading = await findStepHeading('A few preferences');
       expect(heading).toHaveFocus();
       expect(scrolled).toContain(screen.getByRole('main'));
     } finally {
@@ -82,46 +87,63 @@ describe('AppRoutes: onboarding frame', () => {
 
   it('keeps Help reachable from onboarding before setup is finished', async () => {
     const { user } = renderRoutes({ route: ROUTES.onboarding, preferences: NOT_STARTED });
-    await findStepHeading('Welcome');
+    await findStepHeading('Which hand');
     await user.click(within(screen.getByRole('banner')).getByRole('link', { name: 'Help' }));
     expect(await screen.findByRole('heading', { level: 1, name: 'Help' })).toBeInTheDocument();
     expect(currentLocation()).toBe(ROUTES.help);
   });
 });
 
-describe('AppRoutes: leaving setup for calibration and resuming it', () => {
-  it('opens calibration, then Resume setup on the dashboard returns to the step after calibration', async () => {
-    const calibration = stepIndexOf('calibration');
-    // The step after calibration is not the last one, so setup still counts as unfinished after the detour.
-    expect(calibration + 1).toBeLessThan(ONBOARDING_LAST_STEP);
-    const { user, storage } = renderRoutes({
-      route: ROUTES.onboarding,
-      preferences: { onboardingCompleted: false, onboardingStep: calibration },
-    });
-    await findStepHeading('Calibration');
+describe('AppRoutes: leaving setup and resuming it', () => {
+  it('skips setup from a middle step, then Resume setup on the dashboard returns to that step', async () => {
+    const preferencesStep = stepIndexOf('preferences');
+    // The step left behind is not the last one, so setup still counts as unfinished.
+    expect(preferencesStep).toBeLessThan(ONBOARDING_LAST_STEP);
+    const { user, storage } = renderRoutes({ route: ROUTES.onboarding, preferences: NOT_STARTED });
+    await findStepHeading('Which hand');
 
-    await user.click(screen.getByRole('link', { name: 'Open calibration now' }));
-    expect(await screen.findByRole('heading', { level: 1, name: 'Calibrate' })).toBeInTheDocument();
-    expect(currentLocation()).toBe(ROUTES.calibrate);
-    expect(storage.get<UserPreferences>(STORAGE_KEYS.preferences)).toMatchObject({
-      onboardingCompleted: true,
-      onboardingStep: calibration + 1,
-    });
+    await user.click(screen.getByRole('button', { name: 'Continue' }));
+    await findStepHeading('A few preferences');
+    await user.click(within(screen.getByRole('banner')).getByRole('button', { name: 'Skip setup' }));
+    const dialog = screen.getByRole('dialog', { name: 'Skip setup?' });
+    await user.click(within(dialog).getByRole('button', { name: 'Skip setup' }));
 
-    await user.click(within(screen.getByTestId('mobile-nav')).getByRole('link', { name: 'Home' }));
-    const panel = await screen.findByRole('region', { name: 'What to do next' });
-    expect(within(panel).getByText(/Setup stopped at step 6 of 8 \(Feedback\)/)).toBeInTheDocument();
+    expect(await screen.findByRole('region', { name: 'What to do next' })).toBeInTheDocument();
+    expect(currentLocation()).toBe(ROUTES.dashboard);
+    // The step reached is kept, so the dashboard can say where setup stopped.
+    expect(storedPreferences(storage)).toMatchObject({ onboardingCompleted: true, onboardingStep: preferencesStep });
+
+    const panel = screen.getByRole('region', { name: 'What to do next' });
+    expect(within(panel).getByText(/Setup stopped at step 2 of 4 \(A few preferences\)/)).toBeInTheDocument();
     const resume = within(panel).getByRole('link', { name: 'Resume setup' });
     expect(resume).toHaveAttribute('href', ROUTES.onboarding);
 
     await user.click(resume);
-    const heading = await findStepHeading('Feedback');
+    const heading = await findStepHeading('A few preferences');
     expect(currentLocation()).toBe(ROUTES.onboarding);
     expect(screen.getByRole('progressbar', { name: 'Setup progress' })).toHaveAttribute(
       'aria-valuetext',
-      'Step 6 of 8 — Feedback',
+      'Step 2 of 4 — A few preferences',
     );
     await waitFor(() => expect(heading).toHaveFocus());
+    expect(screen.getAllByRole('main')).toHaveLength(1);
+  });
+
+  it('opens calibration from the last step, with setup already recorded as finished', async () => {
+    const { user, storage } = renderRoutes({
+      route: ROUTES.onboarding,
+      preferences: { onboardingCompleted: false, onboardingStep: ONBOARDING_LAST_STEP },
+    });
+    await findStepHeading('You are ready');
+    expect(storedPreferences(storage)).toMatchObject({
+      onboardingCompleted: true,
+      onboardingStep: ONBOARDING_LAST_STEP,
+    });
+
+    const next = screen.getByRole('region', { name: 'What to do next' });
+    await user.click(within(next).getByRole('link', { name: 'Rehearse calibration' }));
+    expect(await screen.findByRole('heading', { level: 1, name: 'Calibrate' })).toBeInTheDocument();
+    expect(currentLocation()).toBe(ROUTES.calibrate);
     expect(screen.getAllByRole('main')).toHaveLength(1);
   });
 });

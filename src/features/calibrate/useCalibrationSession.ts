@@ -30,6 +30,8 @@ import {
   runForRemaining,
   type CalibrationRun,
 } from './calibrationFlow';
+import { SWITCHED_TO_DEMO } from './calibrationCopy';
+import { runRingState, startState } from './calibrationScreenState';
 import {
   SQUEEZE_FIRST_MESSAGE,
   afterSampleAnnouncement,
@@ -55,7 +57,7 @@ interface LiveSession {
 export function useCalibrationSession(): CalibrationSession {
   const calibration = useCalibration();
   const { preferences } = usePreferences();
-  const { state: deviceState } = useDevice();
+  const { state: deviceState, setMode } = useDevice();
   const record = useRecordResult();
   const { mapping } = useShortcutLabels();
   const navigate = useNavigate();
@@ -76,7 +78,12 @@ export function useCalibrationSession(): CalibrationSession {
   const profile = calibration.get();
   const hand = preferences.hand;
   const prompt = phase === 'running' && profile && run ? nextPrompt(profile, run) : null;
-  const resumable = resumability(profile, { hand, evidence: ring.isDemo ? 'simulated' : 'measured' });
+  /** Which ring would record now: a connected ring's own id, or null in Demo Mode. */
+  const deviceId = deviceState.mode === 'hardware' ? (deviceState.device?.id ?? null) : null;
+  // Device identity is part of this: one profile must not hold taps from two rings.
+  const resumable = resumability(profile, { hand, evidence: ring.isDemo ? 'simulated' : 'measured', deviceId });
+  const ringState = runRingState({ isDemo: ring.isDemo, canReceive: ring.canReceive });
+  const screen = startState({ resumable, ringOffline: ringState === 'ring_offline' });
 
   function enter(nextPhase: CalibrationPhase, nextRun: CalibrationRun | null): void {
     live.current.phase = nextPhase;
@@ -176,7 +183,6 @@ export function useCalibrationSession(): CalibrationSession {
   }
 
   const start = () => {
-    const deviceId = deviceState.mode === 'hardware' ? (deviceState.device?.id ?? null) : null;
     beginRun(calibration.start({ hand, evidence: evidenceForDevice(deviceState), deviceId }), 'Calibration started.');
   };
 
@@ -219,6 +225,11 @@ export function useCalibrationSession(): CalibrationSession {
     navigate(ROUTES.dashboard);
   };
 
+  const switchToDemo = () => {
+    setMode('demo');
+    say({ text: SWITCHED_TO_DEMO });
+  };
+
   useEffect(() => {
     live.current.closeWindow = ring.closeWindow;
   }, [ring.closeWindow]);
@@ -243,6 +254,8 @@ export function useCalibrationSession(): CalibrationSession {
     ring,
     hand,
     resumable,
+    startState: screen,
+    runRingState: ringState,
     returnedToStart,
     readAloud,
     setReadAloud,
@@ -252,5 +265,6 @@ export function useCalibrationSession(): CalibrationSession {
     repeatPrompt,
     pause,
     stop,
+    switchToDemo,
   };
 }

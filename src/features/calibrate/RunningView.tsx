@@ -1,19 +1,24 @@
 import { useEffect, useId, useRef, useState } from 'react';
-import { Button, ConfirmDialog, EvidenceLabel, ProgressBar } from '@/components';
+import { Button, Callout, ConfirmDialog, EvidenceLabel, ProgressBar } from '@/components';
 import { getContact } from '@/domain/contacts';
-import { COMMAND_WINDOW_MS } from '@/domain/timing';
 import { PracticeSurface } from '@/features/practice';
 import { CalibrationPanel } from './CalibrationPanel';
 import { acceptedTotal, misreadContact, missesInRun, requiredPerPoint, requiredTotal, sampleNumber } from './calibrationFlow';
+import { RUN_RING_OFFLINE_TITLE, RUN_RING_SENTENCES } from './calibrationCopy';
 import { missesSentence, pointCommandSentence, progressText, promptHeading } from './calibrationWording';
 import { FeedbackMessage } from './FeedbackMessage';
 import type { CalibrationSession } from './calibrationSessionTypes';
 
 export const PROMPT_HEADING_ID = 'calibrate-prompt-heading';
 
-/** One prompt at a time: the point, how to find it, progress, the last result, the controls and the ring. */
+/**
+ * One prompt at a time: the point, how to find it, progress, the last result,
+ * the controls and the ring. The ring's own state has exactly one sentence
+ * (see calibrationScreenState.ts), so a run whose ring has gone away says so
+ * instead of still asking for a squeeze.
+ */
 export function RunningView({ session }: { session: CalibrationSession }) {
-  const { profile, run, prompt, ring, feedback } = session;
+  const { profile, run, prompt, ring, feedback, runRingState } = session;
   const headingRef = useRef<HTMLHeadingElement>(null);
   const repeatHintId = useId();
   const [confirmingStop, setConfirmingStop] = useState(false);
@@ -58,19 +63,12 @@ export function RunningView({ session }: { session: CalibrationSession }) {
 
         {feedback && <FeedbackMessage text={feedback.text} tone={feedback.tone} className="mt-4" />}
 
-        {ring.isDemo ? (
-          <p className="mt-4">
-            <span>During calibration the command window opens for you.</span>{' '}
-            <span>It opens again whenever it closes, so there is no time limit.</span>
-          </p>
+        {runRingState === 'ring_offline' ? (
+          <Callout kind="warning" role="status" title={RUN_RING_OFFLINE_TITLE} className="mt-4">
+            <p>{RUN_RING_SENTENCES.ring_offline}</p>
+          </Callout>
         ) : (
-          <p className="mt-4">
-            <span>Squeeze, then tap.</span>{' '}
-            <span>
-              The bench ring closes its window after {COMMAND_WINDOW_MS / 1000} seconds; if that happens, squeeze again.
-              Calibration itself has no time limit.
-            </span>
-          </p>
+          <p className="mt-4">{RUN_RING_SENTENCES[runRingState]}</p>
         )}
 
         <div className="mt-5 flex flex-wrap gap-2">
@@ -85,8 +83,8 @@ export function RunningView({ session }: { session: CalibrationSession }) {
           </Button>
         </div>
         <p id={repeatHintId} className="mt-2 text-sm text-muted-foreground">
-          Repeat this point says the prompt again{ring.isDemo ? ' and reopens the command window' : ''}. Taps already
-          accepted are kept.
+          Repeat this point says the prompt again
+          {runRingState === 'window_managed' ? ' and reopens the command window' : ''}. Taps already accepted are kept.
         </p>
       </CalibrationPanel>
 

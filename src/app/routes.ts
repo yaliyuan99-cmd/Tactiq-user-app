@@ -1,4 +1,13 @@
-/** Every route in one place. Screens link with these constants, never string literals. */
+/**
+ * Every route in one place. Screens link with these constants, never string
+ * literals.
+ *
+ * "/" is the public product page, reachable signed in and signed out. The
+ * account screens are mounted twice: under "/dashboard" for a signed-in
+ * account, and under "/demo" as a guest demonstration that saves nothing to an
+ * account. ROUTES holds the canonical /dashboard spelling; the mapping between
+ * the two bases lives in routing/sections.ts.
+ */
 export const ROUTES = {
   root: '/',
   signIn: '/sign-in',
@@ -15,11 +24,12 @@ export const ROUTES = {
   history: '/dashboard/history',
   settings: '/dashboard/settings',
   help: '/dashboard/help',
+  demo: '/demo',
 } as const;
 
 export type RoutePath = (typeof ROUTES)[keyof typeof ROUTES];
 
-/** A single lesson inside Train. */
+/** A single lesson inside Practice → Learn. */
 export function lessonRoute(lessonId: string): string {
   return `${ROUTES.train}/${lessonId}`;
 }

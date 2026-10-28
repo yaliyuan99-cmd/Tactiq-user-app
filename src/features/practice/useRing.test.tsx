@@ -1,7 +1,7 @@
 import { EMERGENCY_SIMULATION_NOTICE } from '@/domain/evidence';
 import { COMMAND_WINDOW_MS, GATE_HOLD_MS } from '@/domain/timing';
 import { act, renderApp, screen, waitFor } from '@/test/renderApp';
-import { EMERGENCY_ARMING_MESSAGE } from './ringResults';
+import { EMERGENCY_ARMING_MESSAGE, WINDOW_OPENING_MESSAGE } from './ringResults';
 import { FakeHardwareRing, installSpeechSpy, settleProviders, type SpeechSpy } from './testing/practiceTestUtils';
 import { FLASH_MS, useRing, type RingController, type UseRingOptions } from './useRing';
 
@@ -61,6 +61,7 @@ describe('useRing in Demo Mode', () => {
       isDemo: true,
       canOperate: true,
       canReceive: true,
+      activating: false,
       armed: false,
       closesAt: null,
       windowMs: COMMAND_WINDOW_MS,
@@ -141,6 +142,60 @@ describe('useRing in Demo Mode', () => {
       /^Not recognised\. That press lasted 1\.\d seconds — longer than a tap and shorter than the emergency hold, so nothing happened\.$/;
     await waitFor(() => expect(speech.messages().at(-1)).toMatch(message));
     expect(await screen.findByText(message)).toBeInTheDocument();
+  });
+
+  it('reports the activating phase from the squeeze until the window opens', async () => {
+    await renderProbe();
+    expect(ring().activating).toBe(false);
+    act(() => ring().squeeze());
+    expect(ring().activating).toBe(true);
+    expect(ring().armed).toBe(false);
+    expect(ring().remainingMs).toBeNull();
+    advance(GATE_HOLD_MS);
+    expect(ring().activating).toBe(false);
+    expect(ring().armed).toBe(true);
+  });
+
+  it('clears the activating phase when the window is closed before it opens', async () => {
+    await renderProbe();
+    act(() => ring().squeeze());
+    act(() => ring().closeWindow());
+    expect(ring().activating).toBe(false);
+    advance(GATE_HOLD_MS + 50);
+    expect(ring().armed).toBe(false);
+    await act(async () => {
+      await Promise.resolve();
+    });
+    expect(speech.messages()).toEqual([]);
+  });
+
+  it('says the window is still opening for a tap during activation, politely and without an error', async () => {
+    const onResult = vi.fn();
+    await renderProbe({ onResult });
+    act(() => ring().squeeze());
+    act(() => ring().pressStart('index_tip'));
+    act(() => ring().pressEnd('index_tip'));
+
+    expect(ring().lastResult).toMatchObject({ kind: 'rejected', reason: 'window_opening', contact: 'index_tip' });
+    expect(onResult).toHaveBeenCalledWith(expect.objectContaining({ reason: 'window_opening' }));
+    await waitFor(() => expect(speech.messages()).toEqual([WINDOW_OPENING_MESSAGE]));
+    expect(await screen.findByText(WINDOW_OPENING_MESSAGE)).toBeInTheDocument();
+    // Polite: it must not interrupt what the screen reader is saying.
+    expect(screen.getByTestId('live-region-polite').textContent).toContain(WINDOW_OPENING_MESSAGE);
+    expect(screen.getByTestId('live-region-assertive').textContent).toBe('');
+    // And the timing rule is untouched: the window still opens at the gate time.
+    expect(ring().activating).toBe(true);
+    advance(GATE_HOLD_MS);
+    expect(ring().armed).toBe(true);
+    await waitFor(() => expect(speech.messages().at(-1)).toBe('Command window open for 3 seconds.'));
+  });
+
+  it('still blames nobody but says the ring is asleep when there was no squeeze', async () => {
+    await renderProbe();
+    act(() => ring().pressStart('index_tip'));
+    act(() => ring().pressEnd('index_tip'));
+    expect(ring().lastResult).toMatchObject({ kind: 'rejected', reason: 'not_armed' });
+    await waitFor(() => expect(screen.getByTestId('live-region-assertive').textContent).toContain('The ring is asleep.'));
   });
 
   it('explains a tap while the ring is asleep', async () => {
@@ -255,7 +310,7 @@ describe('useRing with a hardware ring', () => {
   it('ignores inputs when there is no simulated ring', async () => {
     renderApp(<Probe />, { deviceMode: 'hardware' });
     await settleProviders();
-    expect(ring()).toMatchObject({ mode: 'hardware', isDemo: false, canOperate: false, canReceive: false });
+    expect(ring()).toMatchObject({ mode: 'hardware', isDemo: false, canOperate: false, canReceive: false, activating: false });
     act(() => {
       ring().squeeze();
       ring().pressStart('index_tip');
@@ -273,7 +328,8 @@ describe('useRing with a hardware ring', () => {
     const onResult = vi.fn();
     renderApp(<Probe onResult={onResult} />, { deviceAdapter: hardware, preferences: { audioAnnouncements: true } });
     await settleProviders();
-    expect(ring()).toMatchObject({ canOperate: false, canReceive: true });
+    // A hardware ring reports only armed and idle, so there is no activation phase to claim.
+    expect(ring()).toMatchObject({ canOperate: false, canReceive: true, activating: false });
 
     act(() => hardware.send({ type: 'gate', armed: true, closesAt: Date.now() + 3000 }));
     expect(ring().armed).toBe(true);

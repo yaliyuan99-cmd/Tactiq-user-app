@@ -1,7 +1,14 @@
 import { CONTACT_KEYS, type ContactKey } from '@/domain/contacts';
+import type { CalibrationSample } from '@/domain/models';
 import { CALIBRATION_SAMPLES_PER_CONTACT, TAP_MAX_MS } from '@/domain/timing';
 import { MemoryStorageAdapter, STORAGE_KEYS } from '@/services/storage/StorageAdapter';
-import { judgeCalibrationSample } from './calibrationRules';
+import {
+  MAX_STORED_SAMPLES,
+  calibrationCoverage,
+  capSamples,
+  judgeCalibrationSample,
+  sampleLimit,
+} from './calibrationRules';
 import { LocalCalibrationService } from './LocalCalibrationService';
 
 const NOW = new Date('2026-09-15T04:30:00.000Z');
@@ -15,7 +22,77 @@ describe('judgeCalibrationSample', () => {
     expect(judgeCalibrationSample({ contact: 'ring_tip', detectedContact: null, durationMs: 200 })).toEqual({ accepted: false, reason: 'no_contact' });
     expect(judgeCalibrationSample({ contact: 'ring_tip', detectedContact: 'ring_base', durationMs: 200 })).toEqual({ accepted: false, reason: 'wrong_contact' });
     expect(judgeCalibrationSample({ contact: 'ring_tip', detectedContact: 'ring_tip', durationMs: TAP_MAX_MS + 1 })).toEqual({ accepted: false, reason: 'too_long' });
-    expect(judgeCalibrationSample({ contact: 'ring_tip', detectedContact: 'ring_tip', durationMs: Number.NaN })).toEqual({ accepted: false, reason: 'too_long' });
+  });
+
+  it('accepts a tap of no measurable length and the tap limit exactly', () => {
+    expect(judgeCalibrationSample({ contact: 'ring_tip', detectedContact: 'ring_tip', durationMs: 0 })).toEqual({ accepted: true });
+    expect(judgeCalibrationSample({ contact: 'ring_tip', detectedContact: 'ring_tip', durationMs: TAP_MAX_MS })).toEqual({ accepted: true });
+  });
+
+  it.each([
+    ['negative', -1],
+    ['far below zero', -5000],
+    ['not a number', Number.NaN],
+    ['infinite', Number.POSITIVE_INFINITY],
+    ['negatively infinite', Number.NEGATIVE_INFINITY],
+  ])('refuses a %s duration with its own reason, never as an accepted tap', (_label, durationMs) => {
+    expect(judgeCalibrationSample({ contact: 'ring_tip', detectedContact: 'ring_tip', durationMs })).toEqual({
+      accepted: false,
+      reason: 'impossible_duration',
+    });
+  });
+
+  it('calls a press far longer than a tap too long, which is something a person can do', () => {
+    expect(judgeCalibrationSample({ contact: 'ring_tip', detectedContact: 'ring_tip', durationMs: 120_000 })).toEqual({
+      accepted: false,
+      reason: 'too_long',
+    });
+  });
+});
+
+describe('capSamples', () => {
+  const sample = (contact: ContactKey, accepted: boolean, recordedAt: string): CalibrationSample => ({
+    contact,
+    recordedAt,
+    durationMs: 200,
+    detectedContact: accepted ? contact : null,
+    accepted,
+    ...(accepted ? {} : { reason: 'no_contact' as const }),
+  });
+
+  it('leaves a list within the limit untouched', () => {
+    const samples = [sample('index_tip', true, '1'), sample('index_tip', false, '2')];
+    expect(capSamples(samples, 3)).toBe(samples);
+  });
+
+  it('keeps the limit, the newest samples and chronological order', () => {
+    const samples = Array.from({ length: MAX_STORED_SAMPLES + 50 }, (_unused, i) => sample('index_tip', false, String(i)));
+    const capped = capSamples(samples, 3);
+    expect(capped).toHaveLength(MAX_STORED_SAMPLES);
+    expect(capped[0]?.recordedAt).toBe('50');
+    expect(capped.at(-1)?.recordedAt).toBe(String(MAX_STORED_SAMPLES + 49));
+  });
+
+  it('keeps coverage exactly right, however old the accepted taps are', () => {
+    const accepted = CONTACT_KEYS.flatMap((contact) =>
+      Array.from({ length: 3 }, (_unused, i) => sample(contact, true, `old-${contact}-${i}`)),
+    );
+    const misses = Array.from({ length: 200 }, (_unused, i) => sample('index_tip', false, `miss-${i}`));
+    const samples = [...accepted, ...misses];
+    const before = calibrationCoverage(profileWith(samples, 3));
+    const capped = capSamples(samples, 3);
+    expect(capped).toHaveLength(MAX_STORED_SAMPLES);
+    expect(calibrationCoverage(profileWith(capped, 3))).toEqual(before);
+    expect(capped.filter((s) => s.accepted)).toHaveLength(24);
+  });
+
+  it('never trims below what coverage needs, however many taps per point were asked for', () => {
+    expect(sampleLimit(3)).toBe(MAX_STORED_SAMPLES);
+    expect(sampleLimit(50)).toBe(400);
+    const accepted = CONTACT_KEYS.flatMap((contact) =>
+      Array.from({ length: 50 }, (_unused, i) => sample(contact, true, `${contact}-${i}`)),
+    );
+    expect(capSamples(accepted, 50)).toHaveLength(400);
   });
 });
 
@@ -173,6 +250,83 @@ describe('LocalCalibrationService', () => {
     expect(calibration.get()).toBeNull();
   });
 
+  it('ignores a stored profile carrying a sample whose duration could not have happened', () => {
+    const profile = calibration.start({ hand: 'right' });
+    calibration.recordSample({ contact: 'index_tip', detectedContact: 'index_tip', durationMs: 200 });
+    const stored = calibration.get();
+    storage.set(STORAGE_KEYS.calibration, {
+      ...profile,
+      samples: [{ ...stored?.samples[0], durationMs: -200 }],
+    });
+    expect(calibration.get()).toBeNull();
+  });
+
+  it('refuses a tap whose reported length is impossible instead of recording it', () => {
+    calibration.start({ hand: 'right' });
+    calibration.recordSample({ contact: 'index_tip', detectedContact: 'index_tip', durationMs: 200 });
+    const refused = calibration.recordSample({ contact: 'index_tip', detectedContact: 'index_tip', durationMs: -1 });
+    expect(refused.accepted).toBe(false);
+    expect(refused.reason).toBeUndefined();
+    // Not stored at all: an impossible length is not evidence of anything.
+    expect(refused.profile.samples).toHaveLength(1);
+    expect(calibration.get()?.samples).toHaveLength(1);
+    expect(calibration.summary().coverage[0]).toMatchObject({ contact: 'index_tip', accepted: 1 });
+    expect(calibration.recordSample({ contact: 'index_tip', detectedContact: 'index_tip', durationMs: Number.NaN }).accepted).toBe(
+      false,
+    );
+    expect(calibration.get()?.samples).toHaveLength(1);
+  });
+
+  it('caps the stored samples when a run ends, keeping coverage and completeness', () => {
+    calibration.start({ hand: 'right' });
+    tapAll(CALIBRATION_SAMPLES_PER_CONTACT);
+    // Many more misses than the cap, as repeated runs on one point would make.
+    for (let i = 0; i < MAX_STORED_SAMPLES + 40; i += 1) {
+      calibration.recordSample({ contact: 'index_tip', detectedContact: null, durationMs: 200 });
+    }
+    const beforeCap = calibration.get()?.samples.length ?? 0;
+    expect(beforeCap).toBeGreaterThan(MAX_STORED_SAMPLES);
+    const done = calibration.complete();
+    expect(done.status).toBe('complete');
+    expect(done.samples).toHaveLength(MAX_STORED_SAMPLES);
+    expect(calibration.summary().pointsNeedingRepeat).toEqual([]);
+    expect(calibration.summary().coverage.every((c) => c.accepted >= CALIBRATION_SAMPLES_PER_CONTACT)).toBe(true);
+    const stored = storage.get<{ samples: unknown[] }>(STORAGE_KEYS.calibration);
+    expect(stored?.samples).toHaveLength(MAX_STORED_SAMPLES);
+  });
+
+  it('caps the stored samples when a run is paused', () => {
+    calibration.start({ hand: 'right' });
+    tapAll(CALIBRATION_SAMPLES_PER_CONTACT);
+    for (let i = 0; i < MAX_STORED_SAMPLES; i += 1) {
+      calibration.recordSample({ contact: 'middle_tip', detectedContact: null, durationMs: 200 });
+    }
+    expect(calibration.pause()?.samples).toHaveLength(MAX_STORED_SAMPLES);
+  });
+
+  it('trims a stored list that is already over the cap when it is loaded', () => {
+    const profile = calibration.start({ hand: 'right' });
+    const samples = Array.from({ length: 1000 }, (_unused, i) => ({
+      contact: 'index_tip' as const,
+      recordedAt: `2026-09-15T04:3${i % 10}:00.000Z`,
+      durationMs: 200,
+      detectedContact: 'index_tip' as const,
+      accepted: true,
+    }));
+    storage.set(STORAGE_KEYS.calibration, { ...profile, samples });
+    expect(calibration.get()?.samples).toHaveLength(MAX_STORED_SAMPLES);
+  });
+
+  it('holds a hard cap even if taps keep arriving without the run ending', () => {
+    calibration.start({ hand: 'right' });
+    for (let i = 0; i < 1000; i += 1) {
+      calibration.recordSample({ contact: 'index_tip', detectedContact: null, durationMs: 200 });
+    }
+    const samples = calibration.get()?.samples ?? [];
+    expect(samples.length).toBeLessThanOrEqual(MAX_STORED_SAMPLES + 80);
+    expect(samples.length).toBeGreaterThan(MAX_STORED_SAMPLES);
+  });
+
   it('notifies on its own changes and on outside changes to its key', () => {
     const listener = vi.fn();
     const unsubscribe = calibration.subscribe(listener);
@@ -198,3 +352,17 @@ describe('LocalCalibrationService', () => {
     expect(calibration.recordSample({ contact: 'index_tip', detectedContact: 'index_tip', durationMs: 200 }).accepted).toBe(true);
   });
 });
+
+function profileWith(samples: readonly CalibrationSample[], samplesRequiredPerContact: number) {
+  return {
+    id: 'cal_test',
+    hand: 'right' as const,
+    status: 'in_progress' as const,
+    startedAt: NOW.toISOString(),
+    completedAt: null,
+    samplesRequiredPerContact,
+    samples,
+    evidence: 'simulated' as const,
+    deviceId: null,
+  };
+}

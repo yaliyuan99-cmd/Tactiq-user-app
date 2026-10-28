@@ -2,6 +2,11 @@
  * Storage abstraction. Every service persists through one of these, so the
  * whole app can run on localStorage (Demo Mode), in memory (tests) or, later,
  * a backend-backed adapter without touching screens.
+ *
+ * Ownership of a key is decided here, by `DEVICE_WIDE_KEYS`: a device-wide key
+ * describes this browser, everything else belongs to one signed-in profile.
+ * `./scopedStorage` derives the per-profile view that the services are built
+ * on, so no service needs to know whose data it is reading.
  */
 
 export const STORAGE_NAMESPACE = 'tactiq.';
@@ -228,7 +233,10 @@ export class LocalStorageAdapter extends BaseStorage {
 
 /** Well-known keys, so services never collide. */
 export const STORAGE_KEYS = {
+  /** Device-wide: the appearance preferences, also read by public/theme-init.js before React starts. */
   preferences: 'prefs',
+  /** Per profile: the preferences that describe the person rather than the browser. */
+  profilePreferences: 'prefs.profile',
   authSession: 'auth.session',
   authAccounts: 'auth.accounts',
   device: 'device',
@@ -238,3 +246,27 @@ export const STORAGE_KEYS = {
   history: 'history',
   historySeeded: 'history.seeded',
 } as const;
+
+/**
+ * Keys that describe this browser, not a person, and so are shared by every
+ * profile signed in here:
+ *
+ * - `prefs` — appearance (theme, text size, contrast, reduced motion). It stays
+ *   under this exact key because public/theme-init.js reads it before React
+ *   starts, and because a display choice belongs to the screen in front of you.
+ * - `device` — which ring this browser last used, and whether it is in Demo
+ *   Mode. One browser talks to one ring at a time, whoever is signed in.
+ * - `auth.accounts`, `auth.session` — the records that say who the profiles
+ *   are, so they cannot live inside one profile.
+ *
+ * Every other key (activity history, calibration, lessons, shortcuts, the
+ * person's own preferences) belongs to the signed-in profile and is stored
+ * under that profile's prefix. New keys are per-profile unless they are added
+ * here deliberately.
+ */
+export const DEVICE_WIDE_KEYS: ReadonlySet<string> = new Set<string>([
+  STORAGE_KEYS.preferences,
+  STORAGE_KEYS.device,
+  STORAGE_KEYS.authAccounts,
+  STORAGE_KEYS.authSession,
+]);

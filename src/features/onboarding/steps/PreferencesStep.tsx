@@ -1,15 +1,14 @@
 import { RadioGroupField, SwitchField, type RadioOption } from '@/components';
-import type { TextSize, UserPreferences } from '@/domain/models';
+import type { TextSize } from '@/domain/models';
 import { useDevice } from '@/services/device/DeviceProvider';
 import { useFeedback } from '@/services/feedback/FeedbackProvider';
 import { usePreferences } from '@/services/preferences/PreferencesProvider';
 import {
-  ACCESSIBILITY_LEDE,
   AUDIO_DESCRIPTION,
   CONTRAST_DESCRIPTION,
-  HAPTIC_DESCRIPTION,
-  REDUCE_MOTION_DESCRIPTION,
-  VISUAL_DESCRIPTION,
+  MORE_IN_SETTINGS,
+  PREFERENCES_LEDE,
+  TEXT_SIZE_HINT,
 } from '../onboardingCopy';
 import {
   TEXT_SIZE_LABELS,
@@ -26,28 +25,24 @@ const TEXT_SIZE_OPTIONS: readonly RadioOption<TextSize>[] = [
   { value: 'larger', label: TEXT_SIZE_LABELS.larger },
 ];
 
-type SwitchPreference = 'reducedMotion' | 'audioAnnouncements' | 'visualConfirmation' | 'hapticFeedback';
-
-/** Every control saves and applies at once, and says what changed. */
-export function AccessibilityStep() {
-  const { preferences, update, prefersReducedMotion } = usePreferences();
+/**
+ * Step 2: the four settings worth asking about before the first command —
+ * text size, contrast, speech and time. Every control saves and applies at
+ * once, says what changed, and can be changed again in Settings.
+ */
+export function PreferencesStep() {
+  const { preferences, update } = usePreferences();
   const { state } = useDevice();
   const { announce } = useFeedback();
 
-  const toggle = (key: SwitchPreference, label: string) => (on: boolean) => {
-    update({ [key]: on } as Pick<UserPreferences, SwitchPreference>);
-    // Turning speech on confirms in the voice the user just chose.
-    announce(switchAnnouncement(label, on), { forceSpeech: key === 'audioAnnouncements' && on });
-  };
-
   return (
     <>
-      <StepLede>{ACCESSIBILITY_LEDE}</StepLede>
+      <StepLede>{PREFERENCES_LEDE}</StepLede>
 
-      <StepSection title="Text and display" card>
+      <StepSection title="Reading, speech and time" card>
         <RadioGroupField<TextSize>
           label="Text size"
-          hint="Larger text applies across the app straight away."
+          hint={TEXT_SIZE_HINT}
           options={TEXT_SIZE_OPTIONS}
           value={preferences.textSize}
           onChange={(textSize) => {
@@ -65,38 +60,15 @@ export function AccessibilityStep() {
           }}
         />
         <SwitchField
-          label="Reduce motion"
-          description={REDUCE_MOTION_DESCRIPTION}
-          checked={preferences.reducedMotion}
-          onChange={toggle('reducedMotion', 'Reduce motion')}
-        />
-        {!preferences.reducedMotion && prefersReducedMotion && (
-          <p className="text-sm text-muted-foreground">Your device already asks for reduced motion, so animation stays off.</p>
-        )}
-      </StepSection>
-
-      <StepSection title="Feedback" card>
-        <SwitchField
           label="Audio announcements"
           description={AUDIO_DESCRIPTION}
           checked={preferences.audioAnnouncements}
-          onChange={toggle('audioAnnouncements', 'Audio announcements')}
+          onChange={(on) => {
+            update({ audioAnnouncements: on });
+            // Turning speech on confirms in the voice the user just chose.
+            announce(switchAnnouncement('Audio announcements', on), { forceSpeech: on });
+          }}
         />
-        <SwitchField
-          label="Visual confirmation"
-          description={VISUAL_DESCRIPTION}
-          checked={preferences.visualConfirmation}
-          onChange={toggle('visualConfirmation', 'Visual confirmation')}
-        />
-        <SwitchField
-          label="Haptic feedback"
-          description={HAPTIC_DESCRIPTION}
-          checked={preferences.hapticFeedback}
-          onChange={toggle('hapticFeedback', 'Haptic feedback')}
-        />
-      </StepSection>
-
-      <StepSection title="Time" card>
         <SwitchField
           label="Longer interaction time"
           description={`After a squeeze, the command window stays open for ${commandWindowSeconds(
@@ -109,6 +81,8 @@ export function AccessibilityStep() {
           }}
         />
       </StepSection>
+
+      <p className="max-w-prose text-muted-foreground">{MORE_IN_SETTINGS}</p>
     </>
   );
 }

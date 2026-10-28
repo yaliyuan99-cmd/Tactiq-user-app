@@ -3,7 +3,9 @@
  * firmware and Algorithm 3 of the AUSSEF paper. Framework-free: the clock and
  * timers are injected, so the same class drives Demo Mode and unit tests.
  *
- *   idle ──squeeze (held GATE_HOLD_MS)──▶ armed (window open)
+ *   idle ──squeeze──▶ activating (window not open yet)
+ *   activating ──held GATE_HOLD_MS──▶ armed (window open)
+ *   activating ──press──▶ reject 'window_opening' (the press is still dropped)
  *   armed ──window timer──▶ idle                      (gate armed:false)
  *   armed ──press──▶ pressing (window timer suspended)
  *   pressing ──release ≤ TAP_MAX_MS──▶ token, window refreshed
@@ -14,7 +16,7 @@ import { type ContactKey } from '@/domain/contacts';
 import { resolveCommand } from '@/domain/commands';
 import { COMMAND_WINDOW_MS, EMERGENCY_ARMING_CUE_MS, EMERGENCY_HOLD_MS, GATE_HOLD_MS, TAP_MAX_MS } from '@/domain/timing';
 import { type Clock, type Scheduler, type TimerHandle, globalScheduler, systemClock } from './scheduler';
-import type { DeviceEvent } from './types';
+import type { DeviceEvent, RejectReason } from './types';
 
 /** The contact whose sustained hold is Emergency. Fixed; never remappable. */
 export const EMERGENCY_CONTACT: ContactKey = 'pinky_tip';
@@ -25,10 +27,12 @@ export const HOLD_PROGRESS_INTERVAL_MS = 100;
 /** Default duration used by `tap()` when the caller has no press timing. */
 export const DEFAULT_TAP_DURATION_MS = 160;
 
-export type RingEvent = Extract<DeviceEvent, { type: 'gate' | 'press' | 'hold_progress' | 'token' | 'reject' }>;
+export type RingEvent = Extract<DeviceEvent, { type: 'gate' | 'activating' | 'press' | 'hold_progress' | 'token' | 'reject' }>;
 export type RingEventListener = (event: RingEvent) => void;
 
 export interface RingSnapshot {
+  /** A squeeze has been received and the window has not opened yet. */
+  readonly activating: boolean;
   readonly armed: boolean;
   readonly closesAt: number | null;
   readonly pressing: { readonly contact: ContactKey; readonly since: number } | null;
@@ -49,6 +53,7 @@ export class RingStateMachine {
   private readonly listeners = new Set<RingEventListener>();
   private commandWindowMs: number;
 
+  private activating = false;
   private armed = false;
   private closesAt: number | null = null;
   private pressing: { contact: ContactKey; since: number } | null = null;
@@ -77,6 +82,7 @@ export class RingStateMachine {
 
   getSnapshot(): RingSnapshot {
     return {
+      activating: this.activating,
       armed: this.armed,
       closesAt: this.closesAt,
       pressing: this.pressing ? { ...this.pressing } : null,
@@ -94,11 +100,18 @@ export class RingStateMachine {
     if (windowMs !== null) this.commandWindowMs = windowMs;
   }
 
-  /** A deliberate squeeze: the window opens once the squeeze has been held for the gate time. */
+  /**
+   * A deliberate squeeze: the window opens once the squeeze has been held for
+   * the gate time. Until then the ring is activating, which is announced so a
+   * tap in that window can be described truthfully.
+   */
   squeeze(): void {
     if (this.gateTimer !== null) return;
+    this.activating = true;
+    this.emit({ type: 'activating', active: true, at: this.now() });
     this.gateTimer = this.scheduler.setTimeout(() => {
       this.gateTimer = null;
+      this.endActivating();
       this.armed = true;
       this.openWindow();
     }, this.gateHoldMs);
@@ -112,7 +125,9 @@ export class RingStateMachine {
     if (!this.armed) {
       if (this.unarmedPress === contact) return;
       this.unarmedPress = contact;
-      this.emit({ type: 'reject', reason: 'not_armed', contact, durationMs: null, at: this.now() });
+      // Dropped either way; only the wording differs, and only one of these is the user's mistake.
+      const reason: RejectReason = this.activating ? 'window_opening' : 'not_armed';
+      this.emit({ type: 'reject', reason, contact, durationMs: null, at: this.now() });
       return;
     }
     this.unarmedPress = null;
@@ -157,6 +172,7 @@ export class RingStateMachine {
 
   closeWindow(): void {
     this.clearGateTimer();
+    this.endActivating();
     this.cancel();
     this.disarm();
   }
@@ -166,6 +182,8 @@ export class RingStateMachine {
     this.clearGateTimer();
     this.clearWindowTimer();
     this.stopHoldTracking();
+    // Teardown is silent: listeners are going away with the adapter.
+    this.activating = false;
     this.armed = false;
     this.closesAt = null;
     this.pressing = null;
@@ -215,6 +233,13 @@ export class RingStateMachine {
   private clearGateTimer(): void {
     if (this.gateTimer !== null) this.scheduler.clearTimeout(this.gateTimer);
     this.gateTimer = null;
+  }
+
+  /** Leaves the activating phase, telling listeners once. */
+  private endActivating(): void {
+    if (!this.activating) return;
+    this.activating = false;
+    this.emit({ type: 'activating', active: false, at: this.now() });
   }
 
   private finishPress(durationMs: number): void {

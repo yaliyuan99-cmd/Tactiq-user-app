@@ -1,51 +1,44 @@
 /**
  * Pure filtering and summary arithmetic for activity history. Every figure
  * here describes practice in this app, never ring performance.
+ *
+ * The denominator rules are not repeated here: `classify.ts` owns them, and
+ * this file counts what it is told. Three invariants hold for every summary,
+ * and the tests check them:
+ *
+ *   counts.total        = activations + attempts + untargeted + emergency
+ *   attempts            = successes + misclassifications + rejected
+ *   commandAccuracy     = the sum of every perCommand row
  */
-import { COMMAND_TOKENS, resolveCommand, type CommandToken } from '@/domain/commands';
+import { COMMAND_TOKENS, type CommandToken } from '@/domain/commands';
 import type {
+  ActivityCounts,
   ActivitySummary,
+  AttemptRate,
   CommandPerformance,
+  EmergencyPerformance,
+  EvidenceBreakdown,
   GestureEvent,
   GestureOutcome,
   HistoryRange,
+  RecordEvidence,
 } from '@/domain/models';
 import { startOfDay } from '@/lib/time';
-import type { HistoryFilter } from './types';
+import { classifyEvent, intendedToken, isDropped } from './classify';
 import { eventTime } from './events';
+import type { HistoryFilter } from './types';
+
+/** Re-exported because screens have always imported it from here; the rules live in `classify.ts`. */
+export { intendedToken } from './classify';
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 
-/** Outcomes that are not practice attempts: the emergency hold is counted separately. */
-const NON_ATTEMPT_OUTCOMES: readonly GestureOutcome[] = ['emergency', 'emergency_cancelled'];
-
-export function isAttempt(event: Pick<GestureEvent, 'outcome'>): boolean {
-  return !NON_ATTEMPT_OUTCOMES.includes(event.outcome);
-}
-
 /**
- * The command the user was aiming for.
- * - When the record says which command the exercise asked for (`targetToken`),
- *   that command. This is the only way to tell a guided Emergency hold that was
- *   answered with a brief tap from a Shortcut 1 attempt on the same point.
- * - Otherwise, emergency holds (token `emergency`, an emergency outcome, or a
- *   step of the emergency lesson on the pinky fingertip) → `emergency`.
- * - Otherwise, when a target contact was set, the tap command on that contact.
- * - Otherwise the token that was recognised (free practice), or null.
+ * A press rather than a five-second hold. Used for counting rows on screen,
+ * NOT for accuracy: see `isAccuracyAttempt` for the denominator.
  */
-export function intendedToken(
-  event: Pick<GestureEvent, 'targetContact' | 'targetToken' | 'token' | 'outcome' | 'lessonId'>,
-): CommandToken | null {
-  if (event.targetToken) return event.targetToken;
-  const isHold =
-    event.token === 'emergency' ||
-    NON_ATTEMPT_OUTCOMES.includes(event.outcome) ||
-    (event.lessonId === 'emergency_hold' && event.targetContact === 'pinky_tip');
-  if (isHold) return 'emergency';
-  if (event.targetContact) {
-    return resolveCommand(event.targetContact, 'tap')?.token ?? event.token;
-  }
-  return event.token;
+export function isAttempt(event: Pick<GestureEvent, 'outcome'>): boolean {
+  return event.outcome !== 'emergency' && event.outcome !== 'emergency_cancelled';
 }
 
 /** Earliest timestamp (ms) a range includes, inclusive; null for 'all'. */
@@ -55,7 +48,19 @@ export function rangeStart(range: HistoryRange, now: Date): number | null {
   return null;
 }
 
-/** Applies range, token (by intended command) and source filters. Keeps input order. */
+/** True when the filter leaves records out, so a summary or an export must say so. */
+export function isNarrowingFilter(filter: HistoryFilter | undefined): boolean {
+  if (!filter) return false;
+  return (
+    filter.range !== 'all' ||
+    (filter.token !== undefined && filter.token !== 'all') ||
+    (filter.source !== undefined && filter.source !== 'all') ||
+    (filter.evidence !== undefined && filter.evidence !== 'all') ||
+    (filter.samples !== undefined && filter.samples !== 'include')
+  );
+}
+
+/** Applies range, command, source, evidence and sample filters. Keeps input order. */
 export function filterEvents(
   events: readonly GestureEvent[],
   filter: HistoryFilter | undefined,
@@ -65,12 +70,28 @@ export function filterEvents(
   const since = rangeStart(filter.range, now);
   const token = filter.token && filter.token !== 'all' ? filter.token : null;
   const source = filter.source && filter.source !== 'all' ? filter.source : null;
+  const evidence = filter.evidence && filter.evidence !== 'all' ? filter.evidence : null;
+  const samples = filter.samples ?? 'include';
   return events.filter(
     (event) =>
       (since === null || eventTime(event) >= since) &&
       (token === null || intendedToken(event) === token) &&
-      (source === null || event.source === source),
+      (source === null || event.source === source) &&
+      (evidence === null || event.evidence === evidence) &&
+      (samples === 'include' || (samples === 'only') === event.seeded),
   );
+}
+
+function rate(successes: number, attempts: number): number | null {
+  return attempts > 0 ? successes / attempts : null;
+}
+
+function attemptRate(successes: number, attempts: number): AttemptRate {
+  return { attempts, successes, rate: rate(successes, attempts) };
+}
+
+function emptyOutcomes(): Record<GestureOutcome, number> {
+  return { recognised: 0, mismatch: 0, rejected_duration: 0, window_closed: 0, emergency: 0, emergency_cancelled: 0 };
 }
 
 function evidenceOf(events: readonly GestureEvent[]): ActivitySummary['evidence'] {
@@ -81,46 +102,90 @@ function evidenceOf(events: readonly GestureEvent[]): ActivitySummary['evidence'
   return measured ? 'measured' : 'simulated';
 }
 
+/** Running totals for one slice of records, so the whole view and each evidence share one counter. */
+class Tally {
+  records = 0;
+  attempts = 0;
+  successes = 0;
+
+  add(event: GestureEvent, counted: boolean): void {
+    this.records += 1;
+    if (!counted) return;
+    this.attempts += 1;
+    if (event.outcome === 'recognised') this.successes += 1;
+  }
+
+  get accuracy(): AttemptRate {
+    return attemptRate(this.successes, this.attempts);
+  }
+}
+
 /** Summarises events that have already been filtered. Order of `events` does not matter. */
-export function summariseEvents(events: readonly GestureEvent[], range: HistoryRange): ActivitySummary {
+export function summariseEvents(
+  events: readonly GestureEvent[],
+  range: HistoryRange,
+  filtered = false,
+): ActivitySummary {
   const attemptsByToken = new Map<CommandToken, number>();
   const successesByToken = new Map<CommandToken, number>();
-  let attempts = 0;
-  let successes = 0;
+  const outcomes = emptyOutcomes();
+  const whole = new Tally();
+  const byEvidenceTally: Record<RecordEvidence, Tally> = { simulated: new Tally(), measured: new Tally() };
+
   let misclassifications = 0;
   let rejected = 0;
-  let emergencies = 0;
+  let activations = 0;
+  let untargeted = 0;
+  let contactAttempts = 0;
+  let commandAttempts = 0;
+  let commandSuccesses = 0;
+  let emergencyAttempts = 0;
+  let emergencyCompleted = 0;
+  let emergencyCancelled = 0;
+  let seeded = 0;
   let first: GestureEvent | null = null;
   let last: GestureEvent | null = null;
 
   for (const event of events) {
     if (!first || eventTime(event) < eventTime(first)) first = event;
     if (!last || eventTime(event) >= eventTime(last)) last = event;
-    if (event.outcome === 'emergency') emergencies += 1;
-    if (!isAttempt(event)) continue;
+    outcomes[event.outcome] += 1;
+    if (event.seeded) seeded += 1;
 
-    attempts += 1;
+    const recordClass = classifyEvent(event);
+    const counted = recordClass === 'attempt';
+    whole.add(event, counted);
+    byEvidenceTally[event.evidence].add(event, counted);
+
+    if (recordClass === 'activation') activations += 1;
+    if (recordClass === 'untargeted') untargeted += 1;
+    if (recordClass === 'emergency') {
+      emergencyAttempts += 1;
+      if (event.outcome === 'emergency') emergencyCompleted += 1;
+      else if (event.outcome === 'emergency_cancelled') emergencyCancelled += 1;
+    }
+    if (!counted) continue;
+
     const recognised = event.outcome === 'recognised';
-    if (recognised) successes += 1;
     if (event.outcome === 'mismatch') misclassifications += 1;
-    if (event.outcome === 'rejected_duration' || event.outcome === 'window_closed') rejected += 1;
+    if (isDropped(event)) rejected += 1;
 
     const intended = intendedToken(event);
-    if (intended) {
-      attemptsByToken.set(intended, (attemptsByToken.get(intended) ?? 0) + 1);
-      if (recognised) successesByToken.set(intended, (successesByToken.get(intended) ?? 0) + 1);
+    if (intended === null) {
+      // A calibration prompt: an attempt at a point, attributed to no command.
+      contactAttempts += 1;
+      continue;
     }
+    commandAttempts += 1;
+    if (recognised) commandSuccesses += 1;
+    attemptsByToken.set(intended, (attemptsByToken.get(intended) ?? 0) + 1);
+    if (recognised) successesByToken.set(intended, (successesByToken.get(intended) ?? 0) + 1);
   }
 
   const perCommand: CommandPerformance[] = COMMAND_TOKENS.map((token) => {
     const tokenAttempts = attemptsByToken.get(token) ?? 0;
     const tokenSuccesses = successesByToken.get(token) ?? 0;
-    return {
-      token,
-      attempts: tokenAttempts,
-      successes: tokenSuccesses,
-      rate: tokenAttempts > 0 ? tokenSuccesses / tokenAttempts : null,
-    };
+    return { token, attempts: tokenAttempts, successes: tokenSuccesses, rate: rate(tokenSuccesses, tokenAttempts) };
   });
 
   // Ties go to the earlier command in COMMAND_TOKENS order.
@@ -131,18 +196,49 @@ export function summariseEvents(events: readonly GestureEvent[], range: HistoryR
     }
   }
 
+  const counts: ActivityCounts = {
+    total: events.length,
+    activations,
+    attempts: whole.attempts,
+    commandAttempts,
+    contactAttempts,
+    untargeted,
+    emergency: emergencyAttempts,
+    seeded,
+    own: events.length - seeded,
+  };
+  const emergency: EmergencyPerformance = {
+    attempts: emergencyAttempts,
+    completed: emergencyCompleted,
+    cancelled: emergencyCancelled,
+    notHeld: emergencyAttempts - emergencyCompleted - emergencyCancelled,
+    rate: rate(emergencyCompleted, emergencyAttempts),
+  };
+  const byEvidence: EvidenceBreakdown = {
+    simulated: { records: byEvidenceTally.simulated.records, accuracy: byEvidenceTally.simulated.accuracy },
+    measured: { records: byEvidenceTally.measured.records, accuracy: byEvidenceTally.measured.accuracy },
+  };
+
   return {
     range,
-    attempts,
-    successes,
+    attempts: whole.attempts,
+    successes: whole.successes,
     misclassifications,
     rejected,
-    emergencies,
+    emergencies: emergencyCompleted,
     mostPractised,
     perCommand,
     firstAt: first?.at ?? null,
     lastAt: last?.at ?? null,
-    includesSeeded: events.some((e) => e.seeded),
+    includesSeeded: seeded > 0,
     evidence: evidenceOf(events),
+    accuracy: whole.accuracy,
+    commandAccuracy: attemptRate(commandSuccesses, commandAttempts),
+    contactAccuracy: attemptRate(whole.successes - commandSuccesses, contactAttempts),
+    emergency,
+    counts,
+    outcomes,
+    byEvidence,
+    filtered,
   };
 }

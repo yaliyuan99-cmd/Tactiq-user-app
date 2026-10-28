@@ -11,6 +11,7 @@ import { DEFAULT_PREFERENCES, type UserPreferences } from '@/domain/models';
 import type { LocalAccountRecord, LocalSessionRecord } from '@/services/auth/LocalDemoAuthService';
 import type { DeviceAdapter, DeviceMode } from '@/services/device/types';
 import { MemoryStorageAdapter, STORAGE_KEYS, type StorageAdapter } from '@/services/storage/StorageAdapter';
+import { SIGNED_OUT_SCOPE_ID, scopedStorage } from '@/services/storage/scopedStorage';
 
 export const TEST_USER: LocalAccountRecord = {
   id: 'user_test',
@@ -37,11 +38,31 @@ export function seedSignedInUser(storage: StorageAdapter, user: LocalAccountReco
   storage.set<LocalSessionRecord>(STORAGE_KEYS.authSession, { userId: user.id, signedInAt: '2026-09-01T09:00:00.000Z' });
 }
 
+/**
+ * A view of `storage` addressed the way the running app addresses it for the
+ * profile a test renders as. Business data (history, training, calibration,
+ * shortcuts and the person's own preferences) lives under
+ * `tactiq.u.<account>.…`, so a test that writes the bare key seeds nothing the
+ * app will read. Seed through this instead:
+ *
+ *   const storage = new MemoryStorageAdapter();
+ *   profileStorage(storage).set(STORAGE_KEYS.history, events);
+ *   renderApp(<HistoryPage />, { storage });
+ *
+ * Pass `signedIn: false` to address the scope a guest demonstration uses.
+ */
+export function profileStorage(storage: StorageAdapter, user: LocalAccountRecord | null = TEST_USER): StorageAdapter {
+  return scopedStorage(storage, user ? user.id : SIGNED_OUT_SCOPE_ID);
+}
+
 export function renderApp(
   ui: ReactElement,
   { route = '/', storage = new MemoryStorageAdapter(), preferences, signedIn = true, deviceAdapter, deviceMode, ...options }: RenderAppOptions = {},
 ): RenderAppResult {
-  storage.set<UserPreferences>(STORAGE_KEYS.preferences, {
+  // Appearance is a property of the browser; everything else about the person
+  // belongs to their profile. Seeding the whole object through the scoped view
+  // lets the split store each half where the app looks for it.
+  profileStorage(storage, signedIn ? TEST_USER : null).set<UserPreferences>(STORAGE_KEYS.preferences, {
     ...DEFAULT_PREFERENCES,
     onboardingCompleted: true,
     ...preferences,
