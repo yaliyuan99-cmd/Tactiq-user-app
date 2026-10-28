@@ -7,7 +7,7 @@ import { settleProviders } from '@/features/practice/testing/practiceTestUtils';
 import { LocalHistoryService } from '@/services/history/LocalHistoryService';
 import type { StorageAdapter } from '@/services/storage/StorageAdapter';
 import { LocalTrainingService } from '@/services/training/LocalTrainingService';
-import { act, renderApp, screen, userEvent, within, type RenderAppOptions } from '@/test/renderApp';
+import { act, profileStorage, renderApp, screen, userEvent, within, type RenderAppOptions } from '@/test/renderApp';
 import LessonPage from '../LessonPage';
 
 export type User = ReturnType<typeof userEvent.setup>;
@@ -72,12 +72,18 @@ export function stepHeading(position: number, total: number): HTMLElement {
   return screen.getByRole('heading', { level: 2, name: new RegExp(`^Step ${position} of ${total}: `) });
 }
 
+/**
+ * Lessons and activity belong to the signed-in profile, so both are read back
+ * through that profile's view of the store the test rendered with — the same
+ * address the running app saves them under. Passing an already-scoped view is
+ * safe: `profileStorage` rebases rather than nesting.
+ */
 export function savedTraining(storage: StorageAdapter): LocalTrainingService {
-  return new LocalTrainingService(storage);
+  return new LocalTrainingService(profileStorage(storage));
 }
 
 export function savedHistory(storage: StorageAdapter): LocalHistoryService {
-  return new LocalHistoryService(storage);
+  return new LocalHistoryService(profileStorage(storage));
 }
 
 export { within };

@@ -1,13 +1,14 @@
 import { ROUTES } from '@/app/routes';
-import type { GestureEvent } from '@/domain/models';
 import { downloadTextFile } from '@/lib/download';
+import { HISTORY_CSV_COLUMNS } from '@/services/history/export';
 import { LocalHistoryService } from '@/services/history/LocalHistoryService';
 import { useHistory } from '@/services/ServicesProvider';
+import { scopedKey } from '@/services/storage/scopedStorage';
 import { MemoryStorageAdapter, STORAGE_KEYS } from '@/services/storage/StorageAdapter';
-import { renderApp, screen, userEvent, within } from '@/test/renderApp';
+import { TEST_USER, renderApp, screen, userEvent, within } from '@/test/renderApp';
 import { SAMPLE_RECORDS_NOTICE } from './EvidenceBanner';
 import HistoryPage, { STORAGE_WARNING } from './HistoryPage';
-import { TEST_NOW, manyEvents, minutesAgo, standardEvents, storageWith } from './historyTestData';
+import { TEST_NOW, manyEvents, minutesAgo, standardEvents, storageWith, storedEvents } from './historyTestData';
 
 // The browser plumbing is tested in src/lib/download.test.ts; the real datedFilename names the file.
 vi.mock('@/lib/download', async (importOriginal) => {
@@ -71,11 +72,11 @@ describe('HistoryPage data', () => {
       expect(screen.queryByText(SAMPLE_RECORDS_NOTICE)).not.toBeInTheDocument();
       expect(screen.getByRole('table', { name: 'Newest first, showing 10 of 10' })).not.toHaveTextContent('Sample');
       expect(screen.getByRole('heading', { level: 2, name: 'Filters' })).toHaveFocus();
-      const stored = storage.get<GestureEvent[]>(STORAGE_KEYS.history);
+      const stored = storedEvents(storage);
       expect(stored).toHaveLength(standardEvents().length);
       expect(stored?.every((e) => !e.seeded)).toBe(true);
       // The user's own records are kept unchanged, oldest first, by one call to the history service.
-      expect(stored).toEqual(storageWith(standardEvents()).get(STORAGE_KEYS.history));
+      expect(stored).toEqual(storedEvents(storageWith(standardEvents())));
       expect(removeSeeded).toHaveBeenCalledTimes(1);
       expect(clear).not.toHaveBeenCalled();
       expect(append).not.toHaveBeenCalled();
@@ -94,7 +95,7 @@ describe('HistoryPage data', () => {
       expect(await polite().findByText('Removed 3 sample records.')).toBeInTheDocument();
       expect(screen.getByRole('heading', { level: 2, name: 'No activity yet' })).toBeInTheDocument();
       expect(screen.getByRole('heading', { level: 1, name: 'History' })).toHaveFocus();
-      expect(storage.get(STORAGE_KEYS.history)).toEqual([]);
+      expect(storedEvents(storage)).toEqual([]);
     });
 
     it('keeps everything when the removal is cancelled', async () => {
@@ -134,9 +135,13 @@ describe('HistoryPage data', () => {
       expect(filename).toBe('tactiq-activity-2026-09-15.csv');
       expect(contentType).toBe('text/csv;charset=utf-8');
       const lines = (content ?? '').split('\r\n');
+      // The column order is the contract other tools read, so a new column is
+      // appended rather than inserted: `kind` (command or activation) follows
+      // `targetToken` (the command the exercise asked for).
       expect(lines[0]).toBe(
-        'id,at,source,mode,targetContact,detectedContact,token,durationMs,outcome,evidence,seeded,lessonId,targetToken',
+        'id,at,source,mode,targetContact,detectedContact,token,durationMs,outcome,evidence,seeded,lessonId,targetToken,kind',
       );
+      expect(lines[0]).toBe(HISTORY_CSV_COLUMNS.join(','));
       expect(lines).toHaveLength(13);
     });
 
@@ -161,7 +166,7 @@ describe('HistoryPage data', () => {
       const confirm = within(dialog).getByRole('button', { name: 'Clear activity' });
       expect(confirm).toHaveAttribute('aria-disabled', 'true');
       await user.click(confirm);
-      expect(storage.get(STORAGE_KEYS.history)).toHaveLength(12);
+      expect(storedEvents(storage)).toHaveLength(12);
 
       await user.type(within(dialog).getByRole('textbox', { name: 'Type “clear” to confirm' }), 'clear');
       await user.click(within(dialog).getByRole('button', { name: 'Clear activity' }));
@@ -170,7 +175,7 @@ describe('HistoryPage data', () => {
       expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
       expect(screen.getByRole('heading', { level: 2, name: 'No activity yet' })).toBeInTheDocument();
       expect(screen.getByRole('heading', { level: 1, name: 'History' })).toHaveFocus();
-      expect(storage.get(STORAGE_KEYS.history)).toBeNull();
+      expect(storedEvents(storage)).toBeNull();
     });
 
     it('keeps activity when cancelled', async () => {
@@ -184,9 +189,17 @@ describe('HistoryPage data', () => {
   });
 
   describe('storage', () => {
+    /**
+     * Refuses to save the signed-in profile's activity, as a browser out of
+     * quota would. What it refuses is the key the history service writes
+     * through: activity belongs to a profile, so it is kept behind that
+     * profile's prefix, not at the bare key.
+     */
     class HistoryRefusingStorage extends MemoryStorageAdapter {
+      private readonly historyKey = scopedKey(TEST_USER.id, STORAGE_KEYS.history);
+
       set<T>(key: string, value: T): boolean {
-        if (key === STORAGE_KEYS.history) return false;
+        if (key === this.historyKey) return false;
         return super.set(key, value);
       }
     }

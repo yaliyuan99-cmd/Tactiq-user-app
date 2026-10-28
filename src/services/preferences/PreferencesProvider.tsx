@@ -100,9 +100,15 @@ export function applyPreferencesToDocument(prefs: UserPreferences, systemDark: b
   root.classList.toggle('force-reduced-motion', prefs.reducedMotion);
 }
 
-/** The state after a save: what is stored is what is on screen, so nothing is left to report. */
-function saved(preferences: UserPreferences): StoredPreferences {
-  return { preferences, ...NO_RECOVERY, legacyProfileFields: [] };
+/**
+ * The state after a write: what is stored is what is on screen, so there are
+ * no legacy fields left to claim. `recovery` is what is still worth telling
+ * the user — nothing after they save, but a claim of the fields a pre-profiles
+ * build left behind must not swallow the report that some of them were
+ * unusable and were put back to their defaults.
+ */
+function saved(preferences: UserPreferences, recovery: PreferencesRecovery = NO_RECOVERY): StoredPreferences {
+  return { preferences, ...recovery, legacyProfileFields: [] };
 }
 
 export interface PreferencesProviderProps {
@@ -132,6 +138,13 @@ export function PreferencesProvider({ storage, scopeId, children }: PreferencesP
    * render.
    */
   const latest = useRef(preferences);
+  /**
+   * True while this provider is writing. `storage.set` notifies subscribers
+   * synchronously, so without this the write below would come straight back as
+   * a change from elsewhere and be read in again — discarding, with it, what
+   * the read had to put right and the user has not been told yet.
+   */
+  const writing = useRef(false);
   const [systemDark, setSystemDark] = useState<boolean>(systemPrefersDark);
   const [systemReduced, setSystemReduced] = useState<boolean>(systemPrefersReducedMotion);
   const [persisted, setPersisted] = useState(true);
@@ -169,6 +182,7 @@ export function PreferencesProvider({ storage, scopeId, children }: PreferencesP
     () =>
       storage.subscribe((key) => {
         if (key !== STORAGE_KEYS.preferences && key !== STORAGE_KEYS.profilePreferences) return;
+        if (writing.current) return;
         const next = readStoredPreferences(storage);
         latest.current = next.preferences;
         setStored(next);
@@ -181,10 +195,15 @@ export function PreferencesProvider({ storage, scopeId, children }: PreferencesP
   }, [preferences, systemDark]);
 
   const apply = useCallback(
-    (next: UserPreferences) => {
+    (next: UserPreferences, recovery?: PreferencesRecovery) => {
       latest.current = next;
-      setStored(saved(next));
-      setPersisted(writePreferences(storage, next));
+      setStored(saved(next, recovery));
+      writing.current = true;
+      try {
+        setPersisted(writePreferences(storage, next));
+      } finally {
+        writing.current = false;
+      }
     },
     [storage],
   );
@@ -200,7 +219,10 @@ export function PreferencesProvider({ storage, scopeId, children }: PreferencesP
    */
   useEffect(() => {
     if (!scopeId || stored.legacyProfileFields.length === 0) return;
-    apply(latest.current);
+    // A claim is not the user saving, so what had to be put right is still
+    // theirs to be told: Settings keeps showing PREFERENCES_REPLACED_NOTE
+    // until they save something themselves.
+    apply(latest.current, { replacedFields: stored.replacedFields, unreadable: stored.unreadable });
   }, [scopeId, stored, apply]);
 
   const update = useCallback(

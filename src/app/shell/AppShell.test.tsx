@@ -1,6 +1,7 @@
 import '@/app/testing/mockPages';
 import { screen, waitFor, within } from '@testing-library/react';
 import { ROUTES } from '@/app/routes';
+import { banner } from '@/app/testing/landmarks';
 import { currentLocation, renderRoutes } from '@/app/testing/renderRoutes';
 
 function sidebar() {
@@ -25,8 +26,7 @@ describe('AppShell navigation', () => {
       'Activity',
       'Settings',
     ]);
-    const banner = screen.getByRole('banner');
-    expect(within(banner).getByRole('link', { name: 'Help' })).toHaveAttribute('href', ROUTES.help);
+    expect(within(banner()).getByRole('link', { name: 'Help' })).toHaveAttribute('href', ROUTES.help);
   });
 
   it('groups the sidebar under the same five names, with every label visible', async () => {
@@ -127,12 +127,12 @@ describe('AppShell navigation', () => {
     ROUTES.history,
     ROUTES.settings,
     ROUTES.help,
-  ])('shows one main landmark, one h1 and the Help link on %s', async (route) => {
+  ])('shows one main landmark, one h1 and one banner with the Help link on %s', async (route) => {
     renderRoutes({ route });
     await screen.findByRole('heading', { level: 1 });
     expect(screen.getAllByRole('main')).toHaveLength(1);
     expect(screen.getAllByRole('heading', { level: 1 })).toHaveLength(1);
-    const banner = screen.getByRole('banner');
-    expect(within(banner).getByRole('link', { name: 'Help' })).toHaveAttribute('href', ROUTES.help);
+    // banner() is the one top-level <header>; it throws if the screen ever grows a second.
+    expect(within(banner()).getByRole('link', { name: 'Help' })).toHaveAttribute('href', ROUTES.help);
   });
 });

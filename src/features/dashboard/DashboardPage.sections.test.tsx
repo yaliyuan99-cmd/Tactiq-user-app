@@ -1,7 +1,7 @@
 import { ROUTES } from '@/app/routes';
 import { EMERGENCY_SIMULATION_NOTICE } from '@/domain/evidence';
 import { createServices } from '@/services/ServicesProvider';
-import { act, renderApp, screen, within, type RenderAppOptions } from '@/test/renderApp';
+import { act, profileStorage, renderApp, screen, within, type RenderAppOptions } from '@/test/renderApp';
 import DashboardPage from './DashboardPage';
 import { seededStorage, SETUP_FINISHED } from './testing/seed';
 
@@ -162,7 +162,8 @@ describe('DashboardPage recent activity', () => {
     const storage = seededStorage(() => undefined);
     await renderDashboard({ storage });
     expect(within(region('Recent activity')).getByText('No activity yet.')).toBeInTheDocument();
-    const other = createServices(storage);
+    // Another part of the app, addressing the same profile's store.
+    const other = createServices(profileStorage(storage));
     act(() => {
       other.history.append({
         source: 'training',

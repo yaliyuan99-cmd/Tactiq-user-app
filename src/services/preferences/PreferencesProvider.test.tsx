@@ -1,6 +1,7 @@
 import { act, renderHook } from '@testing-library/react';
 import type { ReactNode } from 'react';
 import { DEFAULT_PREFERENCES, type UserPreferences } from '@/domain/models';
+import { ONBOARDING_LAST_STEP } from '@/domain/onboarding';
 import { MemoryStorageAdapter, STORAGE_KEYS } from '@/services/storage/StorageAdapter';
 import {
   PREFERENCES_REPLACED_NOTE,
@@ -105,7 +106,26 @@ describe('PreferencesProvider', () => {
       reducedMotion: true,
     };
     expect(result.current.preferences).toEqual(expected);
-    expect(storage.get(STORAGE_KEYS.preferences)).toEqual(expected);
+    expect(loadPreferences(storage)).toEqual(expected);
+    // The two records the preferences are kept in: appearance device-wide,
+    // under the key public/theme-init.js reads, and the rest with the person.
+    expect(storage.get(STORAGE_KEYS.preferences)).toEqual({
+      version: 1,
+      theme: 'dark',
+      textSize: 'larger',
+      contrast: 'high',
+      reducedMotion: true,
+    });
+    expect(storage.get(STORAGE_KEYS.profilePreferences)).toEqual({
+      version: 1,
+      audioAnnouncements: DEFAULT_PREFERENCES.audioAnnouncements,
+      visualConfirmation: DEFAULT_PREFERENCES.visualConfirmation,
+      hapticFeedback: DEFAULT_PREFERENCES.hapticFeedback,
+      longerInteractionTime: DEFAULT_PREFERENCES.longerInteractionTime,
+      hand: DEFAULT_PREFERENCES.hand,
+      onboardingCompleted: DEFAULT_PREFERENCES.onboardingCompleted,
+      onboardingStep: DEFAULT_PREFERENCES.onboardingStep,
+    });
     expect(result.current.resolvedTheme).toBe('dark');
     expect(result.current.prefersReducedMotion).toBe(true);
     const root = document.documentElement;
@@ -124,7 +144,7 @@ describe('PreferencesProvider', () => {
       result.current.reset();
     });
     expect(result.current.preferences).toEqual(DEFAULT_PREFERENCES);
-    expect(storage.get(STORAGE_KEYS.preferences)).toEqual(DEFAULT_PREFERENCES);
+    expect(loadPreferences(storage)).toEqual(DEFAULT_PREFERENCES);
     expect(result.current.persisted).toBe(true);
     const root = document.documentElement;
     expect(root.classList.contains('dark')).toBe(false);
@@ -147,7 +167,7 @@ describe('PreferencesProvider', () => {
       longerInteractionTime: true,
       hand: 'left',
       onboardingCompleted: true,
-      onboardingStep: 6,
+      onboardingStep: ONBOARDING_LAST_STEP,
     };
     storage.set(STORAGE_KEYS.preferences, customised);
     const { result } = setup(storage);
@@ -157,9 +177,12 @@ describe('PreferencesProvider', () => {
       result.current.reset();
     });
 
-    const expected: UserPreferences = { ...DEFAULT_PREFERENCES, onboardingCompleted: true, onboardingStep: 6 };
+    const expected: UserPreferences = {
+      ...DEFAULT_PREFERENCES,
+      onboardingCompleted: true,
+      onboardingStep: ONBOARDING_LAST_STEP,
+    };
     expect(result.current.preferences).toEqual(expected);
-    expect(storage.get(STORAGE_KEYS.preferences)).toEqual(expected);
     expect(loadPreferences(storage)).toEqual(expected);
   });
 
@@ -172,16 +195,20 @@ describe('PreferencesProvider', () => {
       result.current.reset();
     });
     expect(result.current.preferences).toEqual({ ...DEFAULT_PREFERENCES, onboardingStep: 2 });
-    expect(storage.get(STORAGE_KEYS.preferences)).toEqual({ ...DEFAULT_PREFERENCES, onboardingStep: 2 });
+    expect(loadPreferences(storage)).toEqual({ ...DEFAULT_PREFERENCES, onboardingStep: 2 });
   });
 
   it('uses the latest onboarding progress when an update and a reset happen in the same batch', () => {
     const { result } = setup();
     act(() => {
-      result.current.update({ onboardingCompleted: true, onboardingStep: 6, theme: 'dark' });
+      result.current.update({ onboardingCompleted: true, onboardingStep: ONBOARDING_LAST_STEP, theme: 'dark' });
       result.current.reset();
     });
-    expect(result.current.preferences).toEqual({ ...DEFAULT_PREFERENCES, onboardingCompleted: true, onboardingStep: 6 });
+    expect(result.current.preferences).toEqual({
+      ...DEFAULT_PREFERENCES,
+      onboardingCompleted: true,
+      onboardingStep: ONBOARDING_LAST_STEP,
+    });
   });
 
   it('reports when a reset could not be saved', () => {

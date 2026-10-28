@@ -101,6 +101,9 @@ describe('LessonRunner', () => {
         source: 'training',
         mode: 'lesson',
         lessonId: 'squeeze_to_activate',
+        // A squeeze is an activation, not a command attempt: three of these
+        // must never read as three correct taps in the accuracy figure.
+        kind: 'activation',
         token: null,
         targetContact: null,
         detectedContact: null,

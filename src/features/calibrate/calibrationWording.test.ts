@@ -81,8 +81,13 @@ describe('calibration wording', () => {
     expect(resultsSentence(two)).toBe('Two points need repeating: Index finger base and Ring fingertip.');
     expect(missesSentence(1)).toBe('One try has not counted on this point. After three, we move on and mark it to repeat.');
     expect(missesSentence(2)).toMatch(/^Two tries have not counted/);
-    expect(evidenceSentence('simulated')).toContain('always detects the point you choose');
-    expect(evidenceSentence('measured')).toContain('not a validated accuracy result');
+    // Both sentences must still disclose what the record is worth and that
+    // calibration changed nothing on the ring; the wording moved, the claim did not.
+    expect(evidenceSentence('simulated')).toContain('reports whichever point you choose');
+    expect(evidenceSentence('simulated')).toContain('nothing was adjusted');
+    expect(evidenceSentence('measured')).toContain('unvalidated');
+    expect(evidenceSentence('measured')).toContain('not an accuracy result');
+    expect(evidenceSentence('measured')).toContain('Nothing was adjusted on the ring');
     expect(joinWithAnd([])).toBe('');
     expect(joinWithAnd(['A', 'B', 'C'])).toBe('A, B and C');
   });

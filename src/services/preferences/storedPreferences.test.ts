@@ -1,11 +1,23 @@
 import { DEFAULT_PREFERENCES, type UserPreferences } from '@/domain/models';
 import { ONBOARDING_LAST_STEP } from '@/domain/onboarding';
 import { LocalStorageAdapter, MemoryStorageAdapter, STORAGE_KEYS } from '@/services/storage/StorageAdapter';
-import { readStoredPreferences } from './storedPreferences';
+import { PROFILE_PREFERENCE_FIELDS, readStoredPreferences, writePreferences } from './storedPreferences';
 
+/**
+ * A store written by a build from before profiles existed: all of it, the
+ * person's preferences included, under the device-wide key. Still the way the
+ * unusable-value cases are seeded, because that is the store they come from.
+ */
 function withStored(value: unknown): MemoryStorageAdapter {
   const storage = new MemoryStorageAdapter();
   storage.set(STORAGE_KEYS.preferences, value);
+  return storage;
+}
+
+/** A store written the way the app writes it now: appearance device-wide, the rest with the person. */
+function withSplitRecords(preferences: UserPreferences): MemoryStorageAdapter {
+  const storage = new MemoryStorageAdapter();
+  writePreferences(storage, preferences);
   return storage;
 }
 
@@ -15,6 +27,7 @@ describe('readStoredPreferences', () => {
       preferences: DEFAULT_PREFERENCES,
       replacedFields: [],
       unreadable: false,
+      legacyProfileFields: [],
     });
   });
 
@@ -33,11 +46,31 @@ describe('readStoredPreferences', () => {
       onboardingCompleted: true,
       onboardingStep: ONBOARDING_LAST_STEP,
     };
-    expect(readStoredPreferences(withStored(saved))).toEqual({
+    expect(readStoredPreferences(withSplitRecords(saved))).toEqual({
       preferences: saved,
       replacedFields: [],
       unreadable: false,
+      legacyProfileFields: [],
     });
+  });
+
+  it('reads the person’s preferences a pre-profiles build left device-wide, and says which they were', () => {
+    const stored: UserPreferences = { ...DEFAULT_PREFERENCES, theme: 'dark', hand: 'left', onboardingCompleted: true };
+    const result = readStoredPreferences(withStored(stored));
+    // Nobody's setup progress or hand disappears on upgrade…
+    expect(result.preferences).toEqual(stored);
+    expect(result.replacedFields).toEqual([]);
+    // …and the caller is told, so the first profile to sign in can claim them.
+    expect([...result.legacyProfileFields].sort()).toEqual([...PROFILE_PREFERENCE_FIELDS].sort());
+  });
+
+  it('prefers the profile’s own record over the one a pre-profiles build left device-wide', () => {
+    const storage = withStored({ ...DEFAULT_PREFERENCES, hand: 'left', onboardingCompleted: true });
+    writePreferences(storage, { ...DEFAULT_PREFERENCES, hand: 'right', onboardingCompleted: false });
+    const result = readStoredPreferences(storage);
+    expect(result.preferences.hand).toBe('right');
+    expect(result.preferences.onboardingCompleted).toBe(false);
+    expect(result.legacyProfileFields).toEqual([]);
   });
 
   it('fills in a preference that was added after the user last saved, without calling it a replacement', () => {

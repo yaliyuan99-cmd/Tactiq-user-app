@@ -23,13 +23,15 @@ async function findPageHeading(name: string) {
 }
 
 describe('AppRoutes: the public page at /', () => {
-  it('renders the public page to a signed-out visitor, with the way in', async () => {
+  // The home page is a stub here, so this file proves only what the route table
+  // decides: "/" opens the public page signed in and signed out, and the route
+  // wraps it in no frame of its own. The page's own banner, its way in and its
+  // single main landmark and skip link belong to the page, and are checked
+  // against the real page in App.public.test.tsx.
+  it('renders the public page to a signed-out visitor, with no app navigation around it', async () => {
     renderRoutes({ route: ROUTES.root, signedIn: false });
     expect(await findPageHeading('Public home')).toBeInTheDocument();
     expect(currentLocation()).toBe(ROUTES.root);
-    const banner = screen.getByRole('banner');
-    expect(within(banner).getByRole('link', { name: 'Sign in' })).toHaveAttribute('href', ROUTES.signIn);
-    expect(within(banner).getByRole('link', { name: 'Demonstration' })).toHaveAttribute('href', ROUTES.demo);
     expect(screen.queryByRole('navigation', { name: 'Main' })).not.toBeInTheDocument();
   });
 
@@ -37,16 +39,14 @@ describe('AppRoutes: the public page at /', () => {
     renderRoutes({ route: ROUTES.root });
     expect(await findPageHeading('Public home')).toBeInTheDocument();
     expect(currentLocation()).toBe(ROUTES.root);
-    const banner = screen.getByRole('banner');
-    expect(within(banner).getByRole('link', { name: 'Your dashboard' })).toHaveAttribute('href', ROUTES.dashboard);
-    expect(within(banner).getByRole('link', { name: 'Help' })).toHaveAttribute('href', ROUTES.help);
+    expect(screen.queryByRole('navigation', { name: 'Main' })).not.toBeInTheDocument();
   });
 
-  it('has one main landmark and one skip link', async () => {
+  it('registers / outside the public frame, so the page supplies the only main landmark and skip link', async () => {
     renderRoutes({ route: ROUTES.root, signedIn: false });
     await findPageHeading('Public home');
-    expect(screen.getAllByRole('main')).toHaveLength(1);
-    expect(screen.getAllByRole('link', { name: 'Skip to main content' })).toHaveLength(1);
+    expect(screen.queryByRole('main')).not.toBeInTheDocument();
+    expect(screen.queryByRole('link', { name: 'Skip to main content' })).not.toBeInTheDocument();
     expect(screen.getAllByRole('heading', { level: 1 })).toHaveLength(1);
   });
 });

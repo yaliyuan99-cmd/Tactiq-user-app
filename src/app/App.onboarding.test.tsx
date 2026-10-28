@@ -10,6 +10,7 @@ import { ONBOARDING_LAST_STEP } from '@/domain/onboarding';
 import { stepIndexOf } from '@/features/onboarding/onboardingFlow';
 import { readStoredPreferences } from '@/services/preferences/storedPreferences';
 import type { StorageAdapter } from '@/services/storage/StorageAdapter';
+import { profileStorage } from '@/test/renderApp';
 import type { UserPreferences } from '@/domain/models';
 
 vi.mock('@/features/calibrate/CalibratePage', async () => (await import('./testing/pageStubs')).stubPage('Calibrate'));
@@ -21,9 +22,14 @@ async function findStepHeading(name: string) {
   return screen.findByRole('heading', { level: 1, name });
 }
 
-/** The preferences in force, read the way the app reads them (renderRoutes seeds one unscoped store). */
+/**
+ * The preferences in force, read the way the app reads them: through the
+ * signed-in profile's view of storage. The person's half (hand, feedback,
+ * timing and setup progress) is stored under that profile's prefix, so reading
+ * the bare keys here would report the defaults and prove nothing.
+ */
 function storedPreferences(storage: StorageAdapter): UserPreferences {
-  return readStoredPreferences(storage).preferences;
+  return readStoredPreferences(profileStorage(storage)).preferences;
 }
 
 describe('AppRoutes: onboarding frame', () => {

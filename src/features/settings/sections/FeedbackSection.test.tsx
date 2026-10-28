@@ -1,5 +1,4 @@
 import type { UserPreferences } from '@/domain/models';
-import { STORAGE_KEYS } from '@/services/storage/StorageAdapter';
 import { screen, userEvent, waitFor } from '@/test/renderApp';
 import {
   installSpeech,
@@ -7,6 +6,7 @@ import {
   politeRegion,
   removeBrowserFeedback,
   renderSettings,
+  storedPreferences,
 } from '../testing/renderSettings';
 import { FeedbackSection } from './FeedbackSection';
 
@@ -30,12 +30,12 @@ describe('FeedbackSection', () => {
     );
     await user.click(audio);
     expect(audio).toHaveAttribute('aria-checked', 'true');
-    expect(storage.get<UserPreferences>(STORAGE_KEYS.preferences)?.audioAnnouncements).toBe(true);
+    expect(storedPreferences(storage).audioAnnouncements).toBe(true);
     await waitFor(() => expect(politeRegion()).toHaveTextContent('Audio announcements on.'));
 
     const visual = screen.getByRole('switch', { name: 'Visual confirmation' });
     await user.click(visual);
-    expect(storage.get<UserPreferences>(STORAGE_KEYS.preferences)?.visualConfirmation).toBe(false);
+    expect(storedPreferences(storage).visualConfirmation).toBe(false);
     await waitFor(() => expect(politeRegion()).toHaveTextContent('Visual confirmation off.'));
 
     const haptic = screen.getByRole('switch', { name: 'Haptic feedback' });
@@ -43,7 +43,7 @@ describe('FeedbackSection', () => {
       'Vibrates this phone as a stand-in for the ring’s haptics, where the browser allows it.',
     );
     await user.click(haptic);
-    expect(storage.get<UserPreferences>(STORAGE_KEYS.preferences)?.hapticFeedback).toBe(false);
+    expect(storedPreferences(storage).hapticFeedback).toBe(false);
     await waitFor(() => expect(politeRegion()).toHaveTextContent('Haptic feedback off.'));
   });
 

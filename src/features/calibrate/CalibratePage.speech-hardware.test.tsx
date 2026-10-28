@@ -1,5 +1,6 @@
 import { FakeHardwareRing, installSpeechSpy, type SpeechSpy } from '@/features/practice/testing/practiceTestUtils';
 import { act, screen, waitFor, within } from '@/test/renderApp';
+import { MEASURED_EVIDENCE_DETAIL, RESTART_DESCRIPTION_LEAD, RUN_RING_SENTENCES } from './calibrationCopy';
 import {
   clickAndOpenWindow,
   findPolite,
@@ -75,11 +76,15 @@ describe('With a hardware ring', () => {
   it('labels the evidence as measured, tells the user to squeeze, and records measured taps', async () => {
     const hardware = new FakeHardwareRing();
     const { user, storage } = await renderCalibrate({ deviceAdapter: hardware });
-    expect(screen.getByText('Measured — bench prototype')).toBeInTheDocument();
+    // A bench ring may be called Measured, but never without saying it is unvalidated.
+    expect(screen.getByText(`Measured — ${MEASURED_EVIDENCE_DETAIL}`)).toBeInTheDocument();
+    expect(MEASURED_EVIDENCE_DETAIL).toMatch(/unvalidated/);
 
     await user.click(screen.getByRole('button', { name: 'Start calibration' }));
     expect(promptHeading()).toHaveTextContent('Tap your Index fingertip');
-    expect(screen.getByText('Squeeze, then tap.')).toBeInTheDocument();
+    // With a ring connected the user opens the window themselves, so the page says so.
+    expect(screen.getByText(RUN_RING_SENTENCES.ring_ready)).toBeInTheDocument();
+    expect(RUN_RING_SENTENCES.ring_ready).toMatch(/^Squeeze, then tap\./);
     expect(screen.queryByRole('button', { name: /Index fingertip/ })).not.toBeInTheDocument();
 
     act(() => hardware.send({ type: 'gate', armed: true, closesAt: Date.now() + 3000 }));
@@ -105,11 +110,15 @@ describe('With a hardware ring', () => {
       deviceAdapter: new FakeHardwareRing(),
       storage: storageWithIncompleteProfile(['ring_tip']),
     });
-    expect(
-      screen.getByText('Your unfinished calibration used the simulated ring. Start again to calibrate with the connected ring.'),
-    ).toBeInTheDocument();
+    // Simulated taps cannot be pooled with taps from a ring, and the screen says
+    // both why this run cannot continue and what starting again costs.
+    const explanation = screen.getByText(
+      /Your unfinished calibration used the simulated ring, so its taps cannot be added to taps from the connected ring\./,
+    );
+    expect(explanation).toHaveTextContent(RESTART_DESCRIPTION_LEAD);
     expect(screen.queryByRole('button', { name: 'Resume calibration' })).not.toBeInTheDocument();
-    await user.click(screen.getByRole('button', { name: 'Start calibration' }));
+    // The stored taps would be replaced, so the only way on says 'Start again'.
+    await user.click(screen.getByRole('button', { name: 'Start again' }));
     expect(screen.getByRole('dialog', { name: 'Start calibration again?' })).toBeInTheDocument();
   });
 });

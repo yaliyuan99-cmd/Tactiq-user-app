@@ -4,13 +4,21 @@ import type { LessonId } from '@/domain/lessons';
 import { ONBOARDING_LAST_STEP } from '@/domain/onboarding';
 import { createServices, type AppServices } from '@/services/ServicesProvider';
 import { MemoryStorageAdapter, type StorageAdapter } from '@/services/storage/StorageAdapter';
+import { profileStorage } from '@/test/renderApp';
 
 /** Preferences for a user who finished setup, so the next step moves past "Resume setup". */
 export const SETUP_FINISHED = { onboardingCompleted: true, onboardingStep: ONBOARDING_LAST_STEP } as const;
 
+/**
+ * A store seeded the way the running app would have written it: calibration,
+ * lessons and shortcuts belong to the signed-in profile, so the services do
+ * the seeding through that profile's view of the store (see
+ * `profileStorage`). The whole store is returned, because that is what
+ * `renderApp` takes.
+ */
 export function seededStorage(seed: (services: AppServices) => void): StorageAdapter {
   const storage = new MemoryStorageAdapter();
-  seed(createServices(storage));
+  seed(createServices(profileStorage(storage)));
   return storage;
 }
 

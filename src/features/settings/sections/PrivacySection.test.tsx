@@ -1,13 +1,18 @@
 import { Route, Routes } from 'react-router';
 import { ROUTES } from '@/app/routes';
 import { OnboardingGate } from '@/app/routing/OnboardingGate';
-import type { UserPreferences } from '@/domain/models';
+import { ONBOARDING_LAST_STEP } from '@/domain/onboarding';
+import { PREFERENCES_OWNERSHIP_NOTE } from '@/services/preferences/PreferencesProvider';
 import { STORAGE_KEYS } from '@/services/storage/StorageAdapter';
-import { act, renderApp, screen, userEvent, waitFor, within } from '@/test/renderApp';
-import { SIGN_IN_STUB, politeRegion, renderSettings, signInState } from '../testing/renderSettings';
+import { TEST_USER, act, profileStorage, renderApp, screen, userEvent, waitFor, within } from '@/test/renderApp';
+import { SIGN_IN_STUB, politeRegion, renderSettings, signInState, storedPreferences } from '../testing/renderSettings';
 import { FakeRingAdapter } from '../testing/FakeRingAdapter';
 import SettingsPage from '../SettingsPage';
+import { USER_DATA_EXPORT_FORMAT, USER_DATA_SECTIONS, type UserDataExport } from '../dataExport';
 import { PrivacySection } from './PrivacySection';
+
+/** A second profile on this browser, whose records the download must not touch. */
+const OTHER_USER = { ...TEST_USER, id: 'user_other', email: 'sam@example.com', displayName: 'Sam' };
 
 function readBlob(blob: Blob): Promise<string> {
   return new Promise((resolve, reject) => {
@@ -28,19 +33,40 @@ describe('PrivacySection', () => {
     vi.useRealTimers();
   });
 
-  it('says what is stored and that nothing is sent anywhere in Demo Mode', async () => {
+  it('says what is stored, who it belongs to, and that nothing is sent anywhere in Demo Mode', async () => {
     await renderSettings({}, <PrivacySection />);
-    for (const item of ['Preferences:', 'Profile:', 'Calibration:', 'Lessons:', 'Activity:']) {
+    // Each kind of stored data is named, and the list now says which of it
+    // follows the browser and which follows the profile.
+    for (const item of [
+      'Appearance:',
+      'Your preferences:',
+      'Profile:',
+      'Calibration:',
+      'Lessons:',
+      'Activity:',
+      'Shortcuts:',
+      'Ring connection:',
+    ]) {
       expect(screen.getByText(item)).toBeInTheDocument();
     }
+    expect(screen.getByText(PREFERENCES_OWNERSHIP_NOTE)).toBeInTheDocument();
     expect(
       screen.getByText(
         'All of this stays in this browser on this device. Your profile, settings and activity are never sent to a server.',
       ),
     ).toBeInTheDocument();
+    expect(
+      screen.getByText(/Each profile on this browser keeps its own calibration, lessons, shortcuts and activity/),
+    ).toBeInTheDocument();
+    // The type is served from this app, so "nothing is sent anywhere" is now
+    // true of the page itself and may be said plainly.
+    expect(
+      screen.getByText(/Everything this page needs, including its type, comes from Tactiq’s own address/),
+    ).toBeInTheDocument();
+    expect(screen.getByText(/No font service, analytics service or advertising service is contacted/)).toBeInTheDocument();
   });
 
-  it('downloads every tactiq key as one JSON file and announces the file name', async () => {
+  it('downloads this profile’s own data as one JSON file and announces the file name', async () => {
     vi.useFakeTimers({ toFake: ['Date'] });
     vi.setSystemTime(new Date(2026, 8, 5, 23, 59));
     const user = userEvent.setup();
@@ -55,22 +81,31 @@ describe('PrivacySection', () => {
       clicked.push(this);
     });
     const { storage } = await renderSettings({}, <PrivacySection />);
-    storage.set(STORAGE_KEYS.calibration, { id: 'cal_test' });
+    // Seeded where the app keeps it: under the signed-in profile, and under a
+    // second profile that this file must not reach into.
+    profileStorage(storage).set(STORAGE_KEYS.calibration, { id: 'cal_test' });
+    profileStorage(storage, OTHER_USER).set(STORAGE_KEYS.calibration, { id: 'cal_other' });
 
-    await user.click(screen.getByRole('button', { name: 'Download all my data' }));
+    await user.click(screen.getByRole('button', { name: 'Download my data' }));
 
     expect(clicked).toHaveLength(1);
     // The local calendar date, zero-padded.
-    expect(clicked[0]?.download).toBe('tactiq-data-2026-09-05.json');
+    expect(clicked[0]?.download).toBe('tactiq-my-data-2026-09-05.json');
     const blob = blobs[0];
     expect(blob).toBeDefined();
-    const parsed = JSON.parse(blob ? await readBlob(blob) : '{}') as { format: string; data: Record<string, unknown> };
-    expect(parsed.format).toBe('tactiq.local-data');
-    expect(Object.keys(parsed.data)).toEqual(
-      expect.arrayContaining(['tactiq.prefs', 'tactiq.auth.accounts', 'tactiq.auth.session', 'tactiq.calibration']),
-    );
-    expect(parsed.data['tactiq.calibration']).toEqual({ id: 'cal_test' });
-    await waitFor(() => expect(politeRegion()).toHaveTextContent('Download started: tactiq-data-2026-09-05.json.'));
+    const parsed = JSON.parse(blob ? await readBlob(blob) : '{}') as UserDataExport;
+    expect(parsed.format).toBe(USER_DATA_EXPORT_FORMAT);
+    expect(parsed.profileId).toBe(TEST_USER.id);
+    expect(parsed.data.calibrationProfile).toEqual({ id: 'cal_test' });
+    // A fixed list of the signed-in profile's records plus this browser's
+    // appearance — never a dump of the namespace, which would hand one person
+    // the other profiles' records and the account records.
+    expect(Object.keys(parsed.data)).toEqual(USER_DATA_SECTIONS.map((section) => section.name));
+    const file = JSON.stringify(parsed);
+    expect(file).not.toContain('cal_other');
+    expect(file).not.toContain(OTHER_USER.id);
+    expect(file).not.toContain(TEST_USER.email);
+    await waitFor(() => expect(politeRegion()).toHaveTextContent('Download started: tactiq-my-data-2026-09-05.json.'));
   });
 
   it('resets preferences to their defaults after confirmation, keeping onboarding complete', async () => {
@@ -81,14 +116,20 @@ describe('PrivacySection', () => {
     await user.click(screen.getByRole('button', { name: 'Reset preferences' }));
     const dialog = screen.getByRole('dialog', { name: 'Reset preferences?' });
     await user.click(within(dialog).getByRole('button', { name: 'Cancel' }));
-    expect(storage.get<UserPreferences>(STORAGE_KEYS.preferences)?.theme).toBe('dark');
+    expect(storedPreferences(storage).theme).toBe('dark');
     expect(screen.getByRole('button', { name: 'Reset preferences' })).toHaveFocus();
 
     await user.click(screen.getByRole('button', { name: 'Reset preferences' }));
     await user.click(within(screen.getByRole('dialog')).getByRole('button', { name: 'Reset to defaults' }));
 
-    const saved = storage.get<UserPreferences>(STORAGE_KEYS.preferences);
-    expect(saved).toMatchObject({ theme: 'system', hand: 'right', longerInteractionTime: false, onboardingCompleted: true });
+    // Read back as the app reads it: appearance from this browser's record,
+    // hand and timing from the signed-in profile's.
+    expect(storedPreferences(storage)).toMatchObject({
+      theme: 'system',
+      hand: 'right',
+      longerInteractionTime: false,
+      onboardingCompleted: true,
+    });
     expect(document.documentElement).not.toHaveClass('dark');
     expect(screen.getByRole('radio', { name: 'Right' })).toBeChecked();
     expect(screen.getByRole('switch', { name: 'Longer interaction time' })).toHaveAttribute('aria-checked', 'false');
@@ -104,7 +145,10 @@ describe('PrivacySection', () => {
         </Route>
         <Route path={ROUTES.onboarding} element={<h1>Onboarding stand-in</h1>} />
       </Routes>,
-      { route: ROUTES.settings, preferences: { onboardingCompleted: true, onboardingStep: 7, textSize: 'larger' } },
+      {
+        route: ROUTES.settings,
+        preferences: { onboardingCompleted: true, onboardingStep: ONBOARDING_LAST_STEP, textSize: 'larger' },
+      },
     );
     await act(async () => {});
     expect(screen.getByRole('button', { name: 'Reset preferences' })).toBeInTheDocument();
@@ -113,10 +157,10 @@ describe('PrivacySection', () => {
     await user.click(within(screen.getByRole('dialog', { name: 'Reset preferences?' })).getByRole('button', { name: 'Reset to defaults' }));
 
     await waitFor(() => expect(politeRegion()).toHaveTextContent('Preferences reset to their defaults.'));
-    expect(storage.get<UserPreferences>(STORAGE_KEYS.preferences)).toMatchObject({
+    expect(storedPreferences(storage)).toMatchObject({
       textSize: 'default',
       onboardingCompleted: true,
-      onboardingStep: 7,
+      onboardingStep: ONBOARDING_LAST_STEP,
     });
     expect(screen.queryByRole('heading', { name: 'Onboarding stand-in' })).not.toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Reset preferences' })).toBeInTheDocument();

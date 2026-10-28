@@ -2,7 +2,7 @@
 import type { GestureEvent } from '@/domain/models';
 import { makeGestureEvent } from '@/services/history/testing';
 import { profileStorage } from '@/test/renderApp';
-import { MemoryStorageAdapter, STORAGE_KEYS } from '@/services/storage/StorageAdapter';
+import { MemoryStorageAdapter, STORAGE_KEYS, type StorageAdapter } from '@/services/storage/StorageAdapter';
 
 /** Tuesday 15 September 2026, 14:30 local time. */
 export const TEST_NOW = new Date(2026, 8, 15, 14, 30, 0);
@@ -62,8 +62,9 @@ export function manyEvents(count: number, overrides: Partial<GestureEvent> = {})
   );
 }
 
-/** A memory storage holding `events` as saved history (stored oldest first). */
 /**
+ * A memory storage holding `events` as saved history (stored oldest first).
+ *
  * Activity belongs to a profile, so it is seeded through that profile's view of
  * storage — the bare key is a legacy address the app no longer reads.
  */
@@ -72,4 +73,9 @@ export function storageWith(events: readonly GestureEvent[]): MemoryStorageAdapt
   const sorted = [...events].sort((a, b) => Date.parse(a.at) - Date.parse(b.at));
   profileStorage(storage).set(STORAGE_KEYS.history, sorted);
   return storage;
+}
+
+/** The saved activity of the profile a test renders as, or null when none is stored. */
+export function storedEvents(storage: StorageAdapter): GestureEvent[] | null {
+  return profileStorage(storage).get<GestureEvent[]>(STORAGE_KEYS.history);
 }

@@ -2,7 +2,7 @@ import { CONTACT_KEYS } from '@/domain/contacts';
 import { DEVICE_NAME } from '@/domain/protocol';
 import { LocalCalibrationService } from '@/services/calibration/LocalCalibrationService';
 import { MemoryStorageAdapter, STORAGE_KEYS } from '@/services/storage/StorageAdapter';
-import { screen, userEvent, waitFor, within } from '@/test/renderApp';
+import { profileStorage, screen, userEvent, waitFor, within } from '@/test/renderApp';
 import { FakeRingAdapter } from '../testing/FakeRingAdapter';
 import { politeRegion, renderSettings } from '../testing/renderSettings';
 import { CalibrationSection } from './CalibrationSection';
@@ -40,8 +40,13 @@ describe('DeviceSection', () => {
   });
 });
 
+/**
+ * A finished calibration for the signed-in profile. A calibration belongs to
+ * one person, so it is seeded through that profile's view of the store: the
+ * bare key is an address the app no longer reads.
+ */
 function seedCompleteCalibration(storage: MemoryStorageAdapter, hand: 'left' | 'right'): void {
-  const service = new LocalCalibrationService(storage);
+  const service = new LocalCalibrationService(profileStorage(storage));
   service.start({ hand, samplesPerContact: 1 });
   for (const contact of CONTACT_KEYS) service.recordSample({ contact, detectedContact: contact, durationMs: 200 });
   service.complete();
@@ -74,7 +79,7 @@ describe('CalibrationSection', () => {
     const dialog = screen.getByRole('dialog', { name: 'Delete calibration?' });
     await user.click(within(dialog).getByRole('button', { name: 'Delete calibration' }));
 
-    expect(storage.get(STORAGE_KEYS.calibration)).toBeNull();
+    expect(profileStorage(storage).get(STORAGE_KEYS.calibration)).toBeNull();
     expect(screen.getByText('Not calibrated yet')).toBeInTheDocument();
     expect(screen.getByRole('link', { name: 'Calibrate now' })).toBeInTheDocument();
     await waitFor(() => expect(politeRegion()).toHaveTextContent('Calibration deleted.'));

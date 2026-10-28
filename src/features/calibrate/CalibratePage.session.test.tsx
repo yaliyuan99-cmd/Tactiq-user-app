@@ -1,5 +1,7 @@
 import { CONTACT_KEYS, type ContactKey } from '@/domain/contacts';
 import { screen, within } from '@/test/renderApp';
+import { RESULTS_WHAT_WAS_RECORDED } from './calibrationCopy';
+import { evidenceSentence } from './calibrationWording';
 import {
   calibrationProgress,
   clickAndOpenWindow,
@@ -108,7 +110,11 @@ describe('Results', () => {
     expect(within(rows[1] as HTMLElement).getByRole('rowheader')).toHaveTextContent('Index fingertip');
     expect(within(rows[1] as HTMLElement).getAllByRole('cell').map((c) => c.textContent)).toEqual(['3', '3', 'Done']);
     expect(screen.getByText(/^Last performed/)).toBeInTheDocument();
-    expect(screen.getByText(/always detects the point you choose, so these results show that you practised the routine/)).toBeInTheDocument();
+    // The results must still say what was recorded and what the record is worth.
+    expect(screen.getByText(RESULTS_WHAT_WAS_RECORDED)).toBeInTheDocument();
+    expect(screen.getByText(evidenceSentence('simulated'))).toBeInTheDocument();
+    expect(evidenceSentence('simulated')).toMatch(/reports whichever point you choose/);
+    expect(evidenceSentence('simulated')).toMatch(/nothing was adjusted/);
     expect(screen.getByRole('link', { name: 'Practise in the simulator' })).toHaveAttribute('href', '/dashboard/simulator');
     expect(screen.getByRole('link', { name: 'Back to the dashboard' })).toHaveAttribute('href', '/dashboard');
     expect(screen.queryByRole('button', { name: 'Repeat these points' })).not.toBeInTheDocument();

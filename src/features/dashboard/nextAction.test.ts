@@ -16,9 +16,9 @@ const ALL_DONE: NextActionInputs = {
 
 describe('nextAction', () => {
   it('offers Resume setup while onboarding stopped before the last step, even when marked completed', () => {
-    const action = nextAction({ ...ALL_DONE, onboardingStep: 3 });
+    const action = nextAction({ ...ALL_DONE, onboardingStep: ONBOARDING_LAST_STEP - 1 });
     expect(action).toMatchObject({ id: 'resume_setup', label: 'Resume setup', to: ROUTES.onboarding });
-    expect(action.reason).toBe('Setup stopped at step 4 of 8 (Demo Mode or a ring), so some of your choices are not made yet.');
+    expect(action.reason).toBe('Setup stopped at step 3 of 4 (Your first command), so some of your choices are not made yet.');
   });
 
   it('offers Resume setup when onboarding is not completed at all', () => {
@@ -26,8 +26,8 @@ describe('nextAction', () => {
   });
 
   it('clamps an out-of-range onboarding step in the reason', () => {
-    expect(nextAction({ ...ALL_DONE, onboardingStep: -2 }).reason).toContain('step 1 of 8 (Welcome)');
-    expect(nextAction({ ...ALL_DONE, onboardingCompleted: false, onboardingStep: 99 }).reason).toContain('step 8 of 8 (All set)');
+    expect(nextAction({ ...ALL_DONE, onboardingStep: -2 }).reason).toContain('step 1 of 4 (Which hand)');
+    expect(nextAction({ ...ALL_DONE, onboardingCompleted: false, onboardingStep: 99 }).reason).toContain('step 4 of 4 (You are ready)');
   });
 
   it('puts setup ahead of every other step', () => {

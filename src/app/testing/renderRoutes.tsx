@@ -4,6 +4,7 @@
  * current location.
  */
 import { type ReactNode } from 'react';
+import { vi } from 'vitest';
 import { configure, render, screen, type RenderResult } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter, useLocation } from 'react-router';
@@ -12,12 +13,26 @@ import { AppProviders } from '@/app/AppProviders';
 import { DEFAULT_PREFERENCES, type UserPreferences } from '@/domain/models';
 import type { AuthService } from '@/services/auth/types';
 import type { DeviceMode } from '@/services/device/types';
-import { createServices, type AppServices } from '@/services/ServicesProvider';
+import { type AppServices } from '@/services/ServicesProvider';
 import { MemoryStorageAdapter, STORAGE_KEYS, type StorageAdapter } from '@/services/storage/StorageAdapter';
-import { seedSignedInUser } from '@/test/renderApp';
+import { profileStorage, seedSignedInUser, TEST_USER } from '@/test/renderApp';
 
-// Each route loads a lazy page chunk; under a busy parallel test run that can exceed the 1 s default.
-configure({ asyncUtilTimeout: 5000 });
+/*
+ * Timeouts. Every route here renders through React.lazy, so a test waits for
+ * Vite to transform and load a page chunk — seconds, on a cold cache under a
+ * busy parallel run. The defaults left no room for that: a findBy* would wait
+ * up to asyncUtilTimeout while vitest's own 5 s testTimeout killed the test
+ * mid-wait, so a starved run reported "Test timed out in 5000ms" instead of
+ * whatever the query could not find.
+ *
+ * So the chunk is given real time to arrive, and the query timeout is kept
+ * below the test timeout, which keeps a genuinely missing element failing with
+ * the element it looked for. These are waits, not assertions: nothing here
+ * lets a broken screen pass, it only stops the runner killing a test that is
+ * still legitimately waiting on a module.
+ */
+configure({ asyncUtilTimeout: 10_000 });
+vi.setConfig({ testTimeout: 30_000 });
 
 export interface RenderRoutesOptions {
   readonly route?: string;
@@ -27,7 +42,11 @@ export interface RenderRoutesOptions {
   readonly deviceMode?: DeviceMode;
   readonly authService?: AuthService;
   readonly storage?: StorageAdapter;
-  /** Services to use (built on `storage` when omitted), e.g. to spy before the first render. */
+  /**
+   * Ready-made services, e.g. to spy on one before the first render. Passing
+   * them opts out of the per-profile scoping, because ServicesProvider uses
+   * injected services as they are; leave it out to get the wiring the app runs.
+   */
   readonly services?: AppServices;
   /** Extra content rendered after the routes (inside the router and providers). */
   readonly children?: ReactNode;
@@ -35,7 +54,8 @@ export interface RenderRoutesOptions {
 
 export type RenderRoutesResult = RenderResult & {
   readonly storage: StorageAdapter;
-  readonly services: AppServices;
+  /** The services the test passed in, if any; otherwise AppProviders built them per profile. */
+  readonly services: AppServices | undefined;
   readonly user: ReturnType<typeof userEvent.setup>;
 };
 
@@ -56,10 +76,14 @@ export function renderRoutes({
   deviceMode,
   authService,
   storage = new MemoryStorageAdapter(),
-  services = createServices(storage),
+  services,
   children,
 }: RenderRoutesOptions = {}): RenderRoutesResult {
-  storage.set<UserPreferences>(STORAGE_KEYS.preferences, {
+  // Seeded the way renderApp seeds it: through the profile's view of storage,
+  // so each half of the preferences lands where the app looks for it however
+  // the device/profile split is drawn. ('prefs' is device-wide today, so the
+  // view passes it through and the app claims the person's half on first read.)
+  profileStorage(storage, signedIn ? TEST_USER : null).set<UserPreferences>(STORAGE_KEYS.preferences, {
     ...DEFAULT_PREFERENCES,
     onboardingCompleted: true,
     ...preferences,
@@ -71,7 +95,7 @@ export function renderRoutes({
     <MemoryRouter initialEntries={[route]}>
       <AppProviders
         storage={storage}
-        services={services}
+        {...(services ? { services } : {})}
         {...(authService ? { authService } : {})}
         {...(deviceMode ? { initialDeviceMode: deviceMode } : {})}
       >

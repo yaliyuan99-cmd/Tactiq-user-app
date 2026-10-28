@@ -2,6 +2,15 @@ import { EMERGENCY_SIMULATION_NOTICE } from '@/domain/evidence';
 import { GATE_HOLD_MS } from '@/domain/timing';
 import { screen, within } from '@/test/renderApp';
 import {
+  CALIBRATE_LEDE,
+  CALIBRATE_WHAT_IT_DOES,
+  DEMO_EVIDENCE_DETAIL,
+  RUN_RING_SENTENCES,
+  START_HEADINGS,
+  WHAT_HAPPENS_HEADING,
+  WHAT_HAPPENS_STEPS,
+} from './calibrationCopy';
+import {
   advance,
   calibrationProgress,
   clickAndOpenWindow,
@@ -28,19 +37,18 @@ describe('CalibratePage start screen', () => {
     await renderCalibrate();
     expect(screen.getByRole('heading', { level: 1, name: 'Calibrate' })).toBeInTheDocument();
     expect(document.title).toBe('Calibrate · Tactiq');
-    expect(
-      screen.getByText('Teach Tactiq how you touch each point. It takes about a minute: three taps on each of the eight points.'),
-    ).toBeInTheDocument();
-    expect(
-      screen.getByText(
-        'Simulated — the simulated ring always detects the point you choose, so this practises the routine rather than tuning a sensor',
-      ),
-    ).toBeInTheDocument();
+    expect(screen.getByText(CALIBRATE_LEDE)).toBeInTheDocument();
+    // The page must still say what calibration is worth before it starts:
+    // prompted contacts recorded on this device, no sensor touched.
+    expect(screen.getByText(CALIBRATE_WHAT_IT_DOES)).toBeInTheDocument();
+    expect(CALIBRATE_WHAT_IT_DOES).toMatch(/Nothing is sent to a ring, and no sensor is adjusted\./);
+    expect(screen.getByText(`Simulated — ${DEMO_EVIDENCE_DETAIL}`)).toBeInTheDocument();
+    expect(DEMO_EVIDENCE_DETAIL).toMatch(/reports whichever point you choose/);
 
-    const start = screen.getByRole('region', { name: 'Ready to calibrate' });
-    expect(within(start).getByRole('heading', { level: 3, name: 'What happens' })).toBeInTheDocument();
+    const start = screen.getByRole('region', { name: START_HEADINGS.ready });
+    expect(within(start).getByRole('heading', { level: 3, name: WHAT_HAPPENS_HEADING })).toBeInTheDocument();
     const steps = within(start).getAllByRole('listitem');
-    expect(steps).toHaveLength(4);
+    expect(steps.map((step) => step.textContent)).toEqual([...WHAT_HAPPENS_STEPS]);
     expect(steps[1]).toHaveTextContent('You tap it three times.');
     expect(steps[3]).toHaveTextContent('You can pause or stop at any time.');
     expect(within(start).getByText('Right hand')).toBeInTheDocument();
@@ -65,7 +73,9 @@ describe('CalibratePage running', () => {
     expect(screen.getByText('In everyday use this point would carry Confirm.')).toBeInTheDocument();
     expect(screen.getByText('Sample 1 of 3')).toBeInTheDocument();
     expect(calibrationProgress()).toHaveAttribute('aria-valuetext', '0 of 24 taps');
-    expect(screen.getByText('During calibration the command window opens for you.')).toBeInTheDocument();
+    // In Demo Mode the page holds the window open, and says so without a time limit.
+    expect(screen.getByText(RUN_RING_SENTENCES.window_managed)).toBeInTheDocument();
+    expect(RUN_RING_SENTENCES.window_managed).toMatch(/^During calibration the command window opens for you/);
     expect(screen.getByText(/^Command window open ·/)).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: /five-second hold/ })).not.toBeInTheDocument();
     await findPolite('Calibration started.');

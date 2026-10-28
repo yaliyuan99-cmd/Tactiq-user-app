@@ -65,7 +65,7 @@ describe('DashboardPage next step', () => {
   it('offers Resume setup while setup stopped early, with practice as the secondary action', async () => {
     await renderDashboard({ preferences: { onboardingCompleted: true, onboardingStep: 2 } });
     const panel = region('What to do next');
-    expect(within(panel).getByText(/Setup stopped at step 3 of 8/)).toBeInTheDocument();
+    expect(within(panel).getByText(/Setup stopped at step 3 of 4/)).toBeInTheDocument();
     expect(within(panel).getByRole('link', { name: 'Resume setup' })).toHaveAttribute('href', ROUTES.onboarding);
     expect(within(panel).getByRole('link', { name: 'Practise a command' })).toHaveAttribute('href', ROUTES.simulator);
   });

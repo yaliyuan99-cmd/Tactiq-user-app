@@ -3,7 +3,7 @@ import type { LessonProgress, TrainingProgress } from '@/domain/models';
 import { LocalTrainingService } from '@/services/training/LocalTrainingService';
 import { emptyTrainingProgress } from '@/services/training/trainingRules';
 import { MemoryStorageAdapter, STORAGE_KEYS } from '@/services/storage/StorageAdapter';
-import { screen, waitFor, within } from '@/test/renderApp';
+import { profileStorage, screen, waitFor, within } from '@/test/renderApp';
 import { RESET_ANNOUNCEMENT } from './ResetTrainingSection';
 import { politeRegion, renderWithUser } from './testing/trainTestUtils';
 import TrainPage, { TRAIN_LEDE } from './TrainPage';
@@ -27,7 +27,9 @@ function progressWith(changes: Partial<Record<LessonId, Partial<LessonProgress>>
 
 async function renderTrain(progress?: TrainingProgress) {
   const storage = new MemoryStorageAdapter();
-  if (progress) storage.set(STORAGE_KEYS.training, progress);
+  // Lessons belong to the signed-in profile, so progress is seeded through
+  // that profile's view; the bare key is an address the app no longer reads.
+  if (progress) profileStorage(storage).set(STORAGE_KEYS.training, progress);
   return renderWithUser(<TrainPage />, { route: '/dashboard/train', storage });
 }
 
@@ -106,7 +108,7 @@ describe('TrainPage', () => {
 
   it('keeps a completed lesson Completed, with Practise again and no recommendation, while it is being replayed', async () => {
     const storage = new MemoryStorageAdapter();
-    const training = new LocalTrainingService(storage);
+    const training = new LocalTrainingService(profileStorage(storage));
     training.startRun('squeeze_to_activate');
     for (let step = 0; step < 3; step += 1) training.recordAttempt('squeeze_to_activate', { correct: true });
     training.completeRun('squeeze_to_activate');
@@ -156,7 +158,7 @@ describe('TrainPage', () => {
     await user.click(within(screen.getByRole('dialog')).getByRole('button', { name: 'Reset progress' }));
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
     for (const item of lessonItems()) expect(item).toHaveTextContent('Not started');
-    expect(storage.get(STORAGE_KEYS.training)).toBeNull();
+    expect(profileStorage(storage).get(STORAGE_KEYS.training)).toBeNull();
     await waitFor(() => expect(politeRegion()).toHaveTextContent(RESET_ANNOUNCEMENT));
     expect(screen.getByRole('button', { name: 'Reset all training progress' })).toHaveFocus();
   });

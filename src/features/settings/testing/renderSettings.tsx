@@ -2,7 +2,10 @@
 import { type ReactElement } from 'react';
 import { Route, Routes } from 'react-router';
 import { ROUTES } from '@/app/routes';
-import { act, renderApp, screen, type RenderAppOptions, type RenderAppResult } from '@/test/renderApp';
+import type { UserPreferences } from '@/domain/models';
+import { readStoredPreferences } from '@/services/preferences/storedPreferences';
+import type { StorageAdapter } from '@/services/storage/StorageAdapter';
+import { act, profileStorage, renderApp, screen, type RenderAppOptions, type RenderAppResult } from '@/test/renderApp';
 import SettingsPage from '../SettingsPage';
 import { SignInStub } from './SignInStub';
 
@@ -34,6 +37,16 @@ export async function renderSettings(
 
 export function politeRegion(): HTMLElement {
   return screen.getByTestId('live-region-polite');
+}
+
+/**
+ * The preferences in force, read the way the app reads them: appearance from
+ * the device-wide record and the rest from the signed-in profile's. Reading
+ * the device-wide key alone would miss hand, feedback, timing and setup
+ * progress, which belong to the profile.
+ */
+export function storedPreferences(storage: StorageAdapter): UserPreferences {
+  return readStoredPreferences(profileStorage(storage)).preferences;
 }
 
 export function sectionRegion(name: string): HTMLElement {

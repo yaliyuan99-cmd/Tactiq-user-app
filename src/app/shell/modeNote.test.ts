@@ -4,7 +4,9 @@ describe('modeSentence', () => {
   it('says what a demonstration is, and that nothing is saved to an account', () => {
     const sentence = modeSentence('demo', 'demo');
     expect(sentence).toContain('demonstration');
-    expect(sentence).toContain('not saved to an account');
+    // The claim, in the wording the mode bar now uses ("Nothing is saved to an
+    // account", where it used to read "not saved to an account").
+    expect(sentence).toContain('Nothing is saved to an account');
     expect(sentence).toContain('simulated');
   });
 

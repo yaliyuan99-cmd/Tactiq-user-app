@@ -9,7 +9,7 @@ import type { CalibrationProfile, CalibrationSample, GestureEvent } from '@/doma
 import { GATE_HOLD_MS } from '@/domain/timing';
 import { settleProviders } from '@/features/practice/testing/practiceTestUtils';
 import { MemoryStorageAdapter, STORAGE_KEYS, type StorageAdapter } from '@/services/storage/StorageAdapter';
-import { act, renderApp, screen, userEvent, within, type RenderAppOptions } from '@/test/renderApp';
+import { act, profileStorage, renderApp, screen, userEvent, within, type RenderAppOptions } from '@/test/renderApp';
 import { CalibrateRoutes } from './CalibrateRoutes';
 
 export type TestUser = ReturnType<typeof userEvent.setup>;
@@ -81,12 +81,17 @@ export function calibrationProgress(): HTMLElement {
   return screen.getByRole('progressbar', { name: 'Calibration progress' });
 }
 
+/**
+ * A calibration record and the activity it wrote belong to the signed-in
+ * profile, so they are read through that profile's view of the store — the
+ * bare key is an address the app no longer reads or writes.
+ */
 export function storedProfile(storage: StorageAdapter): CalibrationProfile | null {
-  return storage.get<CalibrationProfile>(STORAGE_KEYS.calibration);
+  return profileStorage(storage).get<CalibrationProfile>(STORAGE_KEYS.calibration);
 }
 
 export function storedHistory(storage: StorageAdapter): GestureEvent[] {
-  return storage.get<GestureEvent[]>(STORAGE_KEYS.history) ?? [];
+  return profileStorage(storage).get<GestureEvent[]>(STORAGE_KEYS.history) ?? [];
 }
 
 function sample(contact: ContactKey): CalibrationSample {
@@ -107,6 +112,6 @@ export function storageWithIncompleteProfile(short: readonly ContactKey[]): Memo
     evidence: 'simulated',
     deviceId: null,
   };
-  storage.set(STORAGE_KEYS.calibration, profile);
+  profileStorage(storage).set(STORAGE_KEYS.calibration, profile);
   return storage;
 }

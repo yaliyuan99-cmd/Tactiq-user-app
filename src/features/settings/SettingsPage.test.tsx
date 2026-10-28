@@ -1,13 +1,9 @@
 import type { UserPreferences } from '@/domain/models';
 import { PREFERENCES_REPLACED_NOTE } from '@/services/preferences/PreferencesProvider';
-import { MemoryStorageAdapter, STORAGE_KEYS, type StorageAdapter } from '@/services/storage/StorageAdapter';
+import { MemoryStorageAdapter, STORAGE_KEYS } from '@/services/storage/StorageAdapter';
 import { screen, userEvent, waitFor, within } from '@/test/renderApp';
 import { SETTINGS_SECTIONS } from './settingsSections';
-import { politeRegion, renderSettings, sectionRegion } from './testing/renderSettings';
-
-function storedPreferences(storage: StorageAdapter): UserPreferences | null {
-  return storage.get<UserPreferences>(STORAGE_KEYS.preferences);
-}
+import { politeRegion, renderSettings, sectionRegion, storedPreferences } from './testing/renderSettings';
 
 /** Refuses writes once `failing` is set, as a browser in private mode or out of quota would. */
 class RefusingStorage extends MemoryStorageAdapter {
@@ -74,12 +70,12 @@ describe('SettingsPage', () => {
 
     await user.click(within(theme).getByRole('radio', { name: 'Dark' }));
     expect(document.documentElement).toHaveClass('dark');
-    expect(storedPreferences(storage)?.theme).toBe('dark');
+    expect(storedPreferences(storage).theme).toBe('dark');
     await waitFor(() => expect(politeRegion()).toHaveTextContent('Theme set to Dark.'));
 
     await user.click(within(theme).getByRole('radio', { name: 'System' }));
     expect(document.documentElement).not.toHaveClass('dark');
-    expect(storedPreferences(storage)?.theme).toBe('system');
+    expect(storedPreferences(storage).theme).toBe('system');
   });
 
   it('changes text size with a preview sentence, and contrast, on the document', async () => {
@@ -89,7 +85,7 @@ describe('SettingsPage', () => {
 
     await user.click(within(screen.getByRole('group', { name: 'Text size' })).getByRole('radio', { name: 'Larger' }));
     expect(document.documentElement).toHaveAttribute('data-text-size', 'larger');
-    expect(storedPreferences(storage)?.textSize).toBe('larger');
+    expect(storedPreferences(storage).textSize).toBe('larger');
     await waitFor(() => expect(politeRegion()).toHaveTextContent('Text size set to Larger.'));
 
     await user.click(within(screen.getByRole('group', { name: 'Text size' })).getByRole('radio', { name: 'Default' }));
@@ -98,7 +94,7 @@ describe('SettingsPage', () => {
     const contrast = screen.getByRole('group', { name: 'Contrast' });
     await user.click(within(contrast).getByRole('radio', { name: 'Increased' }));
     expect(document.documentElement).toHaveAttribute('data-contrast', 'high');
-    expect(storedPreferences(storage)?.contrast).toBe('high');
+    expect(storedPreferences(storage).contrast).toBe('high');
     await waitFor(() => expect(politeRegion()).toHaveTextContent('Contrast set to Increased.'));
     await user.click(within(contrast).getByRole('radio', { name: 'Standard' }));
     expect(document.documentElement).not.toHaveAttribute('data-contrast');
@@ -110,7 +106,7 @@ describe('SettingsPage', () => {
     within(screen.getByRole('group', { name: 'Theme' })).getByRole('radio', { name: 'Light' }).focus();
     await user.keyboard('{ArrowDown}');
     expect(within(screen.getByRole('group', { name: 'Theme' })).getByRole('radio', { name: 'Dark' })).toBeChecked();
-    expect(storedPreferences(storage)?.theme).toBe('dark');
+    expect(storedPreferences(storage).theme).toBe('dark');
   });
 
   it('turns reduce motion on and off with the keyboard', async () => {
@@ -124,7 +120,7 @@ describe('SettingsPage', () => {
     await user.keyboard(' ');
     expect(toggle).toHaveAttribute('aria-checked', 'true');
     expect(document.documentElement).toHaveClass('force-reduced-motion');
-    expect(storedPreferences(storage)?.reducedMotion).toBe(true);
+    expect(storedPreferences(storage).reducedMotion).toBe(true);
     await waitFor(() => expect(politeRegion()).toHaveTextContent('Reduce motion on.'));
 
     await user.keyboard('{Enter}');

@@ -1,10 +1,8 @@
 import { TIMING_FACTS } from '@/domain/timing';
-import type { UserPreferences } from '@/domain/models';
 import { useDevice } from '@/services/device/DeviceProvider';
-import { STORAGE_KEYS } from '@/services/storage/StorageAdapter';
 import { screen, userEvent, waitFor, within } from '@/test/renderApp';
 import { FakeRingAdapter } from '../testing/FakeRingAdapter';
-import { politeRegion, renderSettings } from '../testing/renderSettings';
+import { politeRegion, renderSettings, storedPreferences } from '../testing/renderSettings';
 import { HandSection } from './HandSection';
 import { TimingSection } from './TimingSection';
 
@@ -47,7 +45,7 @@ describe('TimingSection', () => {
 
     await user.click(toggle);
     expect(toggle).toHaveAttribute('aria-checked', 'true');
-    expect(storage.get<UserPreferences>(STORAGE_KEYS.preferences)?.longerInteractionTime).toBe(true);
+    expect(storedPreferences(storage).longerInteractionTime).toBe(true);
     expect(screen.getByText('6 s', { selector: 'strong' })).toBeInTheDocument();
     expect(screen.getByTestId('window-ms')).toHaveTextContent('6000');
     await waitFor(() =>
@@ -56,7 +54,7 @@ describe('TimingSection', () => {
 
     // A fresh page on the same storage keeps the choice.
     unmount();
-    await renderSettings({ storage, preferences: storage.get<UserPreferences>(STORAGE_KEYS.preferences) ?? {} }, <TimingSection />);
+    await renderSettings({ storage, preferences: storedPreferences(storage) }, <TimingSection />);
     expect(screen.getByRole('switch', { name: 'Longer interaction time' })).toHaveAttribute('aria-checked', 'true');
   });
 
@@ -86,7 +84,7 @@ describe('HandSection', () => {
 
     await user.click(screen.getByRole('radio', { name: 'Left' }));
     expect(screen.getByRole('figure', { name: 'Preview: left hand, palm facing you.' })).toHaveAttribute('data-hand', 'left');
-    expect(storage.get<UserPreferences>(STORAGE_KEYS.preferences)?.hand).toBe('left');
+    expect(storedPreferences(storage).hand).toBe('left');
     await waitFor(() => expect(politeRegion()).toHaveTextContent('Hand set to Left.'));
   });
 });

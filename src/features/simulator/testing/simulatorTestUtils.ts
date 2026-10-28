@@ -5,7 +5,7 @@ import { GATE_HOLD_MS } from '@/domain/timing';
 import type { GestureEvent } from '@/domain/models';
 import { settleProviders } from '@/features/practice/testing/practiceTestUtils';
 import { LocalHistoryService } from '@/services/history/LocalHistoryService';
-import { act, renderApp, screen, userEvent, type RenderAppOptions } from '@/test/renderApp';
+import { act, profileStorage, renderApp, screen, userEvent, type RenderAppOptions } from '@/test/renderApp';
 import SimulatorPage, { type SimulatorPageProps } from '../SimulatorPage';
 import { LocationProbe } from './LocationProbe';
 
@@ -21,7 +21,10 @@ export async function renderSimulator(props: SimulatorPageProps = { random: FIRS
     { route: ROUTES.simulator, ...options, preferences: { audioAnnouncements: true, ...options.preferences } },
   );
   await settleProviders();
-  const history = (): GestureEvent[] => new LocalHistoryService(view.storage).list();
+  // Activity belongs to the signed-in profile, so it is read back through that
+  // profile's view of storage — the same address the running app writes to.
+  const history = (): GestureEvent[] =>
+    new LocalHistoryService(profileStorage(view.storage, options.signedIn === false ? null : undefined)).list();
   return { user, history, ...view };
 }
 

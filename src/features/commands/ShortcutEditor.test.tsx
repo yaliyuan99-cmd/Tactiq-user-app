@@ -1,5 +1,6 @@
-import { MemoryStorageAdapter, STORAGE_KEYS } from '@/services/storage/StorageAdapter';
-import { act, renderApp, screen, userEvent, waitFor, within } from '@/test/renderApp';
+import { scopedKey } from '@/services/storage/scopedStorage';
+import { MemoryStorageAdapter, STORAGE_KEYS, type StorageAdapter } from '@/services/storage/StorageAdapter';
+import { act, profileStorage, renderApp, screen, TEST_USER, userEvent, waitFor, within } from '@/test/renderApp';
 import CommandsPage from './CommandsPage';
 import { NOTHING_TO_SAVE_ANNOUNCEMENT } from './shortcutDraft';
 import { NOT_PERSISTED_NOTE } from './ShortcutResult';
@@ -10,6 +11,22 @@ async function renderPage(storage = new MemoryStorageAdapter()) {
   await act(async () => {});
   return result;
 }
+
+/**
+ * The shortcut mapping belongs to the signed-in profile, so it is read and
+ * written through that profile's view of the store — the bare key is an
+ * address the app no longer uses.
+ */
+function savedMapping(storage: StorageAdapter): unknown {
+  return profileStorage(storage).get(STORAGE_KEYS.commandMapping);
+}
+
+function saveMapping(storage: StorageAdapter, mapping: unknown): void {
+  profileStorage(storage).set(STORAGE_KEYS.commandMapping, mapping);
+}
+
+/** Where the signed-in profile's mapping actually lands in the underlying store. */
+const MAPPING_KEY = scopedKey(TEST_USER.id, STORAGE_KEYS.commandMapping);
 
 const group1 = () => screen.getByRole('group', { name: 'Shortcut 1 — pinky fingertip, brief tap' });
 const group2 = () => screen.getByRole('group', { name: 'Shortcut 2 — pinky finger base' });
@@ -61,7 +78,7 @@ describe('Shortcut editor', () => {
     expect(screen.getByText('Not saved yet')).toBeInTheDocument();
     expect(screen.getByText('You have unsaved changes in Your shortcuts.')).toBeInTheDocument();
     // Nothing is stored until Save.
-    expect(storage.get(STORAGE_KEYS.commandMapping)).toBeNull();
+    expect(savedMapping(storage)).toBeNull();
 
     // Choosing the saved value again clears the preview.
     await user.click(within(group1()).getByRole('radio', { name: 'Play or pause media' }));
@@ -93,7 +110,7 @@ describe('Shortcut editor', () => {
     expect(success).toHaveTextContent('Shortcut 1: Turn the torch on or off');
     expect(success).toHaveTextContent('Shortcut 2: Nothing assigned');
 
-    expect(storage.get(STORAGE_KEYS.commandMapping)).toMatchObject({
+    expect(savedMapping(storage)).toMatchObject({
       shortcuts: { quick_action_1: 'toggle_flashlight', quick_action_2: 'unassigned' },
     });
     expect(within(preview()).getByText('No changes yet.')).toBeInTheDocument();
@@ -114,7 +131,7 @@ describe('Shortcut editor', () => {
   it('says when the browser did not store the saved shortcuts, while they still apply for now', async () => {
     class RefusingStorage extends MemoryStorageAdapter {
       set<T>(key: string, value: T): boolean {
-        if (key === STORAGE_KEYS.commandMapping) return false;
+        if (key === MAPPING_KEY) return false;
         return super.set(key, value);
       }
     }
@@ -150,13 +167,13 @@ describe('Shortcut editor', () => {
     expect(screen.queryByRole('button', { name: 'Discard changes' })).toBeNull();
     expect(screen.getByRole('heading', { level: 3, name: 'Changes to save' })).toHaveFocus();
     await waitFor(() => expect(politeRegion()).toHaveTextContent('Changes discarded.'));
-    expect(storage.get(STORAGE_KEYS.commandMapping)).toBeNull();
+    expect(savedMapping(storage)).toBeNull();
   });
 
   it('restores the defaults after confirmation', async () => {
     const user = userEvent.setup();
     const storage = new MemoryStorageAdapter();
-    storage.set(STORAGE_KEYS.commandMapping, {
+    saveMapping(storage, {
       version: 1,
       shortcuts: { quick_action_1: 'open_assistant', quick_action_2: 'start_voice_memo' },
       updatedAt: '2026-09-10T08:00:00.000Z',
@@ -182,7 +199,7 @@ describe('Shortcut editor', () => {
     await waitFor(() => expect(politeRegion()).toHaveTextContent('Default shortcuts restored.'));
     expect(within(group1()).getByRole('radio', { name: 'Play or pause media' })).toBeChecked();
     expect(within(group2()).getByRole('radio', { name: 'Announce the time' })).toBeChecked();
-    expect(storage.get(STORAGE_KEYS.commandMapping)).toMatchObject({
+    expect(savedMapping(storage)).toMatchObject({
       shortcuts: { quick_action_1: 'play_pause', quick_action_2: 'announce_time' },
     });
     const restored = screen.getAllByRole('status').find((el) => el.textContent?.includes('Default shortcuts restored'));
@@ -195,7 +212,7 @@ describe('Shortcut editor', () => {
     const storage = new MemoryStorageAdapter();
     await renderPage(storage);
     act(() => {
-      storage.set(STORAGE_KEYS.commandMapping, {
+      saveMapping(storage, {
         version: 1,
         shortcuts: { quick_action_1: 'announce_phone_battery', quick_action_2: 'announce_time' },
         updatedAt: '2026-09-15T08:00:00.000Z',

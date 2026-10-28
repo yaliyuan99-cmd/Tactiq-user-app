@@ -114,13 +114,33 @@ describe('HistoryPage filters', () => {
   });
 
   it('restores filters from the URL, so a view survives a refresh', async () => {
-    renderPage(`${ROUTES.history}?range=all&command=read&source=calibration`);
+    renderPage(`${ROUTES.history}?range=all&command=next&source=simulator`);
     await screen.findByRole('region', { name: 'Summary' });
     expect(screen.getByRole('radio', { name: 'All time' })).toBeChecked();
-    expect(screen.getByRole('combobox', { name: 'Command' })).toHaveValue('read');
-    expect(screen.getByRole('combobox', { name: 'Source' })).toHaveValue('calibration');
+    expect(screen.getByRole('combobox', { name: 'Command' })).toHaveValue('next');
+    expect(screen.getByRole('combobox', { name: 'Source' })).toHaveValue('simulator');
+    expect(summaryValue('Attempts')).toBe('6');
+    expect(summaryValue('Most-practised command')).toBe('Next');
+  });
+
+  it('counts a calibration run as attempts at a point, and names no command for it', async () => {
+    renderPage(`${ROUTES.history}?range=all&command=all&source=calibration`);
+    await screen.findByRole('region', { name: 'Summary' });
     expect(summaryValue('Attempts')).toBe('2');
-    expect(summaryValue('Most-practised command')).toBe('Read / Repeat');
+    // Calibration prompts a contact point, not a command, so attributing those
+    // taps to "Read / Repeat" would claim an exercise that never happened.
+    expect(summaryValue('Most-practised command')).toBe('None yet');
+    expect(screen.getByRole('table', { name: 'Newest first, showing 2 of 2' })).toHaveTextContent('Ring fingertip');
+  });
+
+  it('matches nothing when a command is asked of calibration records, which name none', async () => {
+    renderPage(`${ROUTES.history}?range=all&command=read&source=calibration`);
+    expect(await screen.findByText('No attempts in this range.')).toBeInTheDocument();
+    expect(screen.getByText('Range: all time. Command: Read / Repeat. Source: Calibration.')).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Show all commands and sources' })).toHaveAttribute(
+      'href',
+      `${ROUTES.history}?range=all&command=all&source=all`,
+    );
   });
 
   it('falls back to defaults for unknown URL values', async () => {

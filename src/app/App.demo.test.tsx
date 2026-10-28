@@ -6,6 +6,7 @@ import '@/app/testing/mockPages';
 import { screen, waitFor, within } from '@testing-library/react';
 import { Link } from 'react-router';
 import { ROUTES } from '@/app/routes';
+import { banner } from '@/app/testing/landmarks';
 import { currentLocation, renderRoutes } from '@/app/testing/renderRoutes';
 import { modeSentence } from '@/app/shell/modeNote';
 
@@ -99,8 +100,7 @@ describe('/demo navigation', () => {
       '/demo/history',
       '/demo/settings',
     ]);
-    const banner = screen.getByRole('banner');
-    expect(within(banner).getByRole('link', { name: 'Help' })).toHaveAttribute('href', '/demo/help');
+    expect(within(banner()).getByRole('link', { name: 'Help' })).toHaveAttribute('href', '/demo/help');
   });
 
   it('marks the current page and section inside the demonstration', async () => {
