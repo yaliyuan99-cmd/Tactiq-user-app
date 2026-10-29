@@ -4,18 +4,15 @@
  * never CSS classes or test ids.
  */
 import { expect, type Locator, type Page } from '@playwright/test';
+import { ONBOARDING_STEPS } from '../../src/domain/onboarding';
 
-/** Titles of the eight onboarding steps, in order (src/domain/onboarding.ts). */
-export const STEP_TITLES = [
-  'Welcome',
-  'Accessibility preferences',
-  'Which hand',
-  'Demo Mode or a ring',
-  'Calibration',
-  'Feedback',
-  'First lesson',
-  'All set',
-] as const;
+/**
+ * Titles of the onboarding steps, in order. Taken from the domain rather than
+ * copied, so a step added or renamed there cannot leave these specs asserting
+ * a flow the app no longer has — which is exactly what happened when setup was
+ * shortened from eight steps to four.
+ */
+export const STEP_TITLES = ONBOARDING_STEPS.map((step) => step.title);
 
 export const STEP_COUNT = STEP_TITLES.length;
 

@@ -5,6 +5,7 @@
  * clicking through setup. `newUserPage` starts signed out with nothing stored.
  */
 import { test as base, expect, type Page } from '@playwright/test';
+import { ONBOARDING_LAST_STEP } from '../src/domain/onboarding';
 
 export const DEMO_USER = {
   id: 'user_e2e',
@@ -24,13 +25,18 @@ export interface SeedOptions {
 export async function seedStorage(page: Page, options: SeedOptions = {}): Promise<void> {
   const { onboardingCompleted = true, signedIn = true, preferences = {}, withoutSampleHistory = true } = options;
   await page.addInitScript(
-    ({ user, onboardingCompleted, signedIn, preferences, withoutSampleHistory }) => {
+    ({ user, onboardingCompleted, signedIn, preferences, withoutSampleHistory, lastStep }) => {
       // Only seed on the very first load of this test, so reloads keep what the app saved.
       if (window.sessionStorage.getItem('e2e.seeded')) return;
       window.sessionStorage.setItem('e2e.seeded', '1');
       window.localStorage.clear();
-      const prefs = {
-        version: 1,
+
+      // Preferences are stored in two halves, and seeding them as one object
+      // is how a build from before profiles existed left them — which the app
+      // treats as legacy data to be claimed, not as this profile's record.
+      // Appearance describes the browser; the rest describes the person and
+      // lives under that profile's prefix.
+      const merged = {
         theme: 'light',
         textSize: 'default',
         contrast: 'default',
@@ -41,19 +47,49 @@ export async function seedStorage(page: Page, options: SeedOptions = {}): Promis
         longerInteractionTime: false,
         hand: 'right',
         onboardingCompleted,
-        onboardingStep: onboardingCompleted ? 7 : 0,
+        onboardingStep: onboardingCompleted ? lastStep : 0,
         ...preferences,
-      };
-      window.localStorage.setItem('tactiq.prefs', JSON.stringify(prefs));
+      } as Record<string, unknown>;
+
+      const profileKey = (key: string) => `tactiq.u.${user.id}.${key}`;
+      window.localStorage.setItem(
+        'tactiq.prefs',
+        JSON.stringify({
+          version: 1,
+          theme: merged.theme,
+          textSize: merged.textSize,
+          contrast: merged.contrast,
+          reducedMotion: merged.reducedMotion,
+        }),
+      );
+      window.localStorage.setItem(
+        signedIn ? profileKey('prefs.profile') : 'tactiq.u.signed-out.prefs.profile',
+        JSON.stringify({
+          version: 1,
+          audioAnnouncements: merged.audioAnnouncements,
+          visualConfirmation: merged.visualConfirmation,
+          hapticFeedback: merged.hapticFeedback,
+          longerInteractionTime: merged.longerInteractionTime,
+          hand: merged.hand,
+          onboardingCompleted: merged.onboardingCompleted,
+          onboardingStep: merged.onboardingStep,
+        }),
+      );
+
       if (signedIn) {
         window.localStorage.setItem('tactiq.auth.accounts', JSON.stringify([user]));
         window.localStorage.setItem('tactiq.auth.session', JSON.stringify({ userId: user.id, signedInAt: user.createdAt }));
       }
       if (withoutSampleHistory) {
-        window.localStorage.setItem('tactiq.history.seeded', JSON.stringify({ seededAt: user.createdAt, count: 0 }));
+        window.localStorage.setItem(
+          signedIn ? profileKey('history.seeded') : 'tactiq.u.signed-out.history.seeded',
+          JSON.stringify({ seededAt: user.createdAt, count: 0 }),
+        );
       }
     },
-    { user: DEMO_USER, onboardingCompleted, signedIn, preferences, withoutSampleHistory },
+    // Everything the init script needs has to be passed in: it is serialised
+    // and run in the browser, where this module's imports do not exist.
+    { user: DEMO_USER, onboardingCompleted, signedIn, preferences, withoutSampleHistory, lastStep: ONBOARDING_LAST_STEP },
   );
 }
 
