@@ -11,7 +11,7 @@ import { readStoredPreferences } from '@/services/preferences/storedPreferences'
 import { createServices } from '@/services/ServicesProvider';
 import { scopedStorage } from '@/services/storage/scopedStorage';
 import { MemoryStorageAdapter, type StorageAdapter } from '@/services/storage/StorageAdapter';
-import { act, renderApp, screen, userEvent, TEST_USER, type RenderAppOptions, type RenderAppResult } from '@/test/renderApp';
+import { renderApp, screen, userEvent, TEST_USER, type RenderAppOptions, type RenderAppResult } from '@/test/renderApp';
 import OnboardingPage from '../OnboardingPage';
 import { LocationProbe } from './LocationProbe';
 
@@ -66,10 +66,9 @@ export async function renderOnboarding(options: RenderAppOptions = {}): Promise<
     </>,
     { route: ROUTES.onboarding, ...rest, preferences: { onboardingCompleted: false, onboardingStep: 0, ...preferences } },
   );
-  // Let the auth session check finish inside act.
-  await act(async () => {
-    await Promise.resolve();
-  });
+  // Nothing is rendered until the session lands, so waiting for the heading
+  // waits for the profile whose setup progress the page is about to read.
+  await screen.findByRole('heading', { level: 1 });
   return { ...result, user };
 }
 

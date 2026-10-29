@@ -4,6 +4,7 @@ import { ROUTES } from '@/app/routes';
 import { renderRoutes, currentLocation } from '@/app/testing/renderRoutes';
 import { useAuth } from '@/services/auth/AuthProvider';
 import { LocalDemoAuthService } from '@/services/auth/LocalDemoAuthService';
+import { serverBackedAuth } from '@/services/auth/testing/serverBackedAuth';
 import { MemoryStorageAdapter } from '@/services/storage/StorageAdapter';
 
 function SignInProbe() {
@@ -71,13 +72,13 @@ describe('AppRoutes: guards', () => {
   });
 
   it('shows an accessible loading status while the session is being restored, and no page content', async () => {
-    class PendingAuth extends LocalDemoAuthService {
-      getSession() {
-        return new Promise<null>(() => undefined);
-      }
-    }
+    // Stands in for a server-backed service: the session is not knowable at
+    // the first render, so the guard has to hold the page back. A local
+    // profile answers out of storage and never reaches this state, which is
+    // why this cannot be tested with one.
     const storage = new MemoryStorageAdapter();
-    renderRoutes({ route: ROUTES.dashboard, storage, authService: new PendingAuth(storage) });
+    const pending = serverBackedAuth(new LocalDemoAuthService(storage));
+    renderRoutes({ route: ROUTES.dashboard, storage, authService: pending });
     const loading = await screen.findByText('Loading…');
     expect(loading.closest('[role="status"]')).not.toBeNull();
     expect(within(screen.getByRole('main')).getByText('Loading…')).toBe(loading);

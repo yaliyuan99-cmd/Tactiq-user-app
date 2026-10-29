@@ -191,8 +191,11 @@ describe('OnboardingPage: keyboard only', () => {
     expect(heading()).toHaveFocus();
 
     // Step 3: squeeze, then tap the index fingertip, both from the keyboard.
+    // The squeeze has to be deliberate, so the window opens a gate-hold after
+    // the key goes down; tapping before then is correctly rejected.
     await tabTo(user, 'Squeeze the ring');
     await user.keyboard('{Enter}');
+    await screen.findByText(/Command window open/);
     await tabTo(user, 'Index fingertip, Confirm, target');
     await user.keyboard('{Enter}');
     expect(await screen.findByText(FIRST_COMMAND_DONE_TITLE)).toBeInTheDocument();

@@ -4,6 +4,7 @@ import userEvent from '@testing-library/user-event';
 import { MemoryStorageAdapter } from '@/services/storage/StorageAdapter';
 import { AuthProvider, useAuth, useIsSignedIn } from './AuthProvider';
 import { DEMO_MESSAGES, LocalDemoAuthService } from './LocalDemoAuthService';
+import { serverBackedAuth } from './testing/serverBackedAuth';
 import { AuthError, type AuthService } from './types';
 import { MESSAGES } from './validation';
 
@@ -56,17 +57,43 @@ async function seededStorage(signedIn: boolean) {
 }
 
 describe('AuthProvider', () => {
-  it('shows loading until the stored session is restored, then the user', async () => {
+  it('has the stored profile on the first render, with no loading state', async () => {
     const storage = await seededStorage(true);
     render(
       <AuthProvider service={new LocalDemoAuthService(storage)}>
         <Probe />
       </AuthProvider>,
     );
-    expect(screen.getByText('Checking your profile')).toBeInTheDocument();
-    expect(await screen.findByText('Signed in as Ada')).toBeInTheDocument();
+    // Profiles are in this browser's storage, so there is nothing to wait for.
+    // Anything rendered before the profile was known would be rendered for the
+    // wrong person: the preferences, activity and calibration the app reads
+    // all follow whoever is signed in.
+    expect(screen.queryByText('Checking your profile')).not.toBeInTheDocument();
+    expect(screen.getByText('Signed in as Ada')).toBeInTheDocument();
     expect(screen.getByText('Signed-in flag on')).toBeInTheDocument();
     expect(screen.getByText('Mode: demo')).toBeInTheDocument();
+  });
+
+  it('shows loading until a service that has to ask answers, then the user', async () => {
+    const storage = await seededStorage(true);
+    // Stands in for Supabase: the session is only knowable after a round trip,
+    // so the loading state is still needed and still has to be accessible.
+    const asking = serverBackedAuth(new LocalDemoAuthService(storage));
+    render(
+      <AuthProvider service={asking}>
+        <Probe />
+      </AuthProvider>,
+    );
+
+    expect(screen.getByText('Checking your profile')).toBeInTheDocument();
+    asking.answer({
+      id: 'u1',
+      email: 'ada@example.com',
+      displayName: 'Ada',
+      createdAt: '2026-09-01T09:00:00.000Z',
+      provider: 'supabase',
+    });
+    expect(await screen.findByText('Signed in as Ada')).toBeInTheDocument();
   });
 
   it('updates the displayed user after sign in, rename and sign out', async () => {

@@ -1,7 +1,7 @@
-import { renderApp, screen, TEST_USER, userEvent, waitFor } from '@/test/renderApp';
+import { ONBOARDING_LAST_STEP } from '@/domain/onboarding';
+import { preferencesFor, renderApp, screen, seedFinishedSetup, signedInPreferences, TEST_USER, userEvent, waitFor } from '@/test/renderApp';
 import { DEMO_MESSAGES, GUEST_EMAIL, type LocalAccountRecord } from '@/services/auth/LocalDemoAuthService';
 import { SUPABASE_MESSAGES } from '@/services/auth/supabaseErrors';
-import type { UserPreferences } from '@/domain/models';
 import { AuthError, type AuthUser } from '@/services/auth/types';
 import { MemoryStorageAdapter, STORAGE_KEYS } from '@/services/storage/StorageAdapter';
 import {
@@ -106,47 +106,46 @@ describe('SignInPage in Demo Mode', () => {
 
   it('starts setup over for a guest profile created after someone else finished it', async () => {
     const user = userEvent.setup();
-    // Another profile finished setup in this browser, and preferences are
-    // per-browser, so a brand-new guest must not inherit "setup done".
+    // Another profile has finished setup in this browser. Setup progress
+    // belongs to the person, not the browser, so a brand-new guest starts at
+    // step 0 and the other profile's own progress is left alone.
     const storage = storageWithProfile();
-    renderApp(<AuthTestRoutes />, {
-      route: '/sign-in',
-      signedIn: false,
-      storage,
-      preferences: { onboardingCompleted: true, onboardingStep: 7 },
-    });
+    seedFinishedSetup(storage, TEST_USER);
+    renderApp(<AuthTestRoutes />, { route: '/sign-in', signedIn: false, storage });
 
     await user.click(screen.getByRole('button', { name: 'Continue as a guest' }));
     await screen.findByText('Landed at /dashboard');
 
     await waitFor(() => {
-      expect(storage.get<UserPreferences>(STORAGE_KEYS.preferences)).toMatchObject({
-        onboardingCompleted: false,
-        onboardingStep: 0,
-      });
+      expect(signedInPreferences(storage)).toMatchObject({ onboardingCompleted: false, onboardingStep: 0 });
+    });
+    expect(preferencesFor(storage, TEST_USER)).toMatchObject({
+      onboardingCompleted: true,
+      onboardingStep: ONBOARDING_LAST_STEP,
     });
   });
 
   it('keeps a returning guest’s own setup progress', async () => {
     const user = userEvent.setup();
     const storage = new MemoryStorageAdapter();
-    // The guest profile already exists, so this is the same person coming back.
-    storage.set<LocalAccountRecord[]>(STORAGE_KEYS.authAccounts, [
-      { id: 'user_guest', email: GUEST_EMAIL, displayName: 'Guest', createdAt: '2026-09-01T09:00:00.000Z' },
-    ]);
-    renderApp(<AuthTestRoutes />, {
-      route: '/sign-in',
-      signedIn: false,
-      storage,
-      preferences: { onboardingCompleted: true, onboardingStep: 7 },
-    });
+    // The guest profile already exists, so this is the same person coming
+    // back, and continuing as a guest must not reset what they had done.
+    const guest: LocalAccountRecord = {
+      id: 'user_guest',
+      email: GUEST_EMAIL,
+      displayName: 'Guest',
+      createdAt: '2026-09-01T09:00:00.000Z',
+    };
+    storage.set<LocalAccountRecord[]>(STORAGE_KEYS.authAccounts, [guest]);
+    seedFinishedSetup(storage, guest);
+    renderApp(<AuthTestRoutes />, { route: '/sign-in', signedIn: false, storage });
 
     await user.click(screen.getByRole('button', { name: 'Continue as a guest' }));
     await screen.findByText('Landed at /dashboard');
 
-    expect(storage.get<UserPreferences>(STORAGE_KEYS.preferences)).toMatchObject({
+    expect(signedInPreferences(storage)).toMatchObject({
       onboardingCompleted: true,
-      onboardingStep: 7,
+      onboardingStep: ONBOARDING_LAST_STEP,
     });
   });
 

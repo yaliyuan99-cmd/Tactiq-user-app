@@ -71,6 +71,18 @@ export interface AuthService {
   readonly mode: AuthMode;
   /** Current session, restored from storage on load. */
   getSession(): Promise<AuthUser | null>;
+  /**
+   * The session as it can be known without waiting, for a service that holds
+   * it somewhere synchronous. Omitted by a service that has to ask a server.
+   *
+   * Who is signed in decides whose preferences, activity and calibration the
+   * app reads, so a screen that reads one of those as it mounts — onboarding's
+   * starting step, a settings switch, a route guard — gets the wrong answer if
+   * it mounts before the session is known. When this is present the first
+   * render already has the right profile, so there is no such moment, and no
+   * loading state to show for it.
+   */
+  peekSession?(): AuthUser | null;
   /** Fires on every sign-in / sign-out, including from other tabs where supported. */
   onChange(listener: (user: AuthUser | null) => void): () => void;
   signIn(input: SignInInput): Promise<AuthUser>;

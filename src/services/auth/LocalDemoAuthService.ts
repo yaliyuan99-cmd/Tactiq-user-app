@@ -114,6 +114,11 @@ export class LocalDemoAuthService implements AuthService {
     return this.currentUser();
   }
 
+  /** Profiles live in this browser's storage, so the session needs no waiting. */
+  peekSession(): AuthUser | null {
+    return this.currentUser();
+  }
+
   onChange(listener: (user: AuthUser | null) => void): () => void {
     this.listeners.add(listener);
     if (!this.unsubscribeStorage) {

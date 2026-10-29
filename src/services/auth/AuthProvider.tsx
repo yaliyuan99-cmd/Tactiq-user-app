@@ -52,14 +52,28 @@ export function AuthProvider({ service: injected, storage, children }: AuthProvi
     () => injected ?? createAuthService(storage ?? new LocalStorageAdapter()),
     [injected, storage],
   );
-  const [user, setUser] = useState<AuthUser | null>(null);
-  const [loading, setLoading] = useState(true);
+  /**
+   * A service holding the session somewhere synchronous answers before the
+   * first render, so nothing is ever rendered for a profile that is not the
+   * one signed in. A service that has to ask a server starts empty and
+   * loading, and `getSession` below fills it in.
+   */
+  const [user, setUser] = useState<AuthUser | null>(() => service.peekSession?.() ?? null);
+  const [loading, setLoading] = useState(() => service.peekSession === undefined);
+  // Swapping the service is a different identity, so re-read it during the
+  // render rather than in an effect, for the same reason.
+  const [current, setCurrent] = useState(service);
+  if (current !== service) {
+    setCurrent(service);
+    setUser(service.peekSession?.() ?? null);
+    setLoading(service.peekSession === undefined);
+  }
 
   useEffect(() => {
     let active = true;
     // A change event is newer than the initial read, so it wins if it arrives first.
     let changed = false;
-    setLoading(true);
+    if (!service.peekSession) setLoading(true);
     const unsubscribe = service.onChange((next) => {
       if (!active) return;
       changed = true;

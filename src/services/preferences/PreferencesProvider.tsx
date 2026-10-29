@@ -165,17 +165,27 @@ export function PreferencesProvider({ storage, scopeId, children }: PreferencesP
 
   /**
    * A different profile signed in, so the person's half of the preferences is
-   * theirs and has to be read again. The first run is skipped: the initial
-   * state already holds that read.
+   * theirs and has to be read again.
+   *
+   * This happens during the render, not in an effect. The common case is the
+   * one every visit begins with: the session is still being restored, so the
+   * first render is built on the signed-out scope, and the profile's own
+   * preferences arrive with it a moment later. An effect would publish them
+   * one render too late — late enough that a screen reading a preference as it
+   * mounts has already read the wrong one and kept it. Onboarding did exactly
+   * that, and sent a user resuming at step 3 of 4 back to step 1.
+   *
+   * Re-rendering from within a render is the supported way to do this: React
+   * discards the output and re-runs this component before any child sees the
+   * stale value, so no other profile's preferences are ever rendered.
    */
-  const identity = useRef({ storage, scopeId });
-  useEffect(() => {
-    if (identity.current.storage === storage && identity.current.scopeId === scopeId) return;
-    identity.current = { storage, scopeId };
+  const [identity, setIdentity] = useState({ storage, scopeId });
+  if (identity.storage !== storage || identity.scopeId !== scopeId) {
     const next = readStoredPreferences(storage);
     latest.current = next.preferences;
+    setIdentity({ storage, scopeId });
     setStored(next);
-  }, [storage, scopeId]);
+  }
 
   // Cross-tab and cross-service changes, to either half.
   useEffect(
