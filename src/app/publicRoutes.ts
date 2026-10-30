@@ -16,6 +16,7 @@ export type PublicRoutePath = (typeof PUBLIC_ROUTES)[keyof typeof PUBLIC_ROUTES]
 export const HOME_SECTIONS = {
   scenarios: 'everyday-moments',
   howItWorks: 'how-it-works',
+  ring: 'the-ring',
   commands: 'commands',
   app: 'the-app',
   research: 'research',

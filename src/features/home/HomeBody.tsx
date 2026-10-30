@@ -3,6 +3,7 @@ import { AssurancesSection } from './AssurancesSection';
 import { CommandsSection } from './CommandsSection';
 import { HowItWorksSection } from './HowItWorksSection';
 import { QuestionsSection } from './QuestionsSection';
+import { RingSection } from './RingSection';
 import { ResearchSection } from './ResearchSection';
 import { ScenariosSection } from './ScenariosSection';
 
@@ -18,6 +19,7 @@ export default function HomeBody() {
     <>
       <ScenariosSection />
       <HowItWorksSection />
+      <RingSection />
       <CommandsSection />
       <AppPreview />
       <ResearchSection />

@@ -8,6 +8,7 @@ import { SHELL } from './homeStyles';
 
 const NAV_LINKS = [
   { label: 'How it works', section: HOME_SECTIONS.howItWorks },
+  { label: 'The ring', section: HOME_SECTIONS.ring },
   { label: 'The app', section: HOME_SECTIONS.app },
   { label: 'Research', section: HOME_SECTIONS.research },
 ] as const;

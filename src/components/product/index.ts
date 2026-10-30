@@ -18,3 +18,22 @@ export {
   type ContactRole,
   type StageVariant,
 } from './stageGeometry';
+export { ExplodedRing } from './ExplodedRing';
+export {
+  badgePlacements,
+  clamp01,
+  closestBadgeGap,
+  DIAGRAM,
+  explodeValueText,
+  partAccessibleName,
+  partNumberText,
+  partHome,
+  partPosition,
+  shellRadii,
+  SPREAD_STEPS,
+  SPREAD_VALUE_TEXT,
+  spreadValueText,
+  stepToProgress,
+  toPercent,
+  unitVector,
+} from './explodedGeometry';

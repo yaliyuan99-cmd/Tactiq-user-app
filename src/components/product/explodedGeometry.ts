@@ -13,7 +13,7 @@
  * things a person operates are real buttons — the arrangement `HandMap` uses,
  * for the same reason.
  */
-import { BAND_PARTS, getRingPart, type RingPart, type RingPartId } from '@/domain/ringParts';
+import { BAND_PARTS, getRingPart, RING_PARTS, type RingPart, type RingPartId } from '@/domain/ringParts';
 
 export interface Point {
   readonly x: number;
@@ -163,6 +163,74 @@ export function explodeValueText(progress: number): string {
 }
 
 /**
+ * The slider's stops. Eleven, not a hundred: a switch user stepping through
+ * single activations crosses the whole range in ten presses rather than a
+ * hundred, and Home and End reach the two positions that actually matter in
+ * one. Each stop is a tenth of the way apart.
+ */
+export const SPREAD_STEPS = 10;
+
+export function stepToProgress(step: number): number {
+  return clamp01(step / SPREAD_STEPS);
+}
+
+/**
+ * What the slider says when a screen reader reads its value.
+ *
+ * A table rather than a formula, so the wording is auditable and tested. It is
+ * longer than the visible readout on purpose: "50%" is meaningless without the
+ * drawing, so the value text says what the drawing looks like instead of
+ * reading out a number nobody can see.
+ */
+export const SPREAD_VALUE_TEXT: readonly string[] = [
+  'Assembled. All ten parts drawn in place, nested inside the outer shell.',
+  '10 percent apart. The parts have just left the shell.',
+  '20 percent apart.',
+  '30 percent apart.',
+  '40 percent apart.',
+  '50 percent apart. Halfway out.',
+  '60 percent apart.',
+  '70 percent apart.',
+  '80 percent apart.',
+  '90 percent apart. Almost clear.',
+  'Fully exploded. All ten parts drawn clear of each other, each beside its own number.',
+];
+
+export function spreadValueText(step: number): string {
+  const index = Math.min(Math.max(Math.round(step), 0), SPREAD_STEPS);
+  return SPREAD_VALUE_TEXT[index] ?? SPREAD_VALUE_TEXT[0] ?? '';
+}
+
+/**
+ * The narrowest the drawing can be rendered while its 44 px badges still sit
+ * clear of one another — about 489 px.
+ *
+ * The badges are fixed px while the drawing scales with its container, so
+ * below this width neighbouring badges overlap and a tap meant for the squeeze
+ * sensor lands on the haptic motor. Narrower than this, the drawing keeps its
+ * shapes but stops carrying buttons, and the parts list beside it is the only
+ * way to choose a part. Derived from the geometry rather than guessed, so it
+ * stays correct if a part moves — the same arrangement as
+ * `src/features/practice/handViewFit.ts`.
+ */
+export const MIN_DIAGRAM_WIDTH = (() => {
+  let closest = Number.POSITIVE_INFINITY;
+  for (let step = 0; step <= SPREAD_STEPS; step += 1) {
+    closest = Math.min(closest, closestBadgeGap(stepToProgress(step)));
+  }
+  return Math.ceil((TARGET_PX * DIAGRAM.width) / closest);
+})();
+
+/** True when a container of this width can carry the interactive badges. */
+export function diagramFits(width: number): boolean {
+  return width >= MIN_DIAGRAM_WIDTH;
+}
+
+/** Said when the drawing is too narrow to be operated, so nothing looks broken. */
+export const DIAGRAM_TOO_NARROW_NOTE =
+  'The drawing is too narrow to carry buttons at this width, so the parts list below is the way to choose a part.';
+
+/**
  * The smallest gap between any two badges at this progress, in SVG units.
  * Used by the tests to prove the numbers never overlap as the slider moves;
  * a badge is `badgeRadius` across, so anything below twice that collides.
@@ -179,4 +247,17 @@ export function closestBadgeGap(progress: number): number {
     }
   }
   return round(smallest);
+}
+
+/**
+ * Said aloud by the diagram badge and by the list row alike. One function, so
+ * the two routes to the same part cannot drift into describing it differently.
+ */
+export function partAccessibleName(part: RingPart): string {
+  return `Part ${part.index} of ${RING_PARTS.length}, ${part.name}`;
+}
+
+/** "03" — the visible number. Zero-padded so the column does not ripple. */
+export function partNumberText(part: RingPart): string {
+  return String(part.index).padStart(2, '0');
 }
