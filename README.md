@@ -54,8 +54,8 @@ npm install
 npm run dev
 ```
 
-Open http://localhost:5187. Choose **Continue as a guest** on the sign-in screen, or create
-a local profile, and follow the setup. No backend is needed.
+Open http://localhost:5187. The product homepage opens first: **Get started** creates a
+local profile, **Try the demo** opens the app as a guest. No backend is needed.
 
 ### Checks
 
@@ -93,8 +93,10 @@ Bluetooth permission only after you choose **Connect a ring**.
 
 | Route | Purpose |
 | --- | --- |
+| `/` | Public product homepage: what Tactiq is, the command map, how it would work, and what is not built |
+| `/demo` | The whole app as a guest, with no account. Every dashboard screen has a `/demo` address |
 | `/sign-in`, `/sign-up`, `/forgot-password`, `/reset-password` | Accounts (Demo Mode or Supabase) |
-| `/onboarding` | Eight-step setup: welcome, accessibility, hand, device, calibration, feedback, first lesson, done |
+| `/onboarding` | Four-step setup: which hand, a few preferences, your first command, you are ready |
 | `/dashboard` | Home: next step, ring status, training, calibration, commands, recent activity |
 | `/dashboard/connect` | Demo Mode or Bluetooth; every connection state, reconnect and forget |
 | `/dashboard/calibrate` | Voice-guided calibration of all eight points, three taps each |
@@ -105,9 +107,16 @@ Bluetooth permission only after you choose **Connect a ring**.
 | `/dashboard/settings` | Appearance, feedback, timing, hand, device, calibration, privacy, account, about |
 | `/dashboard/help` | Getting started, practising, accessibility, troubleshooting, limitations |
 
-On desktop the sidebar holds every destination. On mobile, a bottom bar holds Home,
-Train, Simulator, Commands and Settings. Connect, Calibrate, History and Help are in the
-**More** menu, and Help is also in the top bar on every screen.
+Navigation is grouped rather than flat: **Home**, **Practice** (Train, Simulator,
+Commands), **Device** (Connect, Calibrate), **Activity** and **Settings**, with **Help**
+always reachable from the top bar. The sidebar shows the groups expanded; below the `lg`
+breakpoint the five parents become a bottom bar and their children are reached from the
+parent's own page.
+
+The shell states the mode once, next to the pill naming it — "Simulated ring. Nothing in
+the app is a hardware measurement." — instead of repeating a disclaimer inside every
+card, which screen reader users were hearing on every page until they stopped hearing it
+at all.
 
 ## Architecture
 
@@ -116,7 +125,8 @@ src/
   domain/        Typed product facts: contact points, commands, timing, evidence labels,
                  Bluetooth protocol, lessons, onboarding steps, and the data models
   services/      Infrastructure behind interfaces, so screens never touch storage or Bluetooth
-    storage/       StorageAdapter (localStorage, or in-memory for tests)
+    storage/       StorageAdapter (localStorage, or in-memory for tests), and the per-profile
+                   view that puts one person's records under 'tactiq.u.<account>.'
     preferences/   Theme, text size, contrast, motion, feedback, timing, hand, onboarding
     auth/          AuthService: LocalDemoAuthService, or SupabaseAuthService when configured
     device/        DeviceAdapter: MockDeviceAdapter (the simulated ring, RingStateMachine)
@@ -132,7 +142,9 @@ src/
   features/      One folder per screen, plus practice/, the shared ring interaction core
                  used by the simulator, lessons, calibration and onboarding
   app/           Router, route guards, app shell, navigation, focus management
-  design-system/ Tokens ported from the Tactiq website, plus dark and high-contrast themes
+    supabase/      Account-scoped mirror: row mappers and the sync engine. Dormant unless
+                   VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY are set
+  design-system/ Deep-teal tokens with dark and both high-contrast themes, and self-hosted Inter
 ```
 
 Key decisions:
@@ -147,9 +159,14 @@ Key decisions:
 - **No gesture-only interaction.** Every contact point is a real button that works with
   pointer, touch and keyboard, and the list view offers the same commands. The five-second
   hold has a toggle button for screen-reader and switch users.
-- **Local-first Demo Mode.** Preferences, calibration, lessons, shortcuts and history
-  persist in `localStorage` under the `tactiq.` prefix. Users can export or delete them in
-  Settings.
+- **Local-first, per profile.** Preferences, calibration, lessons, shortcuts and history
+  persist in `localStorage` under the `tactiq.` prefix, and everything belonging to a
+  person sits under that profile's own prefix, so two profiles in one browser cannot read
+  each other's records. Appearance stays device-wide, because a display choice belongs to
+  the screen in front of you. Users can export or delete everything in Settings.
+- **The database is a mirror, never the source.** Every service reads synchronously, so a
+  screen never waits on a round trip before it can draw — which is also why the app works
+  with no network at all. See `supabase/migrations/` and `src/services/supabase/`.
 
 ## Accessibility
 
@@ -172,3 +189,22 @@ target size and focus visibility.
 
 `netlify.toml` builds with `npm run build`, publishes `dist/`, adds a single-page-app
 fallback and sets security headers. Its `Permissions-Policy` allows only Bluetooth.
+
+## Privacy
+
+`docs/privacy-policy.md` is a **draft, not published**, with `[CONFIRM: …]` wherever a
+fact has not been established. `docs/privacy-notices.md` holds the short summary and the
+in-app collection notices, and `docs/privacy-open-questions.md` lists what has to be
+answered — including two questions about Australian law that genuinely need a lawyer —
+before any of it goes live.
+
+What the shipped build does, verified against the source rather than assumed: it makes no
+network requests of its own, sets no cookies, loads no third-party resources, and asks for
+no camera, microphone or location. See `docs/privacy-open-questions.md` for the full list
+and how to re-check it.
+
+## Design and performance
+
+- `docs/design-decisions.md` — why the product looks and behaves as it does, including the
+  colour decision with its measured contrast ratios.
+- `docs/performance.md` — measured Core Web Vitals, the method, and what is still slow.
