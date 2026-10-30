@@ -1,10 +1,11 @@
 /**
  * Accessibility checks across the Tactiq user app.
  *
- *  1. axe (WCAG 2.0/2.1/2.2 A + AA) on every public, onboarding and dashboard
- *     route, and on dynamic states: the simulator after a squeeze and a tap,
- *     calibration mid-run, a lesson in practice, a dirty shortcut draft, an
- *     open ConfirmDialog and the mobile More dialog. Serious/critical fail;
+ *  1. axe (WCAG 2.0/2.1/2.2 A + AA) on every public page (the product homepage
+ *     at "/" included), every onboarding step and every dashboard route, and
+ *     on dynamic states: the simulator after a squeeze and a tap, calibration
+ *     mid-run, a lesson in practice, a dirty shortcut draft, an open
+ *     ConfirmDialog and the mobile More dialog. Serious/critical fail;
  *     moderate/minor are recorded as `a11y-advisory` annotations.
  *  2. The dashboard routes again in dark, high-contrast and high-contrast dark.
  *  3. No horizontal overflow at 320×640, default and larger text.
@@ -31,18 +32,21 @@ import {
   stopAnimationSampler,
   waitForPageReady,
 } from './helpers/a11y';
+import { STEP_COUNT, STEP_TITLES, expectOnboardingStep } from './helpers/onboarding';
 
-/** src/domain/onboarding.ts ONBOARDING_STEPS, in order. */
-const ONBOARDING_STEP_TITLES = [
-  'Welcome',
-  'Accessibility preferences',
-  'Which hand',
-  'Demo Mode or a ring',
-  'Calibration',
-  'Feedback',
-  'First lesson',
-  'All set',
-] as const;
+/**
+ * Every address a visitor reaches signed out. "/" is the public product
+ * homepage, with its own banner, main landmark and footer, so it is scanned
+ * like any other public page instead of being followed to sign-in.
+ */
+const PUBLIC_PAGES = ['/', ...PUBLIC_ROUTES] as const;
+
+/**
+ * The first two step titles. Taken from the shared helper (which derives them
+ * from src/domain/onboarding.ts) so a step renamed there cannot leave these
+ * tests naming a step the app no longer has.
+ */
+const [FIRST_STEP_TITLE = '', SECOND_STEP_TITLE = ''] = STEP_TITLES;
 
 /** src/domain/contacts.ts labels, anatomical order. */
 const CONTACT_LABELS = [
@@ -86,12 +90,31 @@ async function gotoReady(page: Page, path: string): Promise<void> {
  * On the simulator (free practice, seeded with Longer interaction time so the
  * 6 s window leaves room on a busy machine): squeeze, then tap Confirm on the
  * index fingertip. Both outcomes must reach the polite live region.
+ *
+ * The tap waits for the window to be announced open rather than following the
+ * squeeze straight away: the squeeze only opens it after the gate hold
+ * (GATE_HOLD_MS, src/domain/timing.ts), and a tap before that is correctly
+ * dropped, so tapping too early would test the wrong thing.
  */
 async function squeezeAndTapConfirm(page: Page): Promise<void> {
   await page.getByRole('button', { name: 'Squeeze the ring', exact: true }).click();
   await expect(politeRegion(page)).toContainText('Command window open for 6 seconds.', { timeout: ANNOUNCEMENT_TIMEOUT });
   await pointButton(page, 'Index fingertip').click();
   await expect(politeRegion(page)).toContainText('Confirm.', { timeout: ANNOUNCEMENT_TIMEOUT });
+}
+
+/**
+ * Puts one real record into activity history, then leaves the simulator.
+ *
+ * Nothing writes Demo Mode sample records any more: seeding is offered rather
+ * than automatic (src/app/shell/useDemoHistorySeed.ts), so the screens that
+ * only exist once there is activity have to be reached the way a user reaches
+ * them — by running a command. Seed Longer interaction time with it, so the
+ * window still has room on a busy machine.
+ */
+async function practiseOneCommand(page: Page): Promise<void> {
+  await gotoReady(page, '/dashboard/simulator?mode=free');
+  await squeezeAndTapConfirm(page);
 }
 
 /** The visible target line in the "Your target" card (src/features/simulator/guided.ts describeTarget). */
@@ -120,7 +143,7 @@ async function skipToGuidedTarget(page: Page, wanted: RegExp): Promise<void> {
 /* ------------------------------------------------------------------ */
 
 test.describe('axe — public routes (signed out)', () => {
-  for (const route of PUBLIC_ROUTES) {
+  for (const route of PUBLIC_PAGES) {
     test(`axe: ${route} has no serious or critical violations`, async ({ newUserPage: page }) => {
       const errors = trackConsoleErrors(page);
       await gotoReady(page, route);
@@ -132,25 +155,26 @@ test.describe('axe — public routes (signed out)', () => {
 });
 
 test.describe('axe — onboarding (signed in, setup not finished)', () => {
-  test('axe: /onboarding step 1 (Welcome) has no serious or critical violations', async ({ page }) => {
+  test(`axe: /onboarding step 1 (${FIRST_STEP_TITLE}) has no serious or critical violations`, async ({ page }) => {
     await seedStorage(page, { onboardingCompleted: false });
     const errors = trackConsoleErrors(page);
     await gotoReady(page, '/onboarding');
-    await expect(page.getByRole('heading', { level: 1, name: 'Welcome' })).toBeVisible();
-    await expectNoSeriousAxeViolations(page, '/onboarding step 1 (Welcome)');
+    await expectOnboardingStep(page, 1);
+    await expectNoSeriousAxeViolations(page, `/onboarding step 1 (${FIRST_STEP_TITLE})`);
     expect(errors).toEqual([]);
   });
 
-  test('axe: /onboarding step 2 (Accessibility preferences) has no serious or critical violations', async ({ page }) => {
+  test(`axe: /onboarding step 2 (${SECOND_STEP_TITLE}) has no serious or critical violations`, async ({ page }) => {
     await seedStorage(page, { onboardingCompleted: false });
     const errors = trackConsoleErrors(page);
     await gotoReady(page, '/onboarding');
     await page.getByRole('button', { name: 'Continue', exact: true }).click();
-    const heading = page.getByRole('heading', { level: 1, name: 'Accessibility preferences' });
-    await expect(heading).toBeVisible();
-    await expect(heading).toBeFocused();
-    await expect(politeRegion(page)).toContainText('Step 2 of 8: Accessibility preferences.', { timeout: ANNOUNCEMENT_TIMEOUT });
-    await expectNoSeriousAxeViolations(page, '/onboarding step 2 (Accessibility preferences)');
+    await expectOnboardingStep(page, 2);
+    await expect(page.getByRole('heading', { level: 1, name: SECOND_STEP_TITLE })).toBeFocused();
+    await expect(politeRegion(page)).toContainText(`Step 2 of ${STEP_COUNT}: ${SECOND_STEP_TITLE}.`, {
+      timeout: ANNOUNCEMENT_TIMEOUT,
+    });
+    await expectNoSeriousAxeViolations(page, `/onboarding step 2 (${SECOND_STEP_TITLE})`);
     expect(errors).toEqual([]);
   });
 });
@@ -220,8 +244,10 @@ test.describe('axe — dynamic states', () => {
   });
 
   test('axe: History "Clear all activity" ConfirmDialog open', async ({ page }) => {
-    await seedStorage(page, { withoutSampleHistory: false });
+    // "Your data" (and so this dialog) only renders once history holds something.
+    await seedStorage(page, { preferences: { longerInteractionTime: true } });
     const errors = trackConsoleErrors(page);
+    await practiseOneCommand(page);
     await gotoReady(page, '/dashboard/history');
     await page.getByRole('button', { name: 'Clear all activity' }).click();
     const dialog = page.getByRole('dialog', { name: 'Clear all activity?' });
@@ -267,19 +293,30 @@ for (const theme of THEMES) {
   });
 }
 
-test.describe('axe — pages with Demo Mode sample history, all four themes', () => {
+/**
+ * The same two screens once history is not empty. They were scanned with Demo
+ * Mode sample records, which no longer appear on their own, so the activity is
+ * made by practising a command — the figures, filters, the By command table
+ * and "Your data" all render either way, and the records are the user's own.
+ */
+test.describe('axe — pages with activity, all four themes', () => {
   const allThemes = [{ name: 'light', preferences: {} }, ...THEMES] as const;
   for (const theme of allThemes) {
     for (const route of ['/dashboard', '/dashboard/history'] as const) {
-      test(`axe (${theme.name}, sample history): ${route} has no serious or critical violations`, async ({ page }) => {
-        await seedStorage(page, { withoutSampleHistory: false, preferences: theme.preferences });
+      test(`axe (${theme.name}, with activity): ${route} has no serious or critical violations`, async ({ page }) => {
+        await seedStorage(page, { preferences: { longerInteractionTime: true, ...theme.preferences } });
         const errors = trackConsoleErrors(page);
+        await practiseOneCommand(page);
         await gotoReady(page, route);
+        // Both screens have a second, emptier form, so each one is checked to
+        // be showing the record before it is worth scanning.
         if (route === '/dashboard/history') {
           // Filters and the data section only render once there is activity.
           await expect(page.getByRole('button', { name: 'Clear all activity' })).toBeVisible();
+        } else {
+          await expect(page.getByText('Confirm recognised', { exact: true })).toBeVisible();
         }
-        await expectNoSeriousAxeViolations(page, `${route} with sample history (${theme.name})`);
+        await expectNoSeriousAxeViolations(page, `${route} with activity (${theme.name})`);
         expect(errors).toEqual([]);
       });
     }
@@ -296,7 +333,7 @@ test.describe('reflow at 320×640', () => {
   test.use({ viewport: { width: 320, height: 640 } });
 
   for (const textSize of TEXT_SIZES) {
-    for (const route of PUBLIC_ROUTES) {
+    for (const route of PUBLIC_PAGES) {
       test(`no horizontal overflow (${textSize} text): ${route}`, async ({ page }) => {
         await seedStorage(page, { signedIn: false, onboardingCompleted: false, preferences: { textSize } });
         const errors = trackConsoleErrors(page);
@@ -306,12 +343,12 @@ test.describe('reflow at 320×640', () => {
       });
     }
 
-    ONBOARDING_STEP_TITLES.forEach((title, index) => {
+    STEP_TITLES.forEach((title, index) => {
       test(`no horizontal overflow (${textSize} text): /onboarding step ${index + 1} (${title})`, async ({ page }) => {
         await seedStorage(page, { onboardingCompleted: false, preferences: { textSize, onboardingStep: index } });
         const errors = trackConsoleErrors(page);
         await gotoReady(page, '/onboarding');
-        await expect(page.getByRole('heading', { level: 1, name: title })).toBeVisible();
+        await expectOnboardingStep(page, index + 1);
         await expectNoHorizontalOverflow(page, `/onboarding step ${index + 1} (${title}) at 320×640, ${textSize} text`);
         expect(errors).toEqual([]);
       });
@@ -363,7 +400,9 @@ test.describe('reflow at 640×450 (200% zoom)', () => {
       await expect(nav).toHaveCount(1);
       await expect(nav).toBeVisible();
       await expect(nav).toBeInViewport({ ratio: 1 });
-      for (const label of ['Home', 'Train', 'Simulator', 'Commands', 'Settings']) {
+      // The bottom bar carries the five primary destinations; the pages grouped
+      // under Practice and Device are reached through the More dialog below.
+      for (const label of ['Home', 'Practice', 'Device', 'Activity', 'Settings']) {
         await expect(nav.getByRole('link', { name: label, exact: true })).toBeInViewport({ ratio: 1 });
       }
       await expect(page.getByRole('button', { name: 'More', exact: true })).toBeVisible();
@@ -379,7 +418,9 @@ test.describe('reflow at 640×450 (200% zoom)', () => {
     const dialog = page.getByRole('dialog', { name: 'More' });
     await expect(dialog).toBeVisible();
     await expectNoHorizontalOverflow(page, '/dashboard More dialog at 640×450');
-    for (const label of ['Connect', 'Calibrate', 'History', 'Help']) {
+    // Everything the five-destination bottom bar cannot hold: the pages grouped
+    // under Practice and Device, then Help (src/app/shell/navItems.ts).
+    for (const label of ['Train', 'Simulator', 'Commands', 'Connect', 'Calibrate', 'Help']) {
       const link = dialog.getByRole('link', { name: label, exact: true });
       await link.scrollIntoViewIfNeeded();
       await expect(link).toBeInViewport({ ratio: 1 });
@@ -552,7 +593,7 @@ async function expectPageStructure(page: Page, context: string): Promise<void> {
 }
 
 test.describe('document structure', () => {
-  for (const route of [...PUBLIC_ROUTES, '/this-page-does-not-exist']) {
+  for (const route of [...PUBLIC_PAGES, '/this-page-does-not-exist']) {
     test(`one h1, lang="en" and one main landmark: ${route} (signed out)`, async ({ newUserPage: page }) => {
       const errors = trackConsoleErrors(page);
       await gotoReady(page, route);
@@ -561,12 +602,12 @@ test.describe('document structure', () => {
     });
   }
 
-  ONBOARDING_STEP_TITLES.forEach((title, index) => {
+  STEP_TITLES.forEach((title, index) => {
     test(`one h1, lang="en" and one main landmark: /onboarding step ${index + 1} (${title})`, async ({ page }) => {
       await seedStorage(page, { onboardingCompleted: false, preferences: { onboardingStep: index } });
       const errors = trackConsoleErrors(page);
       await gotoReady(page, '/onboarding');
-      await expect(page.getByRole('heading', { level: 1, name: title })).toBeVisible();
+      await expectOnboardingStep(page, index + 1);
       await expectPageStructure(page, `/onboarding step ${index + 1}`);
       expect(errors).toEqual([]);
     });
@@ -590,7 +631,8 @@ test.describe('document structure', () => {
     test.skip(testInfo.project.name !== 'desktop-chromium', 'The hand drawing only fits from the desktop width.');
     const errors = trackConsoleErrors(page);
     await gotoReady(page, '/dashboard/simulator?mode=free');
-    // The surface opens in the list view; the hand drawing is one radio away.
+    // Which view the surface opens in depends on the column width and on what
+    // the tab last remembered, so the drawing is chosen rather than assumed.
     await page.getByRole('radio', { name: 'Hand view' }).check();
     const figure = page.getByRole('figure', { name: 'Right hand contact map' });
     await expect(figure).toBeVisible();

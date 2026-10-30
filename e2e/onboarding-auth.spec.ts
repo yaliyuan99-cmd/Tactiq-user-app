@@ -1,5 +1,5 @@
 /**
- * Sign-up, sign-in, sign-out and the eight-step onboarding flow, end to end,
+ * Sign-up, sign-in, sign-out and the four-step setup flow, end to end,
  * in Demo Mode (no account backend configured).
  */
 import { test, expect, seedStorage, trackConsoleErrors } from './fixtures';
@@ -14,6 +14,9 @@ import {
   politeAnnouncer,
   recordAnnouncements,
 } from './helpers/onboarding';
+// Setup's first-command step is the practice surface the rest of the app uses,
+// so it is driven with the same helpers as the practice screens.
+import { contactButton, squeezeAndWaitForWindow } from './helpers/practice';
 
 const ROBIN = { name: 'Robin Vale', email: 'robin@example.com' };
 const APP_ORIGIN = 'http://localhost:5188';
@@ -21,16 +24,19 @@ const APP_ORIGIN = 'http://localhost:5188';
 const DEMO_NOT_FOUND = 'No local profile uses that email on this device. Create one, or continue as a guest.';
 const DEMO_NO_PASSWORDS = 'Demo Mode keeps no passwords, so there is nothing to reset. Sign in with just your email.';
 const SIGNED_OUT = 'You have signed out.';
-const LESSON_DONE = 'Lesson complete. You practised opening the command window on purpose.';
+const FIRST_COMMAND_CORRECT = 'Confirm on the index fingertip. That is the command.';
+const FIRST_COMMAND_DONE = 'You have run your first command';
 
 test.describe('Sign up and onboarding', () => {
-  test('a new user creates a Demo Mode profile and lands on step 1 of 8', async ({ newUserPage: page }) => {
+  test('a new user creates a Demo Mode profile and lands on step 1 of 4', async ({ newUserPage: page }) => {
     const errors = trackConsoleErrors(page);
     await recordAnnouncements(page);
 
     await page.goto('/sign-up');
+    // The page is lazy-loaded from a shared dev server, so its first render is given
+    // room; everything asserted after it is about the page, not about loading.
+    await expect(page.getByRole('heading', { level: 1, name: 'Create your profile' })).toBeVisible({ timeout: 20_000 });
     await expect(page).toHaveTitle('Create your profile · Tactiq');
-    await expect(page.getByRole('heading', { level: 1, name: 'Create your profile' })).toBeVisible();
     await expect(page.getByRole('note').filter({ hasText: 'Demo Mode' })).toContainText('No password is stored or checked');
     // Demo Mode has no password fields.
     await expect(page.getByLabel('Password')).toHaveCount(0);
@@ -46,7 +52,9 @@ test.describe('Sign up and onboarding', () => {
     await expect(page.getByRole('button', { name: 'Back' })).toHaveCount(0);
     await expect(page.getByRole('banner').getByRole('link', { name: 'Help' })).toBeVisible();
     await expect(page.getByRole('button', { name: 'Skip setup' })).toBeVisible();
+    // The honesty note is made once, on the first step, and names the length of setup.
     await expect(page.getByText('Simulated', { exact: true }).first()).toBeVisible();
+    await expect(page.getByRole('main')).toContainText('Setup takes four short steps');
     expect(errors).toEqual([]);
   });
 
@@ -67,11 +75,16 @@ test.describe('Sign up and onboarding', () => {
     expect(errors).toEqual([]);
   });
 
-  test('walks all eight steps with keyboard and mouse, finishing the squeeze lesson for real', async ({
+  test('walks all four steps with keyboard and mouse, running the first command for real', async ({
     newUserPage: page,
   }) => {
     test.slow();
     const errors = trackConsoleErrors(page);
+    await recordAnnouncements(page);
+    // Sign-up is loaded once before createDemoProfile, whose own waits are at the
+    // default timeout and would otherwise be measuring a cold lazy-loaded page.
+    await page.goto('/sign-up');
+    await expect(page.getByRole('heading', { level: 1, name: 'Create your profile' })).toBeVisible({ timeout: 20_000 });
     await createDemoProfile(page, ROBIN);
     const html = page.locator('html');
     const status = politeAnnouncer(page);
@@ -79,13 +92,28 @@ test.describe('Sign up and onboarding', () => {
     // Visible text is looked up inside main: the live regions sit outside it.
     const main = page.getByRole('main');
 
-    // Step 1 — Welcome: continue with the keyboard.
-    await expect(page.getByRole('region', { name: 'How it would work' })).toBeVisible();
+    // Step 1 — Which hand: choose Left with the mouse; the preview mirrors.
+    await expect(page.getByRole('group', { name: 'Which hand will wear the ring?' })).toBeVisible();
+    const rightPreview = page.getByRole('figure', {
+      name: 'Preview: right hand, palm facing you. The ring sits on the index finger.',
+    });
+    const leftPreview = page.getByRole('figure', {
+      name: 'Preview: left hand, palm facing you. The ring sits on the index finger.',
+    });
+    await expect(page.getByRole('radio', { name: 'Right', exact: true })).toBeChecked();
+    await expect(rightPreview).toBeVisible();
+    await page.getByRole('radio', { name: 'Left', exact: true }).click();
+    await expect(page.getByRole('radio', { name: 'Left', exact: true })).toBeChecked();
+    await expect(leftPreview).toBeVisible();
+    await expect(rightPreview).toHaveCount(0);
+    await expect(status).toContainText('Hand set to Left.');
+
+    // Continue with the keyboard; the new step takes focus and says where it is.
     await continueButton(page).focus();
     await page.keyboard.press('Enter');
     await expectOnboardingStep(page, 2);
     await expect(h1).toBeFocused();
-    await expect(status).toContainText('Step 2 of 8: Accessibility preferences.');
+    await expect(status).toContainText('Step 2 of 4: A few preferences.');
 
     // Back returns to step 1, Continue (mouse) comes forward again.
     await page.getByRole('button', { name: 'Back' }).click();
@@ -93,7 +121,7 @@ test.describe('Sign up and onboarding', () => {
     await continueButton(page).click();
     await expectOnboardingStep(page, 2);
 
-    // Step 2 — Accessibility preferences: pick Large text with the arrow keys.
+    // Step 2 — A few preferences: pick Large text with the arrow keys.
     const textSize = page.getByRole('group', { name: 'Text size' });
     await expect(textSize.getByRole('radio', { name: 'Default', exact: true })).toBeChecked();
     await expect(html).not.toHaveAttribute('data-text-size', /.+/);
@@ -102,149 +130,127 @@ test.describe('Sign up and onboarding', () => {
     await expect(textSize.getByRole('radio', { name: 'Large', exact: true })).toBeChecked();
     await expect(html).toHaveAttribute('data-text-size', 'large');
     await expect(status).toContainText('Text size set to Large.');
-    await continueButton(page).click();
 
-    // Step 3 — Which hand: choose Left with the mouse; the preview mirrors.
-    await expectOnboardingStep(page, 3);
-    await expect(page.getByRole('radio', { name: 'Right', exact: true })).toBeChecked();
-    await expect(page.getByRole('figure', { name: 'Preview: right hand, palm facing you.' })).toBeVisible();
-    await page.getByRole('radio', { name: 'Left', exact: true }).click();
-    await expect(page.getByRole('radio', { name: 'Left', exact: true })).toBeChecked();
-    await expect(page.getByRole('figure', { name: 'Preview: left hand, palm facing you.' })).toBeVisible();
-    await expect(page.getByRole('figure', { name: 'Preview: right hand, palm facing you.' })).toHaveCount(0);
-    await expect(status).toContainText('Hand set to Left.');
+    // Setup's switches each apply at once and say what changed; the summary on the
+    // last step is read back from what they saved.
+    const contrast = page.getByRole('switch', { name: 'Increased contrast' });
+    await contrast.click();
+    await expect(contrast).toBeChecked();
+    await expect(html).toHaveAttribute('data-contrast', 'high');
+    await expect(status).toContainText('Increased contrast on.');
+    const longerTime = page.getByRole('switch', { name: 'Longer interaction time' });
+    await longerTime.click();
+    await expect(longerTime).toBeChecked();
+    await expect(status).toContainText('Longer interaction time on. The command window stays open for 6 seconds.');
     await continueButton(page).focus();
     await page.keyboard.press('Space');
 
-    // Step 4 — Demo Mode or a ring: keep Demo Mode.
+    // Step 3 — Your first command: one real Confirm on the simulated ring.
+    await expectOnboardingStep(page, 3);
+    await expect(main.getByText('None yet. Squeeze, then tap the point marked Target.')).toBeVisible();
+    // A squeeze only opens the command window after the gate hold, so the tap waits for it.
+    await squeezeAndWaitForWindow(page);
+    await contactButton(main, 'Index fingertip').click();
+    await expect(main.getByText(FIRST_COMMAND_CORRECT)).toBeVisible();
+    await expectAnnounced(page, FIRST_COMMAND_CORRECT);
+    await expect(main.getByText(FIRST_COMMAND_DONE)).toBeVisible();
+    await continueButton(page).click();
+
+    // Step 4 — You are ready: the summary reflects the choices; no Skip setup is left.
     await expectOnboardingStep(page, 4);
-    const deviceGroup = page.getByRole('group', { name: 'How will you use Tactiq?' });
-    await expect(deviceGroup.getByRole('radio', { name: 'Demo Mode (recommended while no ring exists)' })).toBeChecked();
-    await expect(deviceGroup.getByRole('radio', { name: 'Bluetooth ring' })).not.toBeChecked();
-    await expect(main.getByText('Simulated', { exact: true }).first()).toBeVisible();
-    await continueButton(page).click();
-
-    // Step 5 — Calibration intro: the primary action means "later"; there is no separate skip.
-    await expectOnboardingStep(page, 5);
-    await expect(page.getByRole('link', { name: 'Open calibration now' })).toHaveAttribute('href', '/dashboard/calibrate');
-    await expect(page.getByRole('button', { name: 'Skip this step' })).toHaveCount(0);
-    await continueButton(page, 'Calibrate after setup').click();
-
-    // Step 6 — Feedback: the try-it buttons respond and nothing breaks.
-    await expectOnboardingStep(page, 6);
-    await page.getByRole('button', { name: 'Hear an announcement' }).click();
-    await expect(main.getByText('Announced: “Next.”')).toBeVisible();
-    await expect(status).toContainText('Next.');
-    const tryVibration = page.getByRole('button', { name: 'Try a vibration' });
-    if ((await tryVibration.count()) > 0) {
-      await tryVibration.click();
-      // Haptic feedback is off in this profile, so the page says nothing vibrated.
-      await expect(main.getByText(/Haptic feedback is switched off, so nothing vibrated\./)).toBeVisible();
-      await expect(status).toContainText('Haptic feedback is switched off');
-    } else {
-      await expect(main.getByText(/This browser or device does not allow vibration/)).toBeVisible();
-    }
-    await expect(h1).toHaveText('Feedback');
-    await continueButton(page).click();
-
-    // Step 7 — First lesson: Squeeze to activate, three squeeze steps.
-    await expectOnboardingStep(page, 7);
-    await page.getByRole('button', { name: 'Start lesson' }).click();
-    const squeeze = page.getByRole('button', { name: 'Squeeze the ring' });
-
-    const step1 = page.getByRole('heading', { name: 'Step 1 of 3: Squeeze the ring to open the command window.' });
-    await expect(step1).toBeVisible();
-    await expect(step1).toBeFocused();
-    await squeeze.click();
-    await expect(main.getByText('Correct', { exact: true })).toBeVisible();
-    await expect(status).toContainText('Correct. Command window open for 3 seconds.');
-    // A squeeze step moves on by itself once the three-second window has closed.
-    const step2 = page.getByRole('heading', { name: /^Step 2 of 3: Squeeze again\./ });
-    await expect(step2).toBeVisible({ timeout: 10_000 });
-
-    await expect(main.getByText('Command window closed. Squeeze to open it.')).toBeVisible();
-    await squeeze.click();
-    await expect(main.getByText('Correct', { exact: true })).toBeVisible();
-    await page.getByRole('button', { name: 'Next step' }).click();
-
-    const step3 = page.getByRole('heading', { name: /^Step 3 of 3: One more squeeze/ });
-    await expect(step3).toBeVisible();
-    await expect(main.getByText('Command window closed. Squeeze to open it.')).toBeVisible();
-    await squeeze.click();
-    await expect(main.getByText('Correct', { exact: true })).toBeVisible();
-    await page.getByRole('button', { name: 'Finish lesson' }).click();
-
-    const summary = page.getByRole('heading', { name: 'Lesson complete', exact: true });
-    await expect(summary).toBeVisible();
-    await expect(summary).toBeFocused();
-    await expect(main.getByText(/with no retries\./)).toBeVisible();
-    await expect(main.getByText(LESSON_DONE)).toBeVisible();
-    await continueButton(page).click();
-
-    // Step 8 — All set: the summary reflects the choices; no Skip setup is left.
-    await expectOnboardingStep(page, 8);
     const choices = page.getByRole('region', { name: 'Your choices' });
     await expect(choices.getByRole('definition')).toHaveText([
       'Left hand',
       'Demo Mode (simulated ring)',
       'Large',
+      'On',
       'Off',
-      'Off — the command window stays open for 3 seconds',
+      'On — the command window stays open for 6 seconds',
     ]);
     await expect(page.getByRole('button', { name: 'Skip setup' })).toHaveCount(0);
+    // Setup ends by pointing at the screens that used to be steps of its own.
+    const whatNext = page.getByRole('region', { name: 'What to do next' });
+    await expect(whatNext.getByRole('link', { name: 'Start training' })).toBeVisible();
+    await expect(whatNext.getByRole('link', { name: 'Rehearse calibration' })).toHaveAttribute(
+      'href',
+      '/dashboard/calibrate',
+    );
     await continueButton(page, 'Go to the dashboard').click();
 
     await expect(page).toHaveURL(/\/dashboard$/);
     await expect(page).toHaveTitle('Home · Tactiq');
     await expect(h1).toHaveText(greeting('Robin'));
-    // The lesson finished in setup counts, and setup is no longer offered as the next step.
-    await expect(page.getByRole('progressbar', { name: 'Lessons completed' })).toHaveAttribute('aria-valuetext', '1 of 5');
+    // The first command is not a lesson, so training is still untouched — and setup
+    // is no longer offered as the next step.
+    await expect(page.getByRole('progressbar', { name: 'Lessons completed' })).toHaveAttribute('aria-valuetext', '0 of 5');
     const nextStep = page.getByRole('region', { name: 'What to do next' });
     await expect(nextStep.getByRole('link', { name: 'Resume setup' })).toHaveCount(0);
     await expect(nextStep.getByRole('link', { name: 'Calibrate your ring' })).toBeVisible();
     expect(errors).toEqual([]);
   });
 
-  test('leaving the first lesson offers a way back in, with focus on it', async ({ page }) => {
+  // Setup no longer runs a lesson that can be exited, so there is nothing to offer a
+  // way back into: the ring surface stays on screen and the command can be run again.
+  // What has to survive instead is the record that it was run, when setup moves off
+  // the step and back.
+  test('the first command stays done when setup moves off the step and back', async ({ page }) => {
     const errors = trackConsoleErrors(page);
-    await seedStorage(page, { onboardingCompleted: false, preferences: { onboardingStep: 6 } });
+    await seedStorage(page, { onboardingCompleted: false, preferences: { onboardingStep: 2 } });
     await page.goto('/onboarding');
-    await expectOnboardingStep(page, 7);
-
-    await page.getByRole('button', { name: 'Start lesson' }).click();
-    await expect(page.getByRole('button', { name: 'Squeeze the ring' })).toBeVisible();
-    await page.getByRole('button', { name: 'Exit lesson' }).click();
-
+    // Setup is lazy-loaded on a shared dev server, so the first render is given room;
+    // every assertion after it is then about behaviour rather than about loading.
+    await expect(page.getByRole('heading', { level: 1 })).toBeVisible({ timeout: 20_000 });
+    await expectOnboardingStep(page, 3);
     const main = page.getByRole('main');
-    await expect(main.getByText('You left the lesson. Start it again, or continue when you are ready.')).toBeVisible();
-    const restart = page.getByRole('button', { name: 'Start the lesson again' });
-    await expect(restart).toBeFocused();
-    await restart.click();
-    await expect(page.getByRole('heading', { level: 2, name: 'Lesson 1: Squeeze to activate' })).toBeFocused();
-    await expect(page.getByRole('button', { name: 'Start lesson' })).toBeVisible();
-    // Leaving the lesson does not block setup.
+
+    await squeezeAndWaitForWindow(page);
+    await contactButton(main, 'Index fingertip').click();
+    const done = main.getByText(FIRST_COMMAND_DONE);
+    await expect(done).toBeVisible();
+
+    // Exact: a contact point on this step carries the Dismiss / Back command.
+    await page.getByRole('button', { name: 'Back', exact: true }).click();
+    await expectOnboardingStep(page, 2);
     await continueButton(page).click();
-    await expectOnboardingStep(page, 8);
+    await expectOnboardingStep(page, 3);
+    await expect(done).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Squeeze the ring' })).toBeVisible();
+
+    // The step is optional, so running the command is never a condition of finishing.
+    await continueButton(page).click();
+    await expectOnboardingStep(page, 4);
     expect(errors).toEqual([]);
   });
 
-  test('leaving setup for calibration resumes after the calibration step', async ({ page }) => {
+  // Calibration used to be a step of setup with a link out to it. It is a screen of
+  // its own now, so what this checks is that reaching it does not lose the step setup
+  // got to: the dashboard still names that step and resumes there.
+  test('leaving setup for calibration resumes at the step setup reached', async ({ page }) => {
     const errors = trackConsoleErrors(page);
-    await seedStorage(page, { onboardingCompleted: false, preferences: { onboardingStep: 4 } });
+    await seedStorage(page, { onboardingCompleted: false, preferences: { onboardingStep: 2 } });
     await page.goto('/onboarding');
-    await expectOnboardingStep(page, 5);
+    // As above: the cold first render is given room, the rest of the test is not.
+    await expect(page.getByRole('heading', { level: 1 })).toBeVisible({ timeout: 20_000 });
+    await expectOnboardingStep(page, 3);
 
-    await page.getByRole('link', { name: 'Open calibration now' }).click();
-    await expect(page).toHaveURL(/\/dashboard\/calibrate$/);
+    // Unfinished setup gates the dashboard, so leaving setup is the way to calibration.
+    await page.getByRole('button', { name: 'Skip setup' }).click();
+    await page
+      .getByRole('dialog', { name: 'Skip setup?' })
+      .getByRole('button', { name: 'Skip setup', exact: true })
+      .click();
+    await expect(page).toHaveURL(/\/dashboard$/);
+
+    await page.goto('/dashboard/calibrate');
     await expect(page.getByRole('heading', { level: 1 })).toBeVisible();
     await expect(page).toHaveTitle('Calibrate · Tactiq');
 
     await page.getByRole('navigation', { name: 'Main' }).filter({ visible: true }).getByRole('link', { name: 'Home' }).click();
     await expect(page).toHaveURL(/\/dashboard$/);
     const nextStep = page.getByRole('region', { name: 'What to do next' });
-    await expect(nextStep).toContainText('Setup stopped at step 6 of 8 (Feedback)');
+    await expect(nextStep).toContainText('Setup stopped at step 3 of 4 (Your first command)');
     await nextStep.getByRole('link', { name: 'Resume setup' }).click();
-    await expectOnboardingStep(page, 6);
+    await expectOnboardingStep(page, 3);
     expect(errors).toEqual([]);
   });
 
@@ -252,8 +258,8 @@ test.describe('Sign up and onboarding', () => {
     const errors = trackConsoleErrors(page);
     // First person: creates a profile and finishes setup straight away.
     await createDemoProfile(page, ROBIN);
-    for (let step = 1; step < 8; step += 1) {
-      await continueButton(page, step === 5 ? 'Calibrate after setup' : 'Continue').click();
+    for (let step = 1; step < 4; step += 1) {
+      await continueButton(page).click();
       await expectOnboardingStep(page, step + 1);
     }
     await continueButton(page, 'Go to the dashboard').click();
@@ -277,22 +283,14 @@ test.describe('Sign up and onboarding', () => {
     const errors = trackConsoleErrors(page);
     await createDemoProfile(page, ROBIN);
 
+    await page.getByRole('radio', { name: 'Left', exact: true }).check();
     await continueButton(page).click();
     await expectOnboardingStep(page, 2);
     await page.getByRole('group', { name: 'Text size' }).getByRole('radio', { name: 'Large', exact: true }).check();
     await continueButton(page).click();
     await expectOnboardingStep(page, 3);
-    await page.getByRole('radio', { name: 'Left', exact: true }).check();
-    await continueButton(page).click();
+    await page.getByRole('button', { name: 'Skip this step' }).click();
     await expectOnboardingStep(page, 4);
-    await page.getByRole('button', { name: 'Skip this step' }).click();
-    await expectOnboardingStep(page, 5);
-    await continueButton(page, 'Calibrate after setup').click();
-    await expectOnboardingStep(page, 6);
-    await page.getByRole('button', { name: 'Skip this step' }).click();
-    await expectOnboardingStep(page, 7);
-    await page.getByRole('button', { name: 'Skip this step' }).click();
-    await expectOnboardingStep(page, 8);
     await continueButton(page, 'Go to the dashboard').click();
     await expect(page).toHaveURL(/\/dashboard$/);
 
@@ -364,7 +362,7 @@ test.describe('Sign up and onboarding', () => {
     await expect(page).toHaveURL(/\/dashboard$/);
     await expect(page.getByRole('heading', { level: 1 })).toHaveText(greeting('Robin'));
     const nextStep = page.getByRole('region', { name: 'What to do next' });
-    await expect(nextStep).toContainText('Setup stopped at step 1 of 8 (Welcome)');
+    await expect(nextStep).toContainText('Setup stopped at step 1 of 4 (Which hand)');
     const resume = nextStep.getByRole('link', { name: 'Resume setup' });
     await expect(resume).toBeVisible();
 

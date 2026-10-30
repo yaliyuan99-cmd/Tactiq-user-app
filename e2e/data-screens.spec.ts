@@ -5,8 +5,10 @@
  * reader is told through the live regions.
  */
 import { readFile } from 'node:fs/promises';
-import { test, expect, seedStorage, trackConsoleErrors } from './fixtures';
+import type { Page } from '@playwright/test';
+import { DEMO_USER, test, expect, trackConsoleErrors } from './fixtures';
 import {
+  type SeedGestureEvent,
   THREE_EVENTS,
   assertiveAnnouncer,
   browserLocalDate,
@@ -15,7 +17,6 @@ import {
   openPage,
   politeAnnouncer,
   reloadPage,
-  seedHistory,
   squeezeRing,
   tactiqStorageKeys,
   waitForPage,
@@ -24,6 +25,69 @@ import {
 const SHORTCUT_1 = 'Shortcut 1 — pinky fingertip, brief tap';
 const SHORTCUT_2 = 'Shortcut 2 — pinky finger base';
 const PERCENTAGE = /\d+\s?%/;
+
+/** Activity belongs to the person, so it is stored under the signed-in profile's prefix. */
+const HISTORY_KEY = `tactiq.u.${DEMO_USER.id}.history`;
+
+/**
+ * Seeds the signed-in profile's activity records.
+ *
+ * `seedHistory` in the helpers still writes the single unscoped key a
+ * pre-profiles build used. This build cannot tell whose records those are, so
+ * it offers them to the user in Settings instead of reading them, and a test
+ * that seeds them that way starts on an empty History page. Writing them under
+ * the profile's own prefix is what the app itself does.
+ */
+async function seedProfileHistory(page: Page, events: readonly SeedGestureEvent[]): Promise<void> {
+  await page.addInitScript(
+    ({ records, key }) => {
+      if (window.sessionStorage.getItem('e2e.history.seeded')) return;
+      window.sessionStorage.setItem('e2e.history.seeded', '1');
+      const now = Date.now();
+      const stored = records
+        .map(({ minutesAgo, ...rest }) => ({ ...rest, at: new Date(now - minutesAgo * 60_000).toISOString() }))
+        .sort((a, b) => Date.parse(a.at) - Date.parse(b.at));
+      window.localStorage.setItem(key, JSON.stringify(stored));
+    },
+    { records: events as SeedGestureEvent[], key: HISTORY_KEY },
+  );
+}
+
+/**
+ * Two Demo Mode sample records, as a profile that accepted the samples would
+ * hold them: `seeded: true` and simulated. They are seeded rather than asked
+ * for because no screen in this build writes them.
+ */
+const SAMPLE_EVENTS: readonly SeedGestureEvent[] = [
+  {
+    id: 'evt_e2e_sample_confirm',
+    minutesAgo: 5 * 24 * 60,
+    source: 'simulator',
+    mode: 'guided',
+    targetContact: 'index_tip',
+    targetToken: 'confirm',
+    detectedContact: 'index_tip',
+    token: 'confirm',
+    durationMs: 130,
+    outcome: 'recognised',
+    evidence: 'simulated',
+    seeded: true,
+  },
+  {
+    id: 'evt_e2e_sample_previous',
+    minutesAgo: 4 * 24 * 60,
+    source: 'simulator',
+    mode: 'guided',
+    targetContact: 'ring_base',
+    targetToken: 'previous',
+    detectedContact: 'ring_tip',
+    token: 'read',
+    durationMs: 160,
+    outcome: 'mismatch',
+    evidence: 'simulated',
+    seeded: true,
+  },
+];
 
 /* ------------------------------------------------------------------ */
 /* Commands                                                            */
@@ -215,7 +279,7 @@ test.describe('History', () => {
     signedInPage: page,
   }) => {
     const errors = trackConsoleErrors(page);
-    await seedHistory(page, THREE_EVENTS);
+    await seedProfileHistory(page, THREE_EVENTS);
     await openPage(page, '/dashboard/history');
     await expect(page.getByRole('heading', { level: 1, name: 'History' })).toBeVisible();
 
@@ -277,23 +341,33 @@ test.describe('History', () => {
     await expect(page).toHaveURL(/range=7d&command=all&source=all/);
     await expect(reloaded.getByRole('heading', { name: 'Filters' })).toBeFocused();
 
-    // Widen the range and pick the command the calibration record aimed for.
+    // Widen the range and reach the month-old calibration record. Its source is
+    // the way in: a calibration run prompts a contact point, so the record is
+    // credited to no command and the Command column says so.
     await reloaded.getByRole('group', { name: 'Range' }).getByRole('radio', { name: 'All time' }).click();
     await expect(reloaded.getByRole('group', { name: 'Range' }).getByRole('radio', { name: 'All time' })).toBeChecked();
     await expect(politeAnnouncer(page)).toHaveText('Showing 3 attempts.');
-    await reloaded.getByRole('combobox', { name: 'Command' }).selectOption({ label: 'Read / Repeat' });
+    await reloaded.getByRole('combobox', { name: 'Source' }).selectOption({ label: 'Calibration' });
     await expect(politeAnnouncer(page)).toHaveText('Showing 1 attempt.');
+    await expect(page).toHaveURL(/range=all&command=all&source=calibration/);
+    const calibrationRow = reloaded.getByRole('table', { name: 'Newest first, showing 1 of 1' });
+    await expect(calibrationRow.getByRole('cell').filter({ hasText: /^Calibration$/ })).toBeVisible();
+    await expect(calibrationRow.getByRole('cell', { name: 'None', exact: true })).toBeVisible();
+
+    // And the command it happened to recognise does not pull it back: that
+    // would claim a Read / Repeat exercise the calibration run never set.
+    await reloaded.getByRole('combobox', { name: 'Source' }).selectOption({ label: 'All sources' });
+    await expect(politeAnnouncer(page)).toHaveText('Showing 3 attempts.');
+    await reloaded.getByRole('combobox', { name: 'Command' }).selectOption({ label: 'Read / Repeat' });
+    await expect(politeAnnouncer(page)).toHaveText('No attempts in this range.');
     await expect(page).toHaveURL(/range=all&command=read&source=all/);
-    await expect(
-      reloaded.getByRole('table', { name: 'Newest first, showing 1 of 1' }).getByRole('cell').filter({ hasText: /^Calibration$/ }),
-    ).toBeVisible();
 
     expect(errors).toEqual([]);
   });
 
   test('Download JSON and Download CSV save dated files containing every record', async ({ signedInPage: page }) => {
     const errors = trackConsoleErrors(page);
-    await seedHistory(page, THREE_EVENTS);
+    await seedProfileHistory(page, THREE_EVENTS);
     await openPage(page, '/dashboard/history');
     const main = page.getByRole('main');
     await expect(main.getByRole('heading', { name: 'Your data' })).toBeVisible();
@@ -333,7 +407,7 @@ test.describe('History', () => {
 
   test('Clear all activity needs the typed phrase, then empties the page', async ({ signedInPage: page }) => {
     const errors = trackConsoleErrors(page);
-    await seedHistory(page, THREE_EVENTS);
+    await seedProfileHistory(page, THREE_EVENTS);
     await openPage(page, '/dashboard/history?range=all');
     const main = page.getByRole('main');
     await expect(main.getByRole('table', { name: 'Newest first, showing 3 of 3' })).toBeVisible();
@@ -372,9 +446,11 @@ test.describe('History', () => {
     expect(errors).toEqual([]);
   });
 
-  test('Demo Mode sample records are labelled Sample and can be removed', async ({ page }) => {
+  test('Demo Mode sample records are labelled Sample and can be removed', async ({ signedInPage: page }) => {
     const errors = trackConsoleErrors(page);
-    await seedStorage(page, { withoutSampleHistory: false });
+    // Samples are stored, not generated on the way in: no screen in this build
+    // writes them, so a profile that holds them is what the page is given.
+    await seedProfileHistory(page, SAMPLE_EVENTS);
     await openPage(page, '/dashboard/history?range=all');
     const main = page.getByRole('main');
 
@@ -403,10 +479,10 @@ test.describe('History', () => {
     expect(errors).toEqual([]);
   });
 
-  test('removing sample records keeps the user\'s own practice', async ({ page }) => {
+  test('removing sample records keeps the user\'s own practice', async ({ signedInPage: page }) => {
     const errors = trackConsoleErrors(page);
-    await seedStorage(page, { withoutSampleHistory: false });
-    await seedHistory(page, THREE_EVENTS);
+    // Samples and the user's own records in one profile, so the removal has something to spare.
+    await seedProfileHistory(page, [...SAMPLE_EVENTS, ...THREE_EVENTS]);
     await openPage(page, '/dashboard/history?range=all');
     const main = page.getByRole('main');
 
@@ -428,7 +504,7 @@ test.describe('History', () => {
 
   test('a completed emergency hold is labelled as a simulation that contacted no one', async ({ signedInPage: page }) => {
     const errors = trackConsoleErrors(page);
-    await seedHistory(page, [
+    await seedProfileHistory(page, [
       ...THREE_EVENTS,
       {
         id: 'evt_e2e_emergency',
@@ -573,32 +649,48 @@ test.describe('Settings', () => {
     expect(errors).toEqual([]);
   });
 
-  test('Download all my data saves a dated JSON file of everything kept in this browser', async ({ signedInPage: page }) => {
+  test('Download my data saves a dated JSON file of this profile\'s records and nobody else\'s', async ({
+    signedInPage: page,
+  }) => {
     const errors = trackConsoleErrors(page);
-    await seedHistory(page, THREE_EVENTS);
+    await seedProfileHistory(page, THREE_EVENTS);
     await openPage(page, '/dashboard/settings');
     const today = await browserLocalDate(page);
 
     const [download] = await Promise.all([
       page.waitForEvent('download'),
-      page.getByRole('main').getByRole('button', { name: 'Download all my data' }).click(),
+      page.getByRole('main').getByRole('button', { name: 'Download my data' }).click(),
     ]);
-    expect(download.suggestedFilename()).toBe(`tactiq-data-${today}.json`);
-    await expect(politeAnnouncer(page)).toHaveText(`Download started: tactiq-data-${today}.json.`);
+    expect(download.suggestedFilename()).toBe(`tactiq-my-data-${today}.json`);
+    await expect(politeAnnouncer(page)).toHaveText(`Download started: tactiq-my-data-${today}.json.`);
     const exported = JSON.parse(await readFile(await download.path(), 'utf8')) as {
       format: string;
+      profileId: string | null;
       data: Record<string, unknown>;
     };
-    expect(exported.format).toBe('tactiq.local-data');
-    expect(Object.keys(exported.data)).toEqual(expect.arrayContaining(['tactiq.prefs', 'tactiq.history', 'tactiq.auth.accounts']));
-    expect((exported.data['tactiq.history'] as unknown[]).length).toBe(3);
+    expect(exported.format).toBe('tactiq.my-data');
+    expect(exported.profileId).toBe(DEMO_USER.id);
+    // The file is a named list of this profile's own records, not a dump of the
+    // namespace: a dump would hand one person the other profiles' practice and
+    // the records that say who they are.
+    expect(Object.keys(exported.data)).toEqual([
+      'appearancePreferences',
+      'profilePreferences',
+      'commandMapping',
+      'trainingProgress',
+      'calibrationProfile',
+      'activityHistory',
+    ]);
+    expect((exported.data.activityHistory as unknown[]).length).toBe(3);
+    // No sign-in details: the account records are not among the keys it reads.
+    expect(JSON.stringify(exported)).not.toContain(DEMO_USER.email);
 
     expect(errors).toEqual([]);
   });
 
   test('Delete all local data requires typing the phrase and lands on sign-in signed out', async ({ signedInPage: page }) => {
     const errors = trackConsoleErrors(page);
-    await seedHistory(page, THREE_EVENTS);
+    await seedProfileHistory(page, THREE_EVENTS);
     await openPage(page, '/dashboard/settings');
     const main = page.getByRole('main');
 
@@ -627,8 +719,11 @@ test.describe('Settings', () => {
     const keys = await tactiqStorageKeys(page);
     expect(keys).not.toContain('tactiq.auth.session');
     expect(keys).not.toContain('tactiq.auth.accounts');
-    expect(keys).not.toContain('tactiq.history');
     expect(keys).not.toContain('tactiq.prefs');
+    // The profile's own records live behind its prefix, so that is where the
+    // deletion has to reach; a check on the unscoped key would pass vacuously.
+    expect(keys).not.toContain(HISTORY_KEY);
+    expect(keys.filter((key) => key.startsWith(`tactiq.u.${DEMO_USER.id}.`))).toEqual([]);
 
     // The dashboard is closed again.
     await openPage(page, '/dashboard');
