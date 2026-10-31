@@ -31,7 +31,17 @@ export function ModeBar() {
           </span>
         )}
         {showsDevicePill(section.id, view.kind) && <DeviceStatusLink />}
-        <p className="min-w-0 flex-1 text-sm leading-snug text-foreground">{modeSentence(section.id, view.kind)}</p>
+        {/*
+          `break-words` is load-bearing, not tidying. At 320 px with the larger
+          text size the device pill is 164 px and will not shrink, leaving the
+          sentence about 99 px — narrower than the word "measurement", which
+          then overflowed the viewport by 4 px and failed WCAG 2.2 1.4.10
+          Reflow on every dashboard route. The bottom bar carries the same pair
+          of properties for the same reason.
+        */}
+        <p className="min-w-0 flex-1 hyphens-auto break-words text-sm leading-snug text-foreground">
+          {modeSentence(section.id, view.kind)}
+        </p>
         {demo && (
           <ButtonLink to={ROUTES.signUp} size="sm" variant="secondary" className="shrink-0">
             Create a profile
