@@ -115,6 +115,13 @@ export interface CalibrationSummary {
   readonly lastPerformedAt: string | null;
   readonly evidence: 'simulated' | 'measured' | null;
   readonly hand: Hand | null;
+  /**
+   * The ring the calibration was recorded against, or null for a simulated
+   * one. Carried so a finished calibration can be checked against the ring
+   * now connected: without it nothing downstream can even see that a complete
+   * profile belongs to a different device.
+   */
+  readonly deviceId: string | null;
 }
 
 /* ------------------------------------------------------------------ */

@@ -1,12 +1,13 @@
 import { useEffect, useRef, useState } from 'react';
 import { Activity } from 'lucide-react';
-import { ButtonLink, Callout, EmptyState, PAGE_TITLE_ID, PageHeader } from '@/components';
+import { Button, ButtonLink, Callout, EmptyState, PAGE_TITLE_ID, PageHeader } from '@/components';
 import { ROUTES } from '@/app/routes';
 import { usePageTitle } from '@/lib/usePageTitle';
 import { useFeedback } from '@/services/feedback/FeedbackProvider';
 import type { HistoryService } from '@/services/history/types';
 import { useHistory } from '@/services/ServicesProvider';
 import { CommandPerformanceSection } from './CommandPerformanceSection';
+import { useDemoHistorySeed } from '@/app/shell/useDemoHistorySeed';
 import { EvidenceBanner } from './EvidenceBanner';
 import { FiltersForm } from './FiltersForm';
 import { HISTORY_HEADING_IDS } from './historyIds';
@@ -67,6 +68,13 @@ export default function HistoryPage() {
   const { filters, setFilters, searchFor } = useHistoryFilters();
   const ready = useInitialRead(history);
   const focusAfterRender = useFocusAfterRender();
+  // Sample records exist to give a first-time Demo Mode user something to read
+  // the screens from. They are never written on mount: that put records into
+  // whichever profile happened to open the app, and a user who had deliberately
+  // cleared them could not tell the difference. They are offered instead, and
+  // only where they can be offered honestly. Called up here with the other
+  // hooks, because the loading branch below returns early.
+  const samples = useDemoHistorySeed();
 
   const header = <PageHeader title={HISTORY_TITLE} lede={HISTORY_LEDE} />;
   if (!ready) {
@@ -130,6 +138,17 @@ export default function HistoryPage() {
               <ButtonLink to={ROUTES.train} variant="secondary">
                 Start a lesson
               </ButtonLink>
+              {samples.canSeed && (
+                <Button
+                  variant="ghost"
+                  onClick={() => {
+                    const added = samples.seed();
+                    if (added > 0) announce(`${added} sample records added. Every one is labelled Sample.`);
+                  }}
+                >
+                  Add sample records
+                </Button>
+              )}
             </>
           }
         />

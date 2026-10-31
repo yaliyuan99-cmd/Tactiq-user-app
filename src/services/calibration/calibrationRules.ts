@@ -132,6 +132,7 @@ export function summariseCalibration(profile: CalibrationProfile | null): Calibr
     lastPerformedAt: profile ? (profile.completedAt ?? profile.startedAt) : null,
     evidence: profile?.evidence ?? null,
     hand: profile?.hand ?? null,
+    deviceId: profile?.deviceId ?? null,
   };
 }
 

@@ -27,3 +27,17 @@ export function calibrationActionLabel(status: CalibrationStatus): 'Calibrate no
 export function calibratedForOtherHand(summary: CalibrationSummary, hand: Hand): boolean {
   return summary.hand !== null && summary.hand !== hand;
 }
+
+/**
+ * True when a stored calibration was recorded against a different ring than
+ * the one connected now.
+ *
+ * Only ever true for a measured profile: a simulated one has no device, and
+ * calling that a mismatch would nag every Demo Mode user. A finished
+ * calibration from another ring is not wrong, but it is not about this one,
+ * and reading simply "Complete" invites the user to believe otherwise.
+ */
+export function calibratedOnOtherRing(summary: CalibrationSummary, connectedDeviceId: string | null): boolean {
+  if (summary.evidence !== 'measured' || summary.deviceId === null) return false;
+  return connectedDeviceId !== null && connectedDeviceId !== summary.deviceId;
+}

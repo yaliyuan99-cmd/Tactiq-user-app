@@ -4,10 +4,11 @@ import { ROUTES } from '@/app/routes';
 import { Button, ButtonLink, Callout, ConfirmDialog, EvidenceLabel } from '@/components';
 import { formatRelative } from '@/lib/time';
 import { useFeedback } from '@/services/feedback/FeedbackProvider';
+import { useDevice } from '@/services/device/DeviceProvider';
 import { usePreferences } from '@/services/preferences/PreferencesProvider';
 import { useCalibration } from '@/services/ServicesProvider';
 import { SettingsSection } from '../SettingsSection';
-import { calibratedForOtherHand, calibrationActionLabel, calibrationStatusText } from '../calibrationStatus';
+import { calibratedForOtherHand, calibratedOnOtherRing, calibrationActionLabel, calibrationStatusText } from '../calibrationStatus';
 import { HAND_LABELS } from '../settingsOptions';
 import { useHeadingFocusRequest } from '../useHeadingFocusRequest';
 
@@ -23,6 +24,7 @@ function DetailRow({ term, children }: { term: string; children: ReactNode }) {
 export function CalibrationSection() {
   const calibration = useCalibration();
   const { preferences } = usePreferences();
+  const { state } = useDevice();
   const { announce } = useFeedback();
   const [confirming, setConfirming] = useState(false);
   const focusHeading = useHeadingFocusRequest('calibration');
@@ -58,6 +60,18 @@ export function CalibrationSection() {
         <Callout kind="warning">
           This calibration was made for your {HAND_LABELS[summary.hand].toLowerCase()} hand, but Settings is set to your{' '}
           {HAND_LABELS[preferences.hand].toLowerCase()} hand. Recalibrate so the points match.
+        </Callout>
+      )}
+
+      {/*
+        A finished calibration from a different ring is not wrong, but it is
+        not about the ring in front of you, and "Complete" on its own invites
+        the user to think it is.
+      */}
+      {calibratedOnOtherRing(summary, state.device?.id ?? null) && (
+        <Callout kind="warning">
+          This calibration was recorded with a different ring from the one connected now. It still says Complete, but it
+          was not measured on this one — recalibrate if you want it to describe this ring.
         </Callout>
       )}
 
