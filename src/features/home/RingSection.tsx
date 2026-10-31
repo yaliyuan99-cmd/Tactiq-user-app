@@ -89,9 +89,16 @@ export function RingSection() {
               onChange={(event) => setStep(Number(event.currentTarget.value))}
               className="target-44 w-full cursor-pointer accent-primary"
             />
-            <p className="font-mono-label flex justify-between text-muted-foreground" aria-hidden="true">
+            {/*
+              The two ends are named, and the middle reads out only while it is
+              between them: at either end the readout would simply repeat the
+              label beside it. Hidden from assistive technology because the
+              slider's own aria-valuetext already says all of this, at more
+              length and without the abbreviations.
+            */}
+            <p className="font-mono-label flex justify-between gap-2 text-muted-foreground" aria-hidden="true">
               <span>ASSEMBLED</span>
-              <span>{explodeValueText(stepToProgress(step))}</span>
+              <span>{step > 0 && step < SPREAD_STEPS ? explodeValueText(stepToProgress(step)) : ''}</span>
               <span>EXPLODED</span>
             </p>
           </div>

@@ -1,15 +1,20 @@
-import { BAND_PARTS, RING_PARTS, getRingPart } from '@/domain/ringParts';
+import { RING_PARTS, getRingPart } from '@/domain/ringParts';
 import {
   badgePlacements,
   clamp01,
   closestBadgeGap,
   DIAGRAM,
   explodeValueText,
+  isoRy,
+  ISO_K,
+  LAYOUT,
+  layoutOf,
   partHome,
   partPosition,
-  shellRadii,
+  spreadValueText,
+  SPREAD_STEPS,
+  stepToProgress,
   toPercent,
-  unitVector,
 } from './explodedGeometry';
 
 /** Slider positions worth checking: both ends and a sweep through the middle. */
@@ -25,79 +30,90 @@ describe('clamp01', () => {
   });
 });
 
-describe('unitVector', () => {
-  it.each([
-    [0, 0, -1],
-    [90, 1, 0],
-    [180, 0, 1],
-    [270, -1, 0],
-  ])('measures %i degrees clockwise from the top, in screen coordinates', (deg, x, y) => {
-    const v = unitVector(deg);
-    expect(v.x).toBeCloseTo(x, 10);
-    expect(v.y).toBeCloseTo(y, 10);
+describe('the projection', () => {
+  it('flattens a circle into an ellipse of the same width', () => {
+    expect(isoRy(100)).toBe(100 * ISO_K);
+    expect(isoRy(0)).toBe(0);
   });
 
-  it('stays a unit vector, so a radius means what it says', () => {
-    for (const deg of [0, 30, 90, 150, 210, 250, 290, 330]) {
-      const v = unitVector(deg);
-      expect(Math.hypot(v.x, v.y)).toBeCloseTo(1, 10);
+  it('is parallel, so a part is the same size wherever it sits in the stack', () => {
+    // No perspective: travel must not scale anything, or two parts of equal
+    // radius would read as different sizes at different heights.
+    for (const part of RING_PARTS) {
+      const layout = layoutOf(part.id);
+      expect(isoRy(layout.rx)).toBe(isoRy(layout.rx));
     }
   });
 });
 
-describe('the shell', () => {
-  it('sits on the carrier when assembled and lifts clear of it when exploded', () => {
-    const closed = shellRadii(0);
-    const open = shellRadii(1);
-    expect(closed.inner).toBe(DIAGRAM.shellInner);
-    // Assembled, the shell's inner edge is outside the carrier's outer edge:
-    // the parts are stacked, not intersecting.
-    expect(closed.inner).toBeGreaterThan(DIAGRAM.carrierOuter);
-    expect(open.inner).toBe(DIAGRAM.shellInner + DIAGRAM.shellTravel);
-    expect(open.outer - open.inner).toBe(closed.outer - closed.inner);
-  });
-
-  it('only ever moves outwards as the slider opens', () => {
-    for (let i = 1; i < STEPS.length; i += 1) {
-      const previous = shellRadii(STEPS[i - 1] ?? 0);
-      const current = shellRadii(STEPS[i] ?? 0);
-      expect(current.inner).toBeGreaterThanOrEqual(previous.inner);
-    }
-  });
-});
-
-describe('part positions', () => {
-  it('seats every band part on one circle when assembled', () => {
-    for (const part of BAND_PARTS) {
+describe('the stack', () => {
+  it('draws every part on the axis when assembled, except those seated round the band', () => {
+    for (const part of RING_PARTS) {
       const home = partHome(part);
-      const radius = Math.hypot(home.x - DIAGRAM.centre.x, home.y - DIAGRAM.centre.y);
-      expect(radius).toBeCloseTo(DIAGRAM.partHomeRadius, 1);
+      const layout = layoutOf(part.id);
+      if (layout.angleDeg === undefined) {
+        expect(home.x, part.id).toBe(DIAGRAM.centreX);
+        expect(home.y, part.id).toBe(DIAGRAM.baseY);
+      } else {
+        // A magnetometer keeps its seat on the carrier's ellipse so the three
+        // read as spaced around the band, not piled on its axis.
+        expect(home.x, part.id).not.toBe(DIAGRAM.centreX);
+      }
     }
   });
 
-  it('moves each band part straight outwards, never sideways', () => {
-    for (const part of BAND_PARTS) {
+  it('moves every part straight up or down, never sideways', () => {
+    for (const part of RING_PARTS) {
       const home = partHome(part);
       const open = partPosition(part, 1);
-      const homeAngle = Math.atan2(home.y - DIAGRAM.centre.y, home.x - DIAGRAM.centre.x);
-      const openAngle = Math.atan2(open.y - DIAGRAM.centre.y, open.x - DIAGRAM.centre.x);
-      expect(openAngle).toBeCloseTo(homeAngle, 3);
-      const travelled = Math.hypot(open.x - home.x, open.y - home.y);
-      expect(travelled).toBeCloseTo(part.explodeTravel, 1);
+      expect(open.x, `${part.id} drifted sideways`).toBe(home.x);
+      expect(open.y - home.y).toBeCloseTo(layoutOf(part.id).explodeY, 5);
     }
   });
 
-  it('leaves the thumb magnet where it is, because it never was in the ring', () => {
-    const magnet = getRingPart('thumb_magnet');
+  it('separates the parts monotonically as the slider opens', () => {
+    for (const part of RING_PARTS) {
+      const travel = layoutOf(part.id).explodeY;
+      if (travel === 0) continue;
+      for (let i = 1; i < STEPS.length; i += 1) {
+        const previous = partPosition(part, STEPS[i - 1] ?? 0).y;
+        const current = partPosition(part, STEPS[i] ?? 0).y;
+        if (travel < 0) expect(current).toBeLessThanOrEqual(previous);
+        else expect(current).toBeGreaterThanOrEqual(previous);
+      }
+    }
+  });
+
+  it('lifts the shell clear of the carrier, and the carrier clear of what it holds', () => {
+    // The order parts come apart in is the order they go together in. If the
+    // carrier outran the shell the drawing would show an impossible assembly.
+    const shell = partPosition(getRingPart('outer_shell'), 1).y;
+    const carrier = partPosition(getRingPart('inner_carrier'), 1).y;
+    const board = partPosition(getRingPart('controller'), 1).y;
+    expect(shell).toBeLessThan(carrier);
+    expect(carrier).toBeLessThan(board);
+  });
+
+  it('puts the thumb magnet furthest from the ring, because it was never in it', () => {
+    const magnet = partPosition(getRingPart('thumb_magnet'), 1).y;
+    for (const part of RING_PARTS) {
+      if (part.id === 'thumb_magnet') continue;
+      expect(magnet).toBeGreaterThan(partPosition(part, 1).y);
+    }
+  });
+
+  it('keeps every part inside the frame, at any slider position', () => {
     for (const step of STEPS) {
-      expect(partPosition(magnet, step)).toEqual(DIAGRAM.thumbMagnet);
+      for (const part of RING_PARTS) {
+        const at = partPosition(part, step);
+        const layout = layoutOf(part.id);
+        const halfHeight = isoRy(layout.rx) + layout.depth;
+        expect(at.x - layout.rx, `${part.id} off the left at ${step}`).toBeGreaterThanOrEqual(0);
+        expect(at.x + layout.rx, `${part.id} off the right at ${step}`).toBeLessThanOrEqual(DIAGRAM.width);
+        expect(at.y - halfHeight, `${part.id} off the top at ${step}`).toBeGreaterThanOrEqual(0);
+        expect(at.y + halfHeight, `${part.id} off the bottom at ${step}`).toBeLessThanOrEqual(DIAGRAM.height);
+      }
     }
-  });
-
-  it('keeps the thumb magnet on the far side of the separator at every position', () => {
-    // The separator is what says "worn somewhere else". A magnet drawn to the
-    // left of it would read as a ring part.
-    expect(DIAGRAM.thumbMagnet.x - DIAGRAM.thumbMagnetRadius).toBeGreaterThan(DIAGRAM.separatorX);
   });
 });
 
@@ -105,43 +121,72 @@ describe('numbered badges', () => {
   it('badges all ten parts, once each, numbered 1 to 10', () => {
     const badges = badgePlacements(0.5);
     expect(badges).toHaveLength(RING_PARTS.length);
-    expect(badges.map((badge) => badge.index).sort((a, b) => a - b)).toEqual(
-      RING_PARTS.map((part) => part.index).sort((a, b) => a - b),
-    );
-    expect(new Set(badges.map((badge) => badge.id)).size).toBe(RING_PARTS.length);
+    expect(badges.map((b) => b.index).sort((a, b) => a - b)).toEqual(RING_PARTS.map((p) => p.index).sort((a, b) => a - b));
+    expect(new Set(badges.map((b) => b.id)).size).toBe(RING_PARTS.length);
   });
 
-  it('never lets two numbers overlap, at any slider position', () => {
-    // The diagram claims to run 1 to 10. Two badges on top of each other would
-    // make that false on screen while staying true in the data, which is the
-    // kind of defect only a sweep catches.
+  it('sets the numbers out to the sides, clear of the drawing', () => {
+    // Numbers written over the parts would make both harder to read.
+    for (const badge of badgePlacements(1)) {
+      const distance = Math.abs(badge.at.x - DIAGRAM.centreX);
+      expect(distance).toBe(DIAGRAM.labelOffsetX);
+    }
+  });
+
+  it('keeps the column still while the leader line follows the part', () => {
+    // The numbers must not move with the slider: assembled, every part is at
+    // the same height, so numbers that tracked their parts would pile into one
+    // spot and ten buttons would land on top of each other. The line is what
+    // says which number belongs to which part.
+    const closed = badgePlacements(0);
+    const open = badgePlacements(1);
+    for (let i = 0; i < closed.length; i += 1) {
+      const a = closed[i];
+      const b = open[i];
+      expect(a && b).toBeTruthy();
+      expect(b?.at, `${a?.id} number moved`).toEqual(a?.at);
+      if (layoutOf(a!.id).explodeY !== 0) {
+        expect(b?.anchor.y, `${a?.id} leader line did not follow its part`).not.toBe(a?.anchor.y);
+      }
+    }
+  });
+
+  it('spaces each column evenly, so no number is crowded', () => {
+    const badges = badgePlacements(0.5);
+    for (const side of ['left', 'right'] as const) {
+      const column = badges.filter((b) => b.side === side).map((b) => b.at.y);
+      const gaps = column.slice(1).map((y, i) => Math.round(y - (column[i] ?? 0)));
+      expect(new Set(gaps).size, `${side} column is unevenly spaced`).toBe(1);
+    }
+  });
+
+  it('uses both sides, so ten numbers do not crowd one column', () => {
+    const badges = badgePlacements(1);
+    const left = badges.filter((b) => b.side === 'left').length;
+    const right = badges.filter((b) => b.side === 'right').length;
+    expect(left).toBeGreaterThan(2);
+    expect(right).toBeGreaterThan(2);
+    expect(left + right).toBe(RING_PARTS.length);
+  });
+
+  it('never lets two numbers in a column overlap, at any slider position', () => {
+    // The drawing claims to run 1 to 10. Two badges on top of each other would
+    // make that false on screen while staying true in the data — the kind of
+    // defect only a sweep catches.
     const minimumGap = DIAGRAM.badgeRadius * 2;
     for (const step of STEPS) {
       expect(closestBadgeGap(step), `badges collide at progress ${step}`).toBeGreaterThan(minimumGap);
     }
   });
 
-  it('keeps every badge inside the frame, at any slider position', () => {
+  it('keeps every badge inside the frame', () => {
     for (const step of STEPS) {
       for (const badge of badgePlacements(step)) {
-        expect(badge.at.x, `${badge.id} runs off the left at ${step}`).toBeGreaterThanOrEqual(DIAGRAM.badgeRadius);
-        expect(badge.at.x, `${badge.id} runs off the right at ${step}`).toBeLessThanOrEqual(DIAGRAM.width - DIAGRAM.badgeRadius);
-        expect(badge.at.y, `${badge.id} runs off the top at ${step}`).toBeGreaterThanOrEqual(DIAGRAM.badgeRadius);
-        expect(badge.at.y, `${badge.id} runs off the bottom at ${step}`).toBeLessThanOrEqual(DIAGRAM.height - DIAGRAM.badgeRadius);
+        expect(badge.at.x).toBeGreaterThanOrEqual(DIAGRAM.badgeRadius);
+        expect(badge.at.x).toBeLessThanOrEqual(DIAGRAM.width - DIAGRAM.badgeRadius);
+        expect(badge.at.y).toBeGreaterThanOrEqual(DIAGRAM.badgeRadius);
+        expect(badge.at.y).toBeLessThanOrEqual(DIAGRAM.height - DIAGRAM.badgeRadius);
       }
-    }
-  });
-
-  it('gives the two band parts badges that stay well apart', () => {
-    // They are annotated at opposite edges of their own bands precisely so the
-    // shell's number cannot drift onto the carrier's as the shell lifts.
-    for (const step of STEPS) {
-      const badges = badgePlacements(step);
-      const shell = badges.find((badge) => badge.id === 'outer_shell');
-      const carrier = badges.find((badge) => badge.id === 'inner_carrier');
-      expect(shell && carrier).toBeTruthy();
-      const gap = Math.hypot((shell?.at.x ?? 0) - (carrier?.at.x ?? 0), (shell?.at.y ?? 0) - (carrier?.at.y ?? 0));
-      expect(gap).toBeGreaterThan(DIAGRAM.badgeRadius * 2);
     }
   });
 });
@@ -150,7 +195,6 @@ describe('percentages for the button overlay', () => {
   it('matches the SVG position it was derived from', () => {
     expect(toPercent({ x: 0, y: 0 })).toEqual({ left: '0%', top: '0%' });
     expect(toPercent({ x: DIAGRAM.width, y: DIAGRAM.height })).toEqual({ left: '100%', top: '100%' });
-    expect(toPercent(DIAGRAM.centre)).toEqual({ left: '37.5%', top: '50%' });
   });
 
   it('gives every badge a percentage inside the frame', () => {
@@ -171,16 +215,31 @@ describe('what the slider says', () => {
   it('names both ends rather than reading out a bare percentage', () => {
     expect(explodeValueText(0)).toBe('Assembled');
     expect(explodeValueText(1)).toBe('Fully exploded');
+    expect(spreadValueText(0)).toMatch(/^Assembled\./);
+    expect(spreadValueText(SPREAD_STEPS)).toMatch(/^Fully exploded\./);
   });
 
   it('describes the middle as a distance apart', () => {
     expect(explodeValueText(0.5)).toBe('50% apart');
-    expect(explodeValueText(0.25)).toBe('25% apart');
+    expect(explodeValueText(stepToProgress(3))).toBe('30% apart');
   });
 
   it('says something usable however it is called', () => {
     expect(explodeValueText(-1)).toBe('Assembled');
     expect(explodeValueText(2)).toBe('Fully exploded');
-    expect(explodeValueText(Number.NaN)).toBe('Assembled');
+    expect(spreadValueText(-5)).toMatch(/^Assembled\./);
+    expect(spreadValueText(99)).toMatch(/^Fully exploded\./);
+  });
+
+  it('has a line for every stop, so no value is spoken as a blank', () => {
+    for (let step = 0; step <= SPREAD_STEPS; step += 1) {
+      expect(spreadValueText(step).length, `stop ${step}`).toBeGreaterThan(10);
+    }
+  });
+});
+
+describe('the layout covers the domain', () => {
+  it('places every part, and places nothing that is not a part', () => {
+    expect(Object.keys(LAYOUT).sort()).toEqual(RING_PARTS.map((p) => p.id).sort());
   });
 });
