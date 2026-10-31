@@ -23,6 +23,33 @@ LCP and CLS are read from `PerformanceObserver` with `buffered: true`; FCP from
 the paint timeline. INP needs a real interaction and is not covered by this
 script — see "Not yet measured" below.
 
+## Results, 1 November 2026
+
+Re-measured after the "Meet the prototype" section was added to `/`. Reported
+as a distribution over five runs, not a single number, because this machine
+does not go quiet: system processes alone held the load average near 8, and a
+single reading taken under that load said 2632 ms when the median is 1576 ms.
+One number from a busy machine is not a measurement.
+
+Throttled (Slow 4G, 4x CPU, 375 px), five runs each:
+
+| Route | LCP min | LCP median | LCP max | CLS median | CLS max |
+| --- | --- | --- | --- | --- | --- |
+| `/` | 1560 ms | **1576 ms** | 3112 ms | 0 | 0.074 |
+| `/sign-in` | 1272 ms | **1280 ms** | 1292 ms | 0.0002 | 0.0002 |
+
+Both medians pass the 2.5 s target, and even the worst CLS observed is inside
+the 0.1 budget. The ring section did not cost what a single contaminated
+reading suggested.
+
+The spread is the interesting part. `/sign-in` varies by 20 ms across five
+runs; `/` varies by 1552 ms. The difference is the lazily-loaded body: the
+hero is in the entry bundle and paints predictably, while everything below it
+arrives on a second request whose timing moves with the machine. The rare
+0.074 shift was not reproducible — four further runs recorded no shift at all
+— so it is recorded here as observed rather than explained, and it is not
+worth a fix that cannot be shown to work.
+
 ## Results, 30 October 2026
 
 Throttled (Slow 4G, 4× CPU, 375 px):
