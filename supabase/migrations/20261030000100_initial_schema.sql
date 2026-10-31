@@ -23,6 +23,16 @@
 -- drift apart, so the database cannot quietly accept a value the app does not
 -- recognise, or reject one it produces.
 
+-- There is deliberately NO `profiles` table and no `on auth.users` trigger.
+-- A profile row would hold the display name, which `auth.users` already holds
+-- in `raw_user_meta_data` and which the app reads from there. A second copy is
+-- a second thing to keep correct, a second thing to leak, and -- as the first
+-- draft of this file proved -- a second thing to get silently wrong: its
+-- trigger read `display_name` while the client writes `full_name`, so every
+-- row it created would have been blank. Nothing in the app read the table, so
+-- it is gone rather than fixed, and with it a `security definer` function that
+-- existed only to populate it.
+
 create extension if not exists "pgcrypto";
 
 -- ---------------------------------------------------------------------------
@@ -43,20 +53,6 @@ $$;
 
 comment on function public.touch_updated_at is
   'Keeps updated_at honest: set by the database on every update, not by the client.';
-
--- ---------------------------------------------------------------------------
--- profiles
--- ---------------------------------------------------------------------------
-
-create table public.profiles (
-  id          uuid primary key references auth.users (id) on delete cascade,
-  display_name text not null default '' check (char_length(display_name) <= 80),
-  created_at  timestamptz not null default now(),
-  updated_at  timestamptz not null default now()
-);
-
-comment on table public.profiles is
-  'One row per account. The email address is not duplicated here: auth.users already holds it, and a second copy is a second thing to keep correct and a second thing to leak.';
 
 -- ---------------------------------------------------------------------------
 -- preferences
@@ -200,7 +196,6 @@ comment on table public.command_mappings is
 -- updated_at triggers
 -- ---------------------------------------------------------------------------
 
-create trigger profiles_touch         before update on public.profiles         for each row execute function public.touch_updated_at();
 create trigger preferences_touch      before update on public.preferences      for each row execute function public.touch_updated_at();
 create trigger calibration_touch      before update on public.calibration_profiles for each row execute function public.touch_updated_at();
 create trigger lesson_progress_touch  before update on public.lesson_progress  for each row execute function public.touch_updated_at();
@@ -221,19 +216,12 @@ create trigger command_mappings_touch before update on public.command_mappings f
 -- clause alone would not: it filters what is visible, not what may be written.
 -- ---------------------------------------------------------------------------
 
-alter table public.profiles             enable row level security;
 alter table public.preferences          enable row level security;
 alter table public.gesture_events       enable row level security;
 alter table public.calibration_profiles enable row level security;
 alter table public.calibration_samples  enable row level security;
 alter table public.lesson_progress      enable row level security;
 alter table public.command_mappings     enable row level security;
-
--- profiles keys on id rather than user_id; everything else keys on user_id.
-create policy "profiles are readable by their owner"   on public.profiles for select to authenticated using ((select auth.uid()) = id);
-create policy "profiles are created by their owner"    on public.profiles for insert to authenticated with check ((select auth.uid()) = id);
-create policy "profiles are updated by their owner"    on public.profiles for update to authenticated using ((select auth.uid()) = id) with check ((select auth.uid()) = id);
-create policy "profiles are deleted by their owner"    on public.profiles for delete to authenticated using ((select auth.uid()) = id);
 
 create policy "preferences are readable by their owner" on public.preferences for select to authenticated using ((select auth.uid()) = user_id);
 create policy "preferences are created by their owner"  on public.preferences for insert to authenticated with check ((select auth.uid()) = user_id);
@@ -268,28 +256,3 @@ create policy "shortcuts are deleted by their owner"  on public.command_mappings
 -- Nothing is granted to `anon`. An unauthenticated request reaches no row of
 -- any of these tables, and the policies above are all scoped `to authenticated`
 -- so they cannot be satisfied by one either.
-
--- ---------------------------------------------------------------------------
--- A profile row for every new account
--- ---------------------------------------------------------------------------
-
-create or replace function public.handle_new_user()
-returns trigger
-language plpgsql
-security definer
-set search_path = ''
-as $$
-begin
-  insert into public.profiles (id, display_name)
-  values (new.id, coalesce(new.raw_user_meta_data ->> 'display_name', ''))
-  on conflict (id) do nothing;
-  return new;
-end;
-$$;
-
-comment on function public.handle_new_user is
-  'security definer because it writes a public.profiles row on behalf of a user who does not exist yet when the trigger fires. search_path is pinned to nothing so the body cannot resolve an unqualified name to an attacker-created object.';
-
-create trigger on_auth_user_created
-  after insert on auth.users
-  for each row execute function public.handle_new_user();

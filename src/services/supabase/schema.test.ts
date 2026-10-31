@@ -23,6 +23,16 @@ const MIGRATION = join(process.cwd(), 'supabase/migrations/20261030000100_initia
 const sql = readFileSync(MIGRATION, 'utf8');
 
 /**
+ * The migration with its comments stripped. Structural assertions run against
+ * this: a comment explaining why something is absent must not read as that
+ * thing being present.
+ */
+const code = sql
+  .split('\n')
+  .map((line) => line.replace(/--.*$/, ''))
+  .join('\n');
+
+/**
  * The values a named column's `in (...)` constraint allows. Matches the column
  * definition rather than any `in (` in the file, so a policy or a comment
  * elsewhere cannot satisfy the match by accident.
@@ -83,7 +93,6 @@ describe('the migration and the domain model agree', () => {
 
 describe('every table is protected', () => {
   const TABLES = [
-    'profiles',
     'preferences',
     'gesture_events',
     'calibration_profiles',
@@ -108,6 +117,15 @@ describe('every table is protected', () => {
     }
   });
 
+  it('keeps no second copy of what auth.users already holds', () => {
+    // A profiles table duplicating the display name is a second thing to keep
+    // correct and a second thing to leak. The first draft had one, and its
+    // trigger read a metadata key the client never writes.
+    expect(code).not.toMatch(/create table public\.profiles/);
+    expect(code).not.toMatch(/on auth\.users/);
+    expect(code).not.toMatch(/security definer/);
+  });
+
   it('checks ownership on insert as well as read, so no row can be written under another account', () => {
     // `using` decides what is visible; only `with check` decides what may be
     // written. An insert policy without one is the classic RLS hole.
@@ -124,7 +142,7 @@ describe('every table is protected', () => {
     expect([...new Set(policies)]).toEqual(['authenticated']);
   });
 
-  it('pins search_path on every function, including the one that runs as definer', () => {
+  it('pins search_path on every function', () => {
     const functions = [...sql.matchAll(/create or replace function public\.(\w+)[\s\S]*?\$\$;/g)];
     expect(functions.length).toBeGreaterThan(0);
     for (const [body, name] of functions) {

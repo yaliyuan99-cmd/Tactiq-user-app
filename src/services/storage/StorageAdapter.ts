@@ -245,6 +245,8 @@ export const STORAGE_KEYS = {
   training: 'training',
   history: 'history',
   historySeeded: 'history.seeded',
+  /** Per profile: the newest record already sent to the account's database. */
+  historySynced: 'history.synced',
 } as const;
 
 /**

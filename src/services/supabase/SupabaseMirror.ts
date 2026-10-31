@@ -32,13 +32,18 @@
  *
  * ## Verification status
  *
- * The mapping and the merge are covered by tests against a fake client. **No
- * part of this has been run against a real Supabase project**, because none is
- * configured — there is no `.env`, so `IS_SUPABASE_CONFIGURED` is false and
- * nothing here is reached. Treat the row names, the error shapes and the RLS
- * behaviour as unverified against the live service until someone has run it.
+ * The mapping, the merge, the incremental push and the paging are covered by
+ * tests against a fake client, and `useAccountSync` runs this once per
+ * sign-in. But **no part of it has been run against a real Supabase project**,
+ * because none is configured: there is no `.env`, so `IS_SUPABASE_CONFIGURED`
+ * is false and nothing here is reached.
+ *
+ * What a test with a fake cannot tell us, and what to check first against a
+ * live project: that the table and column names match the migration, that a
+ * row level security refusal surfaces as 42501 rather than as an empty result,
+ * that `upsert` resolves the composite primary keys the way this assumes, and
+ * that the server's own row cap is not below this file's page size.
  */
-import { DEFAULT_SHORTCUT_MAPPING, type ShortcutMapping } from '@/domain/commands';
 import { LESSON_IDS, type LessonId } from '@/domain/lessons';
 import type { CalibrationProfile, CommandMapping, GestureEvent, LessonProgress, TrainingProgress } from '@/domain/models';
 import { HISTORY_CAP } from '@/services/history/events';
@@ -81,8 +86,27 @@ export interface MirrorClient {
   selectAll<T>(table: string, userId: string): Promise<T[]>;
   /** Insert or replace by primary key. */
   upsert(table: string, rows: readonly object[]): Promise<void>;
-  /** Removes every row this account owns in `table`. */
-  deleteAll(table: string, userId: string): Promise<void>;
+  /**
+   * Removes this account's rows in `table` whose `ordinal` is at or above
+   * `fromOrdinal`. Used to trim a calibration that got shorter — never to
+   * clear the set before writing it, which would leave a window with nothing
+   * stored if the write then failed.
+   */
+  deleteFromOrdinal(table: string, userId: string, fromOrdinal: number): Promise<void>;
+}
+
+/**
+ * How far activity has been sent.
+ *
+ * A timestamp alone is not enough. Comparing with `>` silently skips a record
+ * that shares the newest timestamp, and comparing with `>=` re-sends the
+ * newest record on every sync forever. So the mark carries the ids recorded at
+ * that instant, and only those are skipped — exact in both directions, and
+ * bounded, because only records sharing one millisecond are listed.
+ */
+export interface SyncMark {
+  readonly at: string;
+  readonly ids: readonly string[];
 }
 
 /** What a sync run did, so a caller can report it rather than guess. */
@@ -92,6 +116,14 @@ export interface MirrorResult {
   /** Non-empty when part of the run failed. The rest of the run still happened. */
   readonly failures: readonly string[];
 }
+
+/**
+ * How many rows go in one write. PostgREST will take a large array, but a
+ * single request carrying five thousand records is slow, easy to time out and
+ * all-or-nothing. Chunking also means a failure part way through still leaves
+ * the earlier chunks stored.
+ */
+export const PUSH_CHUNK = 500;
 
 /** Sorts newest first and keeps the cap the local store keeps, so a pull cannot grow past it. */
 function newestFirst(events: readonly GestureEvent[]): GestureEvent[] {
@@ -187,33 +219,14 @@ export class SupabaseMirror {
     const failures: string[] = [];
     let pushed = 0;
 
-    const events = this.storage.get<GestureEvent[]>(STORAGE_KEYS.history) ?? [];
-    if (events.length > 0) {
-      const rows = events.map((event) => writeGestureEvent(this.userId, event));
-      if (await this.write(TABLES.events, rows, failures)) pushed += rows.length;
-    }
+    pushed += await this.pushHistory(failures);
 
     const preferences = this.storage.get<ProfilePreferencesRecord>(STORAGE_KEYS.profilePreferences);
     if (preferences) {
       if (await this.write(TABLES.preferences, [writePreferences(this.userId, preferences)], failures)) pushed += 1;
     }
 
-    const calibration = this.storage.get<CalibrationProfile>(STORAGE_KEYS.calibration);
-    if (calibration) {
-      const { profile, samples } = writeCalibration(this.userId, calibration);
-      if (await this.write(TABLES.calibrationProfiles, [profile], failures)) {
-        pushed += 1;
-        // Samples are positional, so a shorter new set has to clear the old
-        // one first: upserting alone would leave the tail of a longer previous
-        // calibration attached to this one.
-        try {
-          await this.client.deleteAll(TABLES.calibrationSamples, this.userId);
-          if (samples.length > 0 && (await this.write(TABLES.calibrationSamples, samples, failures))) pushed += samples.length;
-        } catch (error) {
-          failures.push(`${TABLES.calibrationSamples}: ${message(error)}`);
-        }
-      }
-    }
+    pushed += await this.pushCalibration(failures);
 
     const lessons = lessonsOf(this.storage.get<TrainingProgress>(STORAGE_KEYS.training));
     if (lessons.length > 0) {
@@ -222,12 +235,84 @@ export class SupabaseMirror {
     }
 
     const mapping = this.storage.get<CommandMapping>(STORAGE_KEYS.commandMapping);
-    const shortcuts: ShortcutMapping = mapping?.shortcuts ?? DEFAULT_SHORTCUT_MAPPING;
-    if (mapping) {
-      if (await this.write(TABLES.commandMappings, [writeShortcuts(this.userId, shortcuts)], failures)) pushed += 1;
+    if (mapping?.shortcuts) {
+      if (await this.write(TABLES.commandMappings, [writeShortcuts(this.userId, mapping.shortcuts)], failures)) pushed += 1;
     }
 
     return { pulled: 0, pushed, failures };
+  }
+
+  /**
+   * Sends the records this browser has not sent yet.
+   *
+   * Two things are deliberately left out. Records already sent are skipped
+   * using a watermark, because re-sending the whole history on every sync
+   * grows without bound and the server already has them. And seeded Demo Mode
+   * samples are never sent at all: they are fabricated locally so the Activity
+   * screen is not empty, and uploading them would put invented records in a
+   * person's account and hand them to their other devices as if they were
+   * things they had done.
+   *
+   * The watermark only advances past a chunk that was actually stored, and
+   * every write is an upsert keyed by the record's own id, so a retry after a
+   * failure converges rather than duplicating.
+   */
+  private async pushHistory(failures: string[]): Promise<number> {
+    const events = (this.storage.get<GestureEvent[]>(STORAGE_KEYS.history) ?? []).filter((event) => !event.seeded);
+    const mark = this.storage.get<SyncMark>(STORAGE_KEYS.historySynced);
+    const sent = new Set(mark?.ids ?? []);
+    const pending = events
+      .filter((event) => !mark || event.at > mark.at || (event.at === mark.at && !sent.has(event.id)))
+      .sort((a, b) => a.at.localeCompare(b.at));
+    if (pending.length === 0) return 0;
+
+    let pushed = 0;
+    for (let start = 0; start < pending.length; start += PUSH_CHUNK) {
+      const chunk = pending.slice(start, start + PUSH_CHUNK);
+      const rows = chunk.map((event) => writeGestureEvent(this.userId, event));
+      if (!(await this.write(TABLES.events, rows, failures))) break;
+      pushed += rows.length;
+      const newest = chunk[chunk.length - 1]?.at;
+      if (newest) {
+        // Every id already sent at that instant, including any carried over
+        // from the previous mark, so none is sent twice and none is skipped.
+        const atNewest = pending.filter((event) => event.at === newest).map((event) => event.id);
+        const carried = mark?.at === newest ? mark.ids : [];
+        this.storage.set<SyncMark>(STORAGE_KEYS.historySynced, {
+          at: newest,
+          ids: [...new Set([...carried, ...atNewest])],
+        });
+      }
+    }
+    return pushed;
+  }
+
+  /**
+   * Replaces the stored calibration.
+   *
+   * Samples are positional, so a shorter new calibration has to drop the tail
+   * of a longer previous one. That trim happens AFTER the new samples are
+   * stored, never before: clearing first would leave the account with no
+   * samples at all if the write that followed failed.
+   */
+  private async pushCalibration(failures: string[]): Promise<number> {
+    const calibration = this.storage.get<CalibrationProfile>(STORAGE_KEYS.calibration);
+    if (!calibration) return 0;
+
+    const { profile, samples } = writeCalibration(this.userId, calibration);
+    if (!(await this.write(TABLES.calibrationProfiles, [profile], failures))) return 0;
+    let pushed = 1;
+
+    if (samples.length > 0) {
+      if (!(await this.write(TABLES.calibrationSamples, samples, failures))) return pushed;
+      pushed += samples.length;
+    }
+    try {
+      await this.client.deleteFromOrdinal(TABLES.calibrationSamples, this.userId, samples.length);
+    } catch (error) {
+      failures.push(`${TABLES.calibrationSamples}: ${message(error)}`);
+    }
+    return pushed;
   }
 
   /** Pull, then push, reporting both halves together. */

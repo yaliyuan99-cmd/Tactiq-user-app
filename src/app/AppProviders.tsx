@@ -23,6 +23,7 @@ import { DeviceProvider } from '@/services/device/DeviceProvider';
 import type { DeviceAdapter, DeviceMode } from '@/services/device/types';
 import type { StorageAdapter } from '@/services/storage/StorageAdapter';
 import { rootStorage } from '@/services/storage/scopedStorage';
+import { useAccountSync } from '@/services/supabase/useAccountSync';
 
 export interface AppProvidersProps {
   readonly storage: StorageAdapter;
@@ -57,6 +58,19 @@ function IdentityServices({
 }
 
 /**
+ * Mirrors the signed-in account's records to its database, once per sign-in.
+ *
+ * Renders nothing and reports nothing to the screen: in Demo Mode, which is
+ * what this build ships as, it returns before doing any work. It is mounted
+ * here rather than on a screen so that syncing does not depend on which page
+ * the user happens to open.
+ */
+function AccountSync() {
+  useAccountSync();
+  return null;
+}
+
+/**
  * Preferences on the same storage view the services use, so the person's half
  * follows the profile. The scope passed on is the signed-in account, not the
  * storage's: the preferences a pre-profiles build left device-wide are claimed
@@ -77,6 +91,7 @@ export function AppProviders({ storage, children, services, authService, deviceA
   return (
     <AuthProvider storage={device} {...(authService ? { service: authService } : {})}>
       <IdentityServices storage={storage} {...(services ? { services } : {})}>
+        <AccountSync />
         <ScopedPreferences>
           <FeedbackProvider>
             <DeviceProvider
