@@ -41,12 +41,19 @@ export function HeroSection() {
             <ButtonLink to={ROUTES.signUp} size="lg" trailingIcon={<ArrowRight className="h-5 w-5" />}>
               Get started
             </ButtonLink>
-            <ButtonLink to={ROUTES.signIn} size="lg" variant="secondary">
+            {/*
+              Straight to the demonstration, not to sign-in. Sending someone who
+              asked to try it to an account form first contradicts the thing the
+              button offers, and the line underneath — which was already written
+              about the demonstration — was not true of where the link went.
+            */}
+            <ButtonLink to={ROUTES.demo} size="lg" variant="secondary">
               Try the demo
             </ButtonLink>
           </div>
           <p className="mt-3 text-sm text-muted-foreground">
-            The demo opens a guest profile in this browser. No email address and no account needed.
+            The demonstration opens the whole app with a simulated ring. No email address, no account,
+            and nothing saved to one.
           </p>
 
           <dl className="mt-10 flex flex-wrap gap-x-10 gap-y-4 border-t border-border pt-6">

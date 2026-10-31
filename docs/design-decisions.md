@@ -103,7 +103,42 @@ library was installed; the existing tested components were restyled.
 | [Lucide](https://lucide.dev/guide/) | One consistent outline icon family | Existing `lucide-react` dependency, standardised sizing | Yes — the library |
 | [Inter](https://rsms.me/inter/) | Body and control typeface with tabular figures | `src/design-system/fonts/` | Yes — the font files, SIL OFL |
 | [Linear design refresh](https://linear.app/now/behind-the-latest-design-refresh) | Calmer separation and predictable action placement | Dashboard density; large text and target sizes kept | No |
+| Exploded assembly drawing (a drafting convention, not a product) | Parallel isometric projection, one travel axis, numbered callouts in fixed columns with leader lines | `src/components/product/explodedGeometry.ts` and `ExplodedRing.tsx` | No — convention only |
+| The project's own earlier site (`tactiq-user-page/src/ring/`) | The ten designed parts, their copy, and the bench-status honesty axis | `src/domain/ringParts.ts` | Yes — the part data and prose, rewritten to this app's evidence vocabulary |
 
 Motion explains real state changes only: activating, window open, contact
 pressed, command accepted, retry, hold progress. Nothing animates a timing
 rule, and no control is delayed behind an animation.
+
+## The exploded view is a drawing, and the buttons are not
+
+**Decided 31 October 2026.**
+
+"Meet the prototype" shows the ring taken apart. The first attempt drew it flat
+and top-down, with the numbers sitting on the parts. That is a plan: it can
+show that the shell is *outside* the carrier, but not that it goes *over* it,
+which is the one thing an exploded drawing exists to say. It was redrawn using
+the convention a real assembly sheet uses — parallel isometric projection, one
+vertical travel axis, parts in the order someone would take them apart in.
+
+Two decisions are load-bearing and would be easy to undo by accident:
+
+- **The numbers are in two fixed columns, not on the parts.** Numbers that
+  tracked their parts would all pile up at one height when the ring is
+  assembled — every part is in the same place then, which is what assembled
+  means — and ten 44 px buttons would land on top of one another. The geometry
+  test caught exactly that. The leader line is what says which number belongs
+  to which part.
+- **The SVG is `aria-hidden` and the ten controls are real HTML buttons over
+  it.** The version this was ported from used `<g onClick>` inside an
+  `role="img"` SVG: invisible to assistive technology, unreachable by keyboard,
+  and 26 px where this project's rule is 44. Below 489 px the drawing keeps its
+  shapes and drops the buttons, because the badges are fixed px while the
+  drawing scales — the same fallback `PracticeSurface` makes, with the
+  threshold derived from the geometry rather than guessed.
+
+Every part is **Design intent**, and each also states how it relates to the
+bench rig that exists: present, substituted, or absent. The three magnetometers
+are the paper's sensing architecture, checked in simulation only; the bench
+firmware senses with flex sensors, force-sensitive resistors and an IMU.
+Blending those into one story would be the easiest overclaim on the page.

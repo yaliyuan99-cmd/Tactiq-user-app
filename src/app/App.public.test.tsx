@@ -37,15 +37,17 @@ describe('the real public page at /', () => {
   });
 
   it('offers a way to try the app without an account, where the words match the link', async () => {
-    // This replaces the banner's old "Demonstration" link to /demo: the
-    // invitation now sits in the hero and goes to sign-in, where "Continue as a
-    // guest" opens a guest profile in this browser. What the page claims and
-    // where the link goes have to keep agreeing, which is what is checked here.
+    // The invitation says no account is needed, so it has to go somewhere no
+    // account is needed. It used to go to sign-in, where the visitor had to
+    // find "Continue as a guest" — an account form in front of a button
+    // offering to skip it. /demo renders without a guard. What the page claims
+    // and where the link goes have to keep agreeing, which is what is checked
+    // here.
     await renderHome();
     const invitations = screen.getAllByRole('link', { name: 'Try the demo' });
     expect(invitations.length).toBeGreaterThan(0);
-    for (const invitation of invitations) expect(invitation).toHaveAttribute('href', ROUTES.signIn);
-    expect(screen.getByText(/No email address and no account needed/)).toBeInTheDocument();
+    for (const invitation of invitations) expect(invitation).toHaveAttribute('href', ROUTES.demo);
+    expect(screen.getByText(/No email address, no account/)).toBeInTheDocument();
   });
 
   it('offers a signed-in user the way to their dashboard instead of redirecting them', async () => {

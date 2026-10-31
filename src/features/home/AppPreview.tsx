@@ -57,7 +57,7 @@ export function AppPreview() {
       </dl>
 
       <div className="mt-8 flex flex-wrap items-center gap-3">
-        <ButtonLink to={ROUTES.signIn} trailingIcon={<ArrowRight className="h-4 w-4" />}>
+        <ButtonLink to={ROUTES.demo} trailingIcon={<ArrowRight className="h-4 w-4" />}>
           Try the demo
         </ButtonLink>
         <ButtonLink to={ROUTES.signUp} variant="secondary">
