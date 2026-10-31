@@ -22,6 +22,21 @@ function remainingText(ms: number, reducedMotion: boolean): string {
 }
 
 function WindowState({ ring, reducedMotion }: { ring: RingController; reducedMotion: boolean }) {
+  // The squeeze has registered but the window has not opened yet. Saying
+  // "closed, squeeze to open it" here is wrong twice over: the user has just
+  // squeezed, and a tap landing in this gap is rejected with no warning that
+  // anything was happening. The timing rule is unchanged; only the feedback is.
+  if (ring.activating) {
+    return (
+      <p className="flex items-start gap-2 font-medium">
+        <Timer className="mt-1 h-4 w-4 shrink-0 text-primary-strong" aria-hidden="true" />
+        {/* Not "Command window opening": that reads as a prefix of "Command
+            window open" for anything matching on text, including a person
+            skimming. The gate is a different state, so it gets different words. */}
+        <span>Opening the command window…</span>
+      </p>
+    );
+  }
   if (!ring.armed || ring.remainingMs === null) {
     return (
       <p className="flex items-start gap-2">

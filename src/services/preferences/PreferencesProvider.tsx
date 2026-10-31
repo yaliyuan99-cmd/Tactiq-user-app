@@ -218,22 +218,17 @@ export function PreferencesProvider({ storage, scopeId, children }: PreferencesP
     [storage],
   );
 
-  /**
-   * One-time claim: a browser last used before profiles existed keeps the
-   * person's preferences in the device-wide record, where the next profile to
-   * sign in would read them as its own. The first signed-in profile takes them
-   * over — saving writes the device record with appearance only — so nobody
-   * else inherits somebody's hand, feedback or setup progress. Practice data
-   * is never adopted this way; Settings asks about that (see
-   * '@/services/storage/legacyMigration').
+  /*
+   * There is deliberately no automatic claim here.
+   *
+   * A browser last used by a pre-profiles build keeps one person's hand,
+   * feedback, timing and setup progress in the device-wide record. This used
+   * to move them into the first profile to sign in, which meant a brand-new
+   * account on a second-hand or shared browser started with a stranger's hand
+   * and with setup already marked finished, having never seen it — silently,
+   * because the claim reported nothing. Settings asks about them instead,
+   * alongside the practice data, through '@/services/storage/legacyMigration'.
    */
-  useEffect(() => {
-    if (!scopeId || stored.legacyProfileFields.length === 0) return;
-    // A claim is not the user saving, so what had to be put right is still
-    // theirs to be told: Settings keeps showing PREFERENCES_REPLACED_NOTE
-    // until they save something themselves.
-    apply(latest.current, { replacedFields: stored.replacedFields, unreadable: stored.unreadable });
-  }, [scopeId, stored, apply]);
 
   const update = useCallback(
     (patch: Partial<UserPreferences>) => {

@@ -11,6 +11,7 @@ import {
   loadPreferences,
   usePreferences,
 } from './PreferencesProvider';
+import { writePreferences } from './storedPreferences';
 
 function resetDocument(): void {
   const root = document.documentElement;
@@ -44,15 +45,20 @@ describe('PreferencesProvider', () => {
 
   it('merges stored preferences over the defaults', () => {
     const storage = new MemoryStorageAdapter();
-    storage.set(STORAGE_KEYS.preferences, { theme: 'dark', hand: 'left' });
+    // Appearance is device-wide; the hand belongs to the person, so each half
+    // is seeded under the key the app reads it from.
+    storage.set(STORAGE_KEYS.preferences, { theme: 'dark' });
+    storage.set(STORAGE_KEYS.profilePreferences, { hand: 'left' });
     expect(loadPreferences(storage)).toEqual({ ...DEFAULT_PREFERENCES, theme: 'dark', hand: 'left' });
     storage.set(STORAGE_KEYS.preferences, 'garbage');
+    storage.remove(STORAGE_KEYS.profilePreferences);
     expect(loadPreferences(storage)).toEqual(DEFAULT_PREFERENCES);
   });
 
   it('never hands a screen a stored value outside its options', () => {
     const storage = new MemoryStorageAdapter();
-    storage.set(STORAGE_KEYS.preferences, { hand: 'middle', theme: 42, textSize: null, contrast: 'high' });
+    storage.set(STORAGE_KEYS.preferences, { theme: 42, textSize: null, contrast: 'high' });
+    storage.set(STORAGE_KEYS.profilePreferences, { hand: 'middle' });
     const { result } = setup(storage);
     // A hand of "middle" reached HAND_LABELS[hand] and threw during render.
     expect(result.current.preferences.hand).toBe('right');
@@ -64,7 +70,8 @@ describe('PreferencesProvider', () => {
 
   it('reports which stored preferences were replaced, and stops reporting once they are saved again', () => {
     const storage = new MemoryStorageAdapter();
-    storage.set(STORAGE_KEYS.preferences, { hand: 'middle', reducedMotion: 'yes' });
+    storage.set(STORAGE_KEYS.preferences, { reducedMotion: 'yes' });
+    storage.set(STORAGE_KEYS.profilePreferences, { hand: 'middle' });
     const { result } = setup(storage);
     expect([...result.current.recovery.replacedFields].sort()).toEqual(['hand', 'reducedMotion']);
     expect(result.current.recovery.unreadable).toBe(false);
@@ -169,7 +176,7 @@ describe('PreferencesProvider', () => {
       onboardingCompleted: true,
       onboardingStep: ONBOARDING_LAST_STEP,
     };
-    storage.set(STORAGE_KEYS.preferences, customised);
+    writePreferences(storage, customised);
     const { result } = setup(storage);
     expect(result.current.preferences).toEqual(customised);
 
@@ -213,7 +220,7 @@ describe('PreferencesProvider', () => {
 
   it('reports when a reset could not be saved', () => {
     const storage = new MemoryStorageAdapter();
-    storage.set(STORAGE_KEYS.preferences, { ...DEFAULT_PREFERENCES, theme: 'dark', onboardingCompleted: true });
+    writePreferences(storage, { ...DEFAULT_PREFERENCES, theme: 'dark', onboardingCompleted: true });
     vi.spyOn(storage, 'set').mockReturnValue(false);
     const { result } = setup(storage);
     act(() => {
@@ -237,7 +244,9 @@ describe('PreferencesProvider', () => {
   it('picks up changes written to storage elsewhere', () => {
     const { result, storage } = setup();
     act(() => {
-      storage.set(STORAGE_KEYS.preferences, { ...DEFAULT_PREFERENCES, hand: 'left' });
+      // Another tab saving: the hand belongs to the person, so it arrives
+      // under the profile's half, not the device-wide record.
+      storage.set(STORAGE_KEYS.profilePreferences, { version: 1, hand: 'left' });
     });
     expect(result.current.preferences.hand).toBe('left');
   });

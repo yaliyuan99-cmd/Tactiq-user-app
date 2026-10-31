@@ -1,7 +1,6 @@
 import { act, render, screen, waitFor } from '@testing-library/react';
 import { renderWithProviders } from '@/test/render';
-import { DEFAULT_PREFERENCES, type UserPreferences } from '@/domain/models';
-import { STORAGE_KEYS } from '@/services/storage/StorageAdapter';
+import { DEFAULT_PREFERENCES } from '@/domain/models';
 import {
   ANNOUNCE_FALLBACK_MS,
   SPEECH_FINISHED,
@@ -11,6 +10,7 @@ import {
   VOICE_CHECK_MS,
 } from './FeedbackProvider';
 import { type FeedbackContextValue } from './types';
+import { writePreferences } from '@/services/preferences/storedPreferences';
 
 const captured: { current: FeedbackContextValue | null } = { current: null };
 
@@ -331,7 +331,9 @@ describe('FeedbackProvider', () => {
     const synth = installSpeech();
     const { storage } = renderWithProviders(<Capture />, { preferences: { audioAnnouncements: false } });
     act(() => {
-      storage.set<UserPreferences>(STORAGE_KEYS.preferences, { ...DEFAULT_PREFERENCES, audioAnnouncements: true });
+      // Whether speech is on belongs to the person, so the change arrives in
+      // the profile's half of the record rather than the device-wide one.
+      writePreferences(storage, { ...DEFAULT_PREFERENCES, audioAnnouncements: true });
     });
     act(() => api().speak('Undo.'));
     expect(synth.speak).toHaveBeenCalledTimes(1);

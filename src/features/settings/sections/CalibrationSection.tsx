@@ -29,10 +29,15 @@ export function CalibrationSection() {
   const summary = calibration.summary();
   const hasProfile = summary.status !== 'not_started';
 
+  // The intro says what is recorded, not what the ring is told. Nothing but
+  // PING is ever written to a ring, so "teach the ring where your contact
+  // points are" was a claim the protocol cannot support — in Demo Mode or with
+  // a bench prototype connected, which is why the old wording's "simulated
+  // ring" hedge did not save it.
   return (
     <SettingsSection
       id="calibration"
-      intro="Calibration is designed to teach the ring where your eight contact points are. With the simulated ring it is a guided practice run and measures nothing physical."
+      intro="Calibration records which of your eight contact points each prompted tap landed on, and keeps that record on this device. Nothing is sent to a ring and no sensor is adjusted."
     >
       <dl className="grid gap-2">
         <DetailRow term="Status">{calibrationStatusText(summary)}</DetailRow>

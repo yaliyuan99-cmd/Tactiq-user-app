@@ -4,6 +4,7 @@ import type { GestureEvent } from '@/domain/models';
 import { HISTORY_HEADING_IDS } from './historyIds';
 import { initialRecentPageSize } from './recentPageSize';
 import { sourceLabel } from './historyParams';
+import { ACTIVATION_LABEL, isActivation } from '@/services/history/classify';
 import { describeOutcome, eventTimeParts, intendedCommandLabel, pointSummary, recordLabel, sharedRecordNote } from './wording';
 
 export interface RecentAttemptsSectionProps {
@@ -14,6 +15,20 @@ export interface RecentAttemptsSectionProps {
 interface Row {
   readonly event: GestureEvent;
   readonly index: number;
+}
+
+/**
+ * A cell that has nothing to show because the record has no such thing — a
+ * squeeze has no contact point and no command. Distinct from `OrNone`, which
+ * means the value is missing from a record that should have had one.
+ */
+function NotApplicable() {
+  return (
+    <>
+      <span aria-hidden="true">—</span>
+      <VisuallyHidden>Not applicable</VisuallyHidden>
+    </>
+  );
 }
 
 function OrNone({ value }: { value: string | null }) {
@@ -55,9 +70,17 @@ const COLUMNS: readonly DataTableColumn<Row>[] = [
   // Source and Label repeat on most rows, and the lede says so when they are
   // the same throughout, so neither needs a label of its own when stacked.
   { key: 'source', header: 'Source', mobileLabel: '', cell: ({ event }) => sourceLabel(event.source) },
-  { key: 'point', header: 'Point', cell: ({ event }) => <OrNone value={pointSummary(event)} /> },
-  { key: 'command', header: 'Command', cell: ({ event }) => <OrNone value={intendedCommandLabel(event)} /> },
-  { key: 'result', header: 'Result', cell: ({ event }) => describeOutcome(event) },
+  // A squeeze touches no contact point and carries no command, so its Point
+  // and Command cells are blank by nature rather than missing. Showing "None"
+  // in both and then "Recognised" in Result read as a command that succeeded
+  // while doing nothing; the Result cell names the thing that happened instead.
+  { key: 'point', header: 'Point', cell: ({ event }) => (isActivation(event) ? <NotApplicable /> : <OrNone value={pointSummary(event)} />) },
+  {
+    key: 'command',
+    header: 'Command',
+    cell: ({ event }) => (isActivation(event) ? <NotApplicable /> : <OrNone value={intendedCommandLabel(event)} />),
+  },
+  { key: 'result', header: 'Result', cell: ({ event }) => (isActivation(event) ? ACTIVATION_LABEL : describeOutcome(event)) },
   { key: 'label', header: 'Label', mobileLabel: '', cell: ({ event }) => <LabelCell event={event} /> },
 ];
 

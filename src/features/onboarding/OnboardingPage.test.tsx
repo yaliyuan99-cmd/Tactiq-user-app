@@ -195,7 +195,9 @@ describe('OnboardingPage: keyboard only', () => {
     // the key goes down; tapping before then is correctly rejected.
     await tabTo(user, 'Squeeze the ring');
     await user.keyboard('{Enter}');
-    await screen.findByText(/Command window open/);
+    // Wait for the window to be genuinely open, not merely opening: the
+    // progress bar exists only while it is armed.
+    await screen.findByRole('progressbar', { name: 'Command window time left' });
     await tabTo(user, 'Index fingertip, Confirm, target');
     await user.keyboard('{Enter}');
     expect(await screen.findByText(FIRST_COMMAND_DONE_TITLE)).toBeInTheDocument();

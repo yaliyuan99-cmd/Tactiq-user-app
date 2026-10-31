@@ -10,6 +10,7 @@
  *   attempts            = successes + misclassifications + rejected
  *   commandAccuracy     = the sum of every perCommand row
  */
+import { isActivation, type ClassifiableEvent } from './classify';
 import { COMMAND_TOKENS, type CommandToken } from '@/domain/commands';
 import type {
   ActivityCounts,
@@ -34,10 +35,15 @@ export { intendedToken } from './classify';
 const DAY_MS = 24 * 60 * 60 * 1000;
 
 /**
- * A press rather than a five-second hold. Used for counting rows on screen,
- * NOT for accuracy: see `isAccuracyAttempt` for the denominator.
+ * A press rather than a five-second hold or a squeeze. Used for counting rows
+ * on screen, NOT for accuracy: see `isAccuracyAttempt` for the denominator.
+ *
+ * A squeeze is excluded because it is not something the user aimed at a
+ * contact point: counting it made the page say "12 attempts" when the user had
+ * made eight and opened the window four times.
  */
-export function isAttempt(event: Pick<GestureEvent, 'outcome'>): boolean {
+export function isAttempt(event: ClassifiableEvent): boolean {
+  if (isActivation(event)) return false;
   return event.outcome !== 'emergency' && event.outcome !== 'emergency_cancelled';
 }
 

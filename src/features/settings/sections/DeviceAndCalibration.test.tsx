@@ -59,7 +59,8 @@ describe('CalibrationSection', () => {
     expect(screen.getByText('Not calibrated yet')).toBeInTheDocument();
     expect(screen.getByRole('link', { name: 'Calibrate now' })).toHaveAttribute('href', '/dashboard/calibrate');
     expect(screen.queryByRole('button', { name: 'Delete calibration' })).not.toBeInTheDocument();
-    expect(screen.getByText(/measures nothing physical/)).toBeInTheDocument();
+    // The section must say what calibration records and what it does not send.
+    expect(screen.getByText(/Nothing is sent to a ring and no sensor is adjusted/)).toBeInTheDocument();
   });
 
   it('summarises a stored calibration with its evidence label, and deletes it after confirmation', async () => {

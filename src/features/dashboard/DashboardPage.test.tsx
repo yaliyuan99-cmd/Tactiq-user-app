@@ -74,7 +74,7 @@ describe('DashboardPage next step', () => {
     await renderDashboard();
     const panel = region('What to do next');
     expect(within(panel).getByRole('link', { name: 'Calibrate your ring' })).toHaveAttribute('href', ROUTES.calibrate);
-    expect(within(panel).getByText(/designed to help the ring tell them apart/)).toBeInTheDocument();
+    expect(within(panel).getByText(/record where each one is for your hand, on this device/)).toBeInTheDocument();
   });
 
   it('continues training with the next lesson after calibration', async () => {

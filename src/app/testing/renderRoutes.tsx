@@ -10,11 +10,12 @@ import userEvent from '@testing-library/user-event';
 import { MemoryRouter, useLocation } from 'react-router';
 import { AppRoutes } from '@/app/App';
 import { AppProviders } from '@/app/AppProviders';
+import { writePreferences } from '@/services/preferences/storedPreferences';
 import { DEFAULT_PREFERENCES, type UserPreferences } from '@/domain/models';
 import type { AuthService } from '@/services/auth/types';
 import type { DeviceMode } from '@/services/device/types';
 import { type AppServices } from '@/services/ServicesProvider';
-import { MemoryStorageAdapter, STORAGE_KEYS, type StorageAdapter } from '@/services/storage/StorageAdapter';
+import { MemoryStorageAdapter, type StorageAdapter } from '@/services/storage/StorageAdapter';
 import { profileStorage, seedSignedInUser, TEST_USER } from '@/test/renderApp';
 
 /*
@@ -79,11 +80,12 @@ export function renderRoutes({
   services,
   children,
 }: RenderRoutesOptions = {}): RenderRoutesResult {
-  // Seeded the way renderApp seeds it: through the profile's view of storage,
-  // so each half of the preferences lands where the app looks for it however
-  // the device/profile split is drawn. ('prefs' is device-wide today, so the
-  // view passes it through and the app claims the person's half on first read.)
-  profileStorage(storage, signedIn ? TEST_USER : null).set<UserPreferences>(STORAGE_KEYS.preferences, {
+  // Seeded through the same writer the app uses, so each half lands under the
+  // key the app reads it from. Writing the whole object to the device-wide key
+  // instead is the shape a pre-profiles build leaves behind, and the app no
+  // longer adopts that silently — a new profile must not inherit a previous
+  // owner's hand or their finished setup.
+  writePreferences(profileStorage(storage, signedIn ? TEST_USER : null), {
     ...DEFAULT_PREFERENCES,
     onboardingCompleted: true,
     ...preferences,

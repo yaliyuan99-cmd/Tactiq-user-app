@@ -67,8 +67,12 @@ describe('nextAction', () => {
     expect(action).toMatchObject({ id: 'calibrate', label: 'Calibrate your ring', to: ROUTES.calibrate });
   });
 
-  it('explains uncalibrated as a design intention, not a proven result', () => {
-    expect(nextAction({ ...ALL_DONE, calibrationStatus: 'not_started' }).reason).toMatch(/designed to help/);
+  it('explains uncalibrated without claiming the ring is told anything', () => {
+    const { reason } = nextAction({ ...ALL_DONE, calibrationStatus: 'not_started' });
+    // Nothing but PING is ever written to a ring, so the dashboard's primary
+    // call to action must not say calibration informs one.
+    expect(reason).toMatch(/record where each one is for your hand, on this device/);
+    expect(reason).not.toMatch(/teach|tell them apart/i);
   });
 
   it('continues training with the next lesson once calibrated', () => {

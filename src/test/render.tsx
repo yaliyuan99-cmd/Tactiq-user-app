@@ -4,7 +4,8 @@ import { MemoryRouter } from 'react-router';
 import { DEFAULT_PREFERENCES, type UserPreferences } from '@/domain/models';
 import { FeedbackProvider } from '@/services/feedback/FeedbackProvider';
 import { PreferencesProvider } from '@/services/preferences/PreferencesProvider';
-import { MemoryStorageAdapter, STORAGE_KEYS, type StorageAdapter } from '@/services/storage/StorageAdapter';
+import { writePreferences } from '@/services/preferences/storedPreferences';
+import { MemoryStorageAdapter, type StorageAdapter } from '@/services/storage/StorageAdapter';
 
 export interface RenderWithProvidersOptions extends Omit<RenderOptions, 'wrapper' | 'queries'> {
   /** Initial router location. Defaults to "/". */
@@ -23,7 +24,10 @@ export function renderWithProviders(
   { route = '/', storage = new MemoryStorageAdapter(), preferences, ...options }: RenderWithProvidersOptions = {},
 ): RenderWithProvidersResult {
   if (preferences) {
-    storage.set<UserPreferences>(STORAGE_KEYS.preferences, { ...DEFAULT_PREFERENCES, ...preferences, version: 1 });
+    // Through the app's own writer, so each half lands under the key the app
+    // reads it from. The whole object under the device-wide key is the shape a
+    // pre-profiles build leaves, which is no longer adopted silently.
+    writePreferences(storage, { ...DEFAULT_PREFERENCES, ...preferences, version: 1 });
   }
   function Wrapper({ children }: { children: ReactNode }) {
     return (

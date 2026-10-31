@@ -19,9 +19,12 @@
  * be told.
  *
  * Builds before profiles existed wrote all of it to the device-wide key. Those
- * fields are still read from there (`legacyProfileFields` says which), so
- * nobody's setup progress disappears on upgrade; the first signed-in profile
- * claims them, which rewrites the device record with appearance only.
+ * fields are NOT read from there. A browser can be upgraded and then signed
+ * into by somebody else, and inheriting a stranger's hand or their finished
+ * setup is worse than starting from the defaults — for an app drawn around
+ * which hand you wear the ring on, considerably worse. `legacyProfileFields`
+ * reports what is sitting there so Settings can offer it, which is the same
+ * consent the practice data already goes through.
  */
 import {
   CONTRAST_PREFERENCES,
@@ -69,9 +72,9 @@ export interface PreferencesRecovery {
 export interface StoredPreferences extends PreferencesRecovery {
   readonly preferences: UserPreferences;
   /**
-   * The person's preferences that had to be read from the device-wide record,
-   * because no profile record held them. Non-empty only for a browser last
-   * used by a build from before profiles existed.
+   * The person's preferences sitting in the device-wide record from a
+   * pre-profiles build, which this profile has NOT taken. Offered by Settings;
+   * never adopted on their own. Non-empty only on an upgraded browser.
    */
   readonly legacyProfileFields: readonly ProfilePreferenceField[];
 }
@@ -181,11 +184,12 @@ export function readStoredPreferences(storage: StorageAdapter): StoredPreference
       profileRecord[field] = own;
       continue;
     }
-    const legacy = deviceRecord[field];
-    if (legacy !== undefined) {
-      profileRecord[field] = legacy;
-      legacyProfileFields.push(field);
-    }
+    // Present in the device-wide record, left by a build from before profiles
+    // existed. NOT read into this profile: the person who set it is not
+    // necessarily the person signing in now, and silently inheriting their
+    // hand — or their "setup finished" — is the whole problem. Reported so
+    // Settings can ask, exactly as it already asks about practice data.
+    if (deviceRecord[field] !== undefined) legacyProfileFields.push(field);
   }
 
   const pickDevice = reader(deviceRecord, replacedFields);

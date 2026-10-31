@@ -7,13 +7,24 @@
  * are. Nothing adopts them on its own: `detectLegacyData` reports what is
  * there so Settings can ask, and the profile's own data is never overwritten.
  *
- * Preferences are not handled here. The appearance half stays device-wide
- * under 'prefs', and the person's half is moved into the first signed-in
- * profile by PreferencesProvider — a display or feedback choice is not a
- * record of what somebody did.
+ * The person's half of the preferences is handled here too, even though it
+ * lives inside the device-wide 'prefs' record rather than under a key of its
+ * own. It used to be claimed automatically by the first profile to sign in,
+ * which handed a stranger the previous owner's hand and a finished setup they
+ * had never seen. The appearance half — theme, text size, contrast, reduced
+ * motion — stays device-wide and is never moved: that one really does belong
+ * to the screen in front of you.
  */
+import { PROFILE_PREFERENCE_FIELDS, type ProfilePreferenceField } from '@/services/preferences/storedPreferences';
 import { DEVICE_WIDE_KEYS, STORAGE_KEYS, type StorageAdapter } from './StorageAdapter';
 import { rootStorage, scopedKey } from './scopedStorage';
+
+/** The person-half fields a pre-profiles build left inside the device record. */
+function legacyPreferenceFields(root: StorageAdapter): ProfilePreferenceField[] {
+  const record = root.get<Record<string, unknown>>(STORAGE_KEYS.preferences);
+  if (!record || typeof record !== 'object') return [];
+  return PROFILE_PREFERENCE_FIELDS.filter((field) => record[field] !== undefined);
+}
 
 interface LegacyKind {
   readonly key: string;
@@ -90,7 +101,15 @@ export function detectLegacyData(storage: StorageAdapter): LegacyDataReport {
     const value = root.get<unknown>(kind.key);
     summary.push(value === null ? 'A record that could not be read' : kind.describe(value));
   }
-  const hasData = keys.length > 0;
+  const preferenceFields = legacyPreferenceFields(root);
+  if (preferenceFields.length > 0) {
+    summary.push(
+      preferenceFields.includes('onboardingCompleted')
+        ? 'Settings from before profiles existed, including which hand and whether setup was finished'
+        : 'Settings from before profiles existed, such as which hand and the feedback choices',
+    );
+  }
+  const hasData = keys.length > 0 || preferenceFields.length > 0;
   for (const key of LEGACY_FLAG_KEYS) {
     if (root.has(key)) keys.push(key);
   }
@@ -125,6 +144,30 @@ export function adoptLegacyData(storage: StorageAdapter, scopeId: string): Legac
     adopted.push(key);
   }
 
+  // The person-half of the preferences moves by field, not by key: it sits
+  // inside the device-wide record, which itself stays where it is.
+  const preferenceFields = legacyPreferenceFields(root);
+  if (preferenceFields.length > 0) {
+    const device = root.get<Record<string, unknown>>(STORAGE_KEYS.preferences) ?? {};
+    const target = scopedKey(scopeId, STORAGE_KEYS.profilePreferences);
+    if (root.has(target)) {
+      skipped.push(STORAGE_KEYS.profilePreferences);
+    } else {
+      const claimed: Record<string, unknown> = { version: 1 };
+      for (const field of preferenceFields) claimed[field] = device[field];
+      if (root.set(target, claimed)) {
+        const appearanceOnly = Object.fromEntries(
+          Object.entries(device).filter(([key]) => !(PROFILE_PREFERENCE_FIELDS as readonly string[]).includes(key)),
+        );
+        root.set(STORAGE_KEYS.preferences, appearanceOnly);
+        adopted.push(STORAGE_KEYS.profilePreferences);
+      } else {
+        persisted = false;
+        skipped.push(STORAGE_KEYS.profilePreferences);
+      }
+    }
+  }
+
   return { adopted, skipped, persisted };
 }
 
@@ -134,5 +177,14 @@ export function discardLegacyData(storage: StorageAdapter): void {
   for (const key of [...LEGACY_KINDS.map((kind) => kind.key), ...LEGACY_FLAG_KEYS]) {
     if (DEVICE_WIDE_KEYS.has(key)) continue;
     root.remove(key);
+  }
+  // The device record itself stays — it still holds the appearance half, which
+  // belongs to the browser. Only the previous person's fields go.
+  const device = root.get<Record<string, unknown>>(STORAGE_KEYS.preferences);
+  if (device && typeof device === 'object') {
+    const appearanceOnly = Object.fromEntries(
+      Object.entries(device).filter(([key]) => !(PROFILE_PREFERENCE_FIELDS as readonly string[]).includes(key)),
+    );
+    root.set(STORAGE_KEYS.preferences, appearanceOnly);
   }
 }

@@ -59,7 +59,7 @@ const RECONNECT_REASONS: Readonly<Record<DeviceConnectionStatus, string>> = {
 
 const CALIBRATION_REASONS: Readonly<Record<Exclude<CalibrationStatus, 'complete'>, string>> = {
   not_started:
-    'Calibration has not been done yet; guided taps on all eight points are designed to help the ring tell them apart for your hand.',
+    'Calibration has not been done yet; guided taps on all eight points record where each one is for your hand, on this device.',
   in_progress: 'Calibration is under way but not finished, so some points have not been tapped enough yet.',
   incomplete: 'Some contact points still need repeating before calibration is complete.',
 };
