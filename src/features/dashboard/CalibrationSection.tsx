@@ -1,6 +1,7 @@
 import { ROUTES } from '@/app/routes';
 import { Card, EvidenceLabel } from '@/components';
 import type { CalibrationSummary } from '@/domain/models';
+import { cn } from '@/lib/cn';
 import { calibrationLastPerformedText, calibrationLinkText, calibrationStatusText } from './calibrationWording';
 import { DashboardLink } from './DashboardLink';
 
@@ -15,8 +16,8 @@ export function CalibrationSection({ summary, now, className }: CalibrationSecti
   return (
     <Card
       heading="Calibration"
-      className={className}
-      actions={<DashboardLink to={ROUTES.calibrate}>{calibrationLinkText(summary)}</DashboardLink>}
+      className={cn('lift', className)}
+      actions={<DashboardLink to={ROUTES.calibrate} stretched>{calibrationLinkText(summary)}</DashboardLink>}
     >
       <dl className="grid gap-3">
         <div>

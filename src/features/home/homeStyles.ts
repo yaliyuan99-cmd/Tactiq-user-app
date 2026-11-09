@@ -9,10 +9,10 @@
 export const SHELL = 'mx-auto w-full max-w-6xl px-4 sm:px-6 lg:px-8';
 
 /** Section wrapper: the quiet rule and the anchor offset. */
-export const SECTION = 'scroll-mt-8 border-t border-border';
+export const SECTION = 'scroll-mt-8';
 
 /** Section padding. Narrow screens get less, so the page is not all scrolling. */
-export const SECTION_INNER = 'py-12 sm:py-16 lg:py-20';
+export const SECTION_INNER = 'py-14 sm:py-20';
 
-export const EYEBROW = 'font-mono-label text-muted-foreground';
-export const LEDE = 'text-lg text-muted-foreground';
+export const EYEBROW = 'biro';
+export const LEDE = 'text-xl leading-snug text-muted-foreground text-pretty';

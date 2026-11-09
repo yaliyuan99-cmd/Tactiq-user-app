@@ -7,15 +7,18 @@ export interface DashboardLinkProps {
   readonly to: string;
   readonly children: ReactNode;
   readonly className?: string;
+  /** Make the whole surrounding card the link's hit area. The card must be positioned. */
+  readonly stretched?: boolean;
 }
 
 /** A section's text link: underlined, accent ink, 44px target, with a decorative arrow. */
-export function DashboardLink({ to, children, className }: DashboardLinkProps) {
+export function DashboardLink({ to, children, className, stretched = false }: DashboardLinkProps) {
   return (
     <Link
       to={to}
       className={cn(
         'target-44 inline-flex items-center gap-1.5 font-medium text-primary-strong underline decoration-1 underline-offset-2 hover:decoration-2',
+        stretched && 'stretched-link',
         className,
       )}
     >

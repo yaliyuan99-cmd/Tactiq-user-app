@@ -218,7 +218,7 @@ describe('PracticeSurface with a hardware ring', () => {
     expect(screen.getByText('Last:').parentElement).toHaveTextContent('Last: Next');
     const point = screen.getByRole('figure').querySelector('[data-contact="middle_base"]');
     expect(point?.tagName).toBe('SPAN');
-    expect(point).toHaveClass('bg-primary');
+    expect(point).toHaveClass('bg-[var(--highlight)]');
   });
 
   it('still lets the user choose the list view', async () => {

@@ -1,4 +1,4 @@
-import { RadioGroupField, SwitchField, type RadioOption } from '@/components';
+import { SegmentedRadioGroup, SwitchField, type SegmentedOption } from '@/components';
 import type { TextSize } from '@/domain/models';
 import { useDevice } from '@/services/device/DeviceProvider';
 import { useFeedback } from '@/services/feedback/FeedbackProvider';
@@ -19,7 +19,7 @@ import {
 } from '../onboardingFlow';
 import { StepLede, StepSection } from './StepSection';
 
-const TEXT_SIZE_OPTIONS: readonly RadioOption<TextSize>[] = [
+const TEXT_SIZE_OPTIONS: readonly SegmentedOption<TextSize>[] = [
   { value: 'default', label: TEXT_SIZE_LABELS.default },
   { value: 'large', label: TEXT_SIZE_LABELS.large },
   { value: 'larger', label: TEXT_SIZE_LABELS.larger },
@@ -40,17 +40,20 @@ export function PreferencesStep() {
       <StepLede>{PREFERENCES_LEDE}</StepLede>
 
       <StepSection title="Reading, speech and time" card>
-        <RadioGroupField<TextSize>
-          label="Text size"
-          hint={TEXT_SIZE_HINT}
-          options={TEXT_SIZE_OPTIONS}
-          value={preferences.textSize}
-          onChange={(textSize) => {
-            update({ textSize });
-            announce(choiceAnnouncement('Text size', TEXT_SIZE_LABELS[textSize]));
-          }}
-        />
+        <div className="grid gap-1.5">
+          <SegmentedRadioGroup<TextSize>
+            legend="Text size"
+            options={TEXT_SIZE_OPTIONS}
+            value={preferences.textSize}
+            onChange={(textSize) => {
+              update({ textSize });
+              announce(choiceAnnouncement('Text size', TEXT_SIZE_LABELS[textSize]));
+            }}
+          />
+          <p className="text-sm text-muted-foreground">{TEXT_SIZE_HINT}</p>
+        </div>
         <SwitchField
+          containerClassName="border-t border-border pt-4"
           label="Increased contrast"
           description={CONTRAST_DESCRIPTION}
           checked={preferences.contrast === 'high'}
@@ -60,6 +63,7 @@ export function PreferencesStep() {
           }}
         />
         <SwitchField
+          containerClassName="border-t border-border pt-4"
           label="Audio announcements"
           description={AUDIO_DESCRIPTION}
           checked={preferences.audioAnnouncements}
@@ -70,6 +74,7 @@ export function PreferencesStep() {
           }}
         />
         <SwitchField
+          containerClassName="border-t border-border pt-4"
           label="Longer interaction time"
           description={`After a squeeze, the command window stays open for ${commandWindowSeconds(
             false,

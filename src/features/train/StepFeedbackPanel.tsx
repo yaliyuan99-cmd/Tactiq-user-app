@@ -19,10 +19,12 @@ export interface StepFeedbackPanelProps {
 }
 
 function outcome(evaluation: StepEvaluation | null) {
-  if (!evaluation) return { key: 'waiting', title: 'Waiting for an attempt', Icon: CircleDashed, tone: 'text-muted-foreground' };
+  if (!evaluation) {
+    return { key: 'waiting', title: 'Waiting for an attempt', Icon: CircleDashed, tone: 'text-muted-foreground', ground: 'border-border bg-card' };
+  }
   return evaluation.correct
-    ? { key: 'correct', title: 'Correct', Icon: CircleCheck, tone: 'text-status-confirmed' }
-    : { key: 'incorrect', title: 'Not yet', Icon: CircleX, tone: 'text-destructive' };
+    ? { key: 'correct', title: 'Correct', Icon: CircleCheck, tone: 'text-status-confirmed', ground: 'border-status-confirmed bg-status-confirmed/10' }
+    : { key: 'incorrect', title: 'Not yet', Icon: CircleX, tone: 'text-destructive', ground: 'border-destructive bg-destructive/10' };
 }
 
 /**
@@ -41,11 +43,11 @@ export function StepFeedbackPanel({
   onNextStep,
   onHold,
 }: StepFeedbackPanelProps) {
-  const { key, title, Icon, tone } = outcome(evaluation);
+  const { key, title, Icon, tone, ground } = outcome(evaluation);
   const nextLabel = isLastStep ? 'Finish lesson' : 'Next step';
 
   return (
-    <div className="grid gap-2 rounded-lg border border-border bg-card p-4 shadow-card sm:p-5" data-outcome={key}>
+    <div className={cn('grid gap-2 rounded-lg border p-4 shadow-card transition-colors duration-[var(--dur-tap)] sm:p-5', ground)} data-outcome={key}>
       <p className="flex items-center gap-2 font-semibold">
         <Icon className={cn('h-5 w-5 shrink-0', tone)} aria-hidden="true" />
         <span>{title}</span>

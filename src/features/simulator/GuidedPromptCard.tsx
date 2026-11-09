@@ -18,10 +18,10 @@ export interface GuidedPromptCardProps {
   readonly className?: string;
 }
 
-const VERDICT_STYLES: Readonly<Record<GuidedVerdict, { Icon: LucideIcon; tone: string }>> = {
-  correct: { Icon: CircleCheck, tone: 'text-status-confirmed' },
-  wrong: { Icon: CircleX, tone: 'text-destructive' },
-  not_recognised: { Icon: CircleAlert, tone: 'text-status-target' },
+const VERDICT_STYLES: Readonly<Record<GuidedVerdict, { Icon: LucideIcon; tone: string; ground: string }>> = {
+  correct: { Icon: CircleCheck, tone: 'text-status-confirmed', ground: 'border-status-confirmed bg-status-confirmed/10' },
+  wrong: { Icon: CircleX, tone: 'text-destructive', ground: 'border-destructive bg-destructive/10' },
+  not_recognised: { Icon: CircleAlert, tone: 'text-status-target', ground: 'border-status-target bg-status-target/10' },
 };
 
 function TargetHint({ target, showHoldButton }: { target: GuidedPractice['target']; showHoldButton: boolean }) {
@@ -52,7 +52,9 @@ export function GuidedPromptCard({ guided, evidence, showHoldButton = true, clas
   return (
     <section aria-labelledby={SIMULATOR_HEADING_IDS.target} className={cn(CARD_CLASSES, className)}>
       <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
-        <h2 id={SIMULATOR_HEADING_IDS.target}>Your target</h2>
+        <h2 id={SIMULATOR_HEADING_IDS.target} className="font-mono-label text-muted-foreground">
+          Your target
+        </h2>
         {guided.advancing && (
           <span className="font-mono-label inline-flex items-center gap-1.5 text-status-confirmed">
             <CircleCheck className="h-4 w-4 shrink-0" aria-hidden="true" />
@@ -61,10 +63,41 @@ export function GuidedPromptCard({ guided, evidence, showHoldButton = true, clas
         )}
       </div>
 
-      <p className="mt-3 text-2xl font-semibold leading-snug" data-target={guided.target}>
-        {words.visible}
+      <p key={guided.target} className="animate-enter-rise mt-2 text-3xl font-bold leading-tight text-balance" data-target={guided.target}>
+        <span className="marker">{words.visible}</span>
       </p>
       <TargetHint target={guided.target} showHoldButton={showHoldButton} />
+
+      <div
+        key={feedback ? feedback.message : 'waiting'}
+        className={cn(
+          'animate-enter-rise mt-4 rounded-lg border px-3 py-2.5',
+          feedback && verdict ? verdict.ground : 'border-border bg-muted',
+        )}
+      >
+        <p className="font-mono-label text-muted-foreground">Last attempt</p>
+        {feedback && verdict ? (
+          <p className="mt-1 flex items-start gap-2 font-medium">
+            <verdict.Icon className={cn('mt-1 h-4 w-4 shrink-0', verdict.tone)} aria-hidden="true" />
+            <span>{feedback.message}</span>
+          </p>
+        ) : (
+          <p className="mt-1 text-muted-foreground">None yet. Squeeze the ring, then tap the target point.</p>
+        )}
+      </div>
+
+      <div className="mt-4">
+        <p className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1 text-sm">
+          <span className="font-medium tabular-nums">{scoreLine(guided.score)}</span>
+          <EvidenceLabel kind={evidence} />
+        </p>
+        <span aria-hidden="true" className="mt-2 block h-1.5 overflow-hidden rounded-full bg-muted">
+          <span
+            className="block h-full origin-left rounded-full bg-primary transition-transform duration-[var(--dur-move)]"
+            style={{ transform: `scaleX(${guided.score.attempts > 0 ? guided.score.correct / guided.score.attempts : 0})` }}
+          />
+        </span>
+      </div>
 
       <div className="mt-4 flex flex-wrap gap-2">
         <Button
@@ -87,22 +120,6 @@ export function GuidedPromptCard({ guided, evidence, showHoldButton = true, clas
         checked={guided.includeEmergency}
         onChange={(event) => guided.setIncludeEmergency(event.target.checked)}
       />
-
-      <div className="mt-5 border-t border-border pt-4">
-        <p className="font-mono-label text-muted-foreground">Last attempt</p>
-        {feedback && verdict ? (
-          <p className="mt-1 flex items-start gap-2">
-            <verdict.Icon className={cn('mt-1 h-4 w-4 shrink-0', verdict.tone)} aria-hidden="true" />
-            <span>{feedback.message}</span>
-          </p>
-        ) : (
-          <p className="mt-1 text-muted-foreground">None yet. Squeeze the ring, then tap the target point.</p>
-        )}
-        <p className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-1">
-          <span className="font-medium">{scoreLine(guided.score)}</span>
-          <EvidenceLabel kind={evidence} />
-        </p>
-      </div>
     </section>
   );
 }

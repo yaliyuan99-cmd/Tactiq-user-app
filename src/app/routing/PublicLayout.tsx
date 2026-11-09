@@ -27,7 +27,7 @@ import { useAuth } from '@/services/auth/AuthProvider';
 export function PublicLayout({ contained = false }: { readonly contained?: boolean }) {
   const { user } = useAuth();
   return (
-    <div className="flex min-h-dvh flex-col bg-background text-foreground">
+    <div className="notebook flex min-h-dvh flex-col bg-background text-foreground">
       <SkipLink />
       <header className="border-b border-border bg-background">
         <div className="mx-auto flex min-h-16 w-full max-w-6xl flex-wrap items-center gap-x-2 gap-y-1 px-4 sm:px-6">

@@ -1,5 +1,5 @@
 import { Link } from 'react-router';
-import { ArrowRight } from 'lucide-react';
+import { ArrowRight, Check } from 'lucide-react';
 import { ROUTES } from '@/app/routes';
 import { describeDeviceState } from '@/lib/deviceStatus';
 import { useDevice } from '@/services/device/DeviceProvider';
@@ -32,7 +32,29 @@ export function DoneStep() {
 
   return (
     <>
-      <StepLede>{DONE_LEDE}</StepLede>
+      <div className="flex items-start gap-4">
+        <span
+          aria-hidden="true"
+          className="settle-in grid h-14 w-14 shrink-0 place-items-center rounded-full bg-primary text-primary-foreground"
+        >
+          <Check className="h-7 w-7" />
+        </span>
+        <StepLede>{DONE_LEDE}</StepLede>
+      </div>
+
+      <StepSection title={NEXT_HEADING}>
+        <ul role="list" className="grid gap-3">
+          {links.map((link) => (
+            <li key={link.id} className="lift relative rounded-lg border-[1.5px] border-foreground bg-card p-4 shadow-card">
+              <Link to={link.to} className="stretched-link target-44 inline-flex items-center gap-2 font-semibold text-primary-strong underline">
+                {link.label}
+                <ArrowRight className="h-4 w-4 shrink-0" aria-hidden="true" />
+              </Link>
+              <p className="mt-1 text-muted-foreground text-pretty">{link.description}</p>
+            </li>
+          ))}
+        </ul>
+      </StepSection>
 
       <StepSection title={CHOICES_HEADING} card>
         <dl className="grid gap-3">
@@ -54,20 +76,6 @@ export function DoneStep() {
           </Link>
           .
         </p>
-      </StepSection>
-
-      <StepSection title={NEXT_HEADING}>
-        <ul className="divide-y divide-border border-y border-border">
-          {links.map((link) => (
-            <li key={link.id} className="py-3">
-              <Link to={link.to} className="target-44 inline-flex items-center gap-2 font-semibold text-primary-strong underline">
-                {link.label}
-                <ArrowRight className="h-4 w-4 shrink-0" aria-hidden="true" />
-              </Link>
-              <p className="mt-1 text-muted-foreground">{link.description}</p>
-            </li>
-          ))}
-        </ul>
       </StepSection>
     </>
   );

@@ -1,4 +1,5 @@
 import { type ReactNode } from 'react';
+import { CircleAlert, CircleCheck, CircleX, Hand, ShieldAlert, Star, type LucideIcon } from 'lucide-react';
 import { getCommand } from '@/domain/commands';
 import { EMERGENCY_SIMULATION_NOTICE } from '@/domain/evidence';
 import type { ActivitySummary } from '@/domain/models';
@@ -16,20 +17,33 @@ export interface SummarySectionProps {
 }
 
 function SummaryItem({
+  Icon,
   term,
   value,
   explanation,
+  meter,
   className,
 }: {
+  Icon: LucideIcon;
   term: string;
   value: ReactNode;
   explanation: ReactNode;
+  /** A share from 0 to 1, drawn under the value. The explanation says the same in words. */
+  meter?: number;
   className?: string;
 }) {
   return (
-    <div className={cn('bg-card p-4 sm:p-5', className)}>
-      <dt className="font-medium">{term}</dt>
+    <div className={cn('rounded-lg border-[1.5px] border-foreground bg-card p-4 shadow-card', className)}>
+      <dt className="flex items-center gap-2 font-medium">
+        <Icon className="h-4 w-4 shrink-0 text-primary-strong" aria-hidden="true" />
+        {term}
+      </dt>
       <dd className="mt-1 text-3xl font-semibold leading-tight tabular-nums">{value}</dd>
+      {meter !== undefined && (
+        <span aria-hidden="true" className="mt-2 block h-1.5 overflow-hidden rounded-full bg-muted">
+          <span className="block h-full rounded-full bg-primary" style={{ width: `${meter * 100}%` }} />
+        </span>
+      )}
       <dd className="mt-1.5 text-sm text-muted-foreground">{explanation}</dd>
     </div>
   );
@@ -45,15 +59,18 @@ export function SummarySection({ summary, emergency, allSamples = false }: Summa
         </h2>
         <EvidenceTag evidence={summary.evidence} allSamples={allSamples} />
       </div>
-      <dl className="mt-4 grid gap-px overflow-hidden rounded-lg border border-border bg-border shadow-card sm:grid-cols-2 lg:grid-cols-3">
+      <dl className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
         <SummaryItem
+          Icon={Hand}
           term="Attempts"
           value={attempts}
           explanation="Taps and presses scored in this view. Emergency holds are counted separately."
         />
         <SummaryItem
+          Icon={CircleCheck}
           term="Correct attempts"
           value={successes}
+          meter={attempts > 0 ? successes / attempts : 0}
           explanation={
             attempts > 0
               ? `You gave the command that was asked for: ${successes} of ${attempts} (${formatPercent(successes / attempts)}).`
@@ -61,16 +78,19 @@ export function SummarySection({ summary, emergency, allSamples = false }: Summa
           }
         />
         <SummaryItem
+          Icon={CircleX}
           term="Wrong point or command"
           value={misclassifications}
           explanation="Aimed for one command, got another."
         />
         <SummaryItem
+          Icon={CircleAlert}
           term="Rejected presses"
           value={rejected}
           explanation="Dropped because the press was too long for a tap, or the command window had closed. Never guessed."
         />
         <SummaryItem
+          Icon={Star}
           term="Most-practised command"
           value={mostPractised ? getCommand(mostPractised.token).label : 'None yet'}
           explanation={
@@ -80,8 +100,11 @@ export function SummarySection({ summary, emergency, allSamples = false }: Summa
           }
           className="sm:col-span-2"
         />
-        <div className="bg-card p-4 sm:col-span-2 sm:p-5 lg:col-span-3">
-          <dt className="font-medium">Emergency simulations</dt>
+        <div className="rounded-lg border-[1.5px] border-foreground bg-card p-4 shadow-card sm:col-span-2">
+          <dt className="flex items-center gap-2 font-medium">
+            <ShieldAlert className="h-4 w-4 shrink-0 text-primary-strong" aria-hidden="true" />
+            Emergency simulations
+          </dt>
           <dd className="mt-1 text-xl font-semibold tabular-nums">
             {emergency.completed} completed, {emergency.cancelled} cancelled
           </dd>

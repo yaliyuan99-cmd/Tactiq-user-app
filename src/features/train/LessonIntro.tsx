@@ -57,31 +57,43 @@ export function LessonIntro({ lesson, progress, headingLevel, onStart, showSetti
   const openFor = windowSeconds(state.commandWindowMs);
 
   return (
-    <section aria-labelledby={headingId} className="grid max-w-3xl gap-6">
-      <div>
-        <LessonHeading level={headingLevel} id={headingId}>
-          How this lesson works
-        </LessonHeading>
-        <div className="mt-3 grid gap-3">
-          {lesson.explanation.map((paragraph) => (
-            <p key={paragraph}>{paragraph}</p>
-          ))}
+    <section aria-labelledby={headingId} className="grid gap-6 md:grid-cols-[minmax(0,1.2fr)_minmax(0,1fr)] md:items-start">
+      <div className="grid gap-4">
+        <div>
+          <LessonHeading level={headingLevel} id={headingId}>
+            How this lesson works
+          </LessonHeading>
+          <div className="mt-3 grid gap-3">
+            {lesson.explanation.map((paragraph) => (
+              <p key={paragraph}>{paragraph}</p>
+            ))}
+          </div>
+        </div>
+        <div>
+          <Button size="lg" onClick={onStart} leadingIcon={<Play className="h-5 w-5" />}>
+            Start lesson
+          </Button>
         </div>
       </div>
 
-      <div className="grid gap-4 rounded-lg border border-border bg-card p-5 shadow-card sm:p-6">
-        <dl className="grid gap-4 sm:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]">
-          <div className="min-w-0 border-l-2 border-border-strong pl-3">
+      <div className="grid gap-4 rounded-lg border-[1.5px] border-foreground bg-card p-5 shadow-card sm:p-6">
+        <ol role="list" aria-label="The steps in this lesson" className="step-list text-sm">
+          {lesson.steps.map((step, index) => (
+            <li key={index}>{step.instruction}</li>
+          ))}
+        </ol>
+        <dl className="grid gap-3 border-t border-border pt-4 sm:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]">
+          <div className="min-w-0">
             <dt className="text-sm text-muted-foreground">You will practise</dt>
             <dd className="font-semibold">{teaches ?? 'Opening the command window with a squeeze'}</dd>
           </div>
-          <div className="min-w-0 border-l-2 border-border-strong pl-3">
+          <div className="min-w-0">
             <dt className="text-sm text-muted-foreground">Steps</dt>
             <dd className="font-semibold tabular-nums">{lesson.steps.length}</dd>
           </div>
         </dl>
         {state.mode === 'demo' ? (
-          <p className="text-muted-foreground">
+          <p className="text-sm text-muted-foreground">
             Each squeeze opens the command window for {openFor} seconds.{' '}
             {preferences.longerInteractionTime ? (
               <>
@@ -111,7 +123,7 @@ export function LessonIntro({ lesson, progress, headingLevel, onStart, showSetti
             )}
           </p>
         ) : (
-          <p className="text-muted-foreground">
+          <p className="text-sm text-muted-foreground">
             Your bench ring keeps its command window open for {openFor} seconds.{' '}
             {showSettingsLink ? (
               <>
@@ -126,11 +138,6 @@ export function LessonIntro({ lesson, progress, headingLevel, onStart, showSetti
           </p>
         )}
         <ProgressNote progress={progress} />
-        <div>
-          <Button onClick={onStart} leadingIcon={<Play className="h-5 w-5" />}>
-            Start lesson
-          </Button>
-        </div>
       </div>
     </section>
   );

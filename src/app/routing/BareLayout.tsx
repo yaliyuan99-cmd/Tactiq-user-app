@@ -9,7 +9,7 @@ import { RouteErrorBoundary } from '@/app/ErrorBoundary';
  */
 export function BareLayout() {
   return (
-    <main id="main-content" tabIndex={-1} className="min-h-dvh bg-background text-foreground outline-none">
+    <main id="main-content" tabIndex={-1} className="notebook min-h-dvh bg-background text-foreground outline-none">
       <RouteErrorBoundary variant="section">
         <Outlet />
       </RouteErrorBoundary>

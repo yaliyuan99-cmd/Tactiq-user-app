@@ -3,17 +3,18 @@ import { EvidenceLabel } from './EvidenceLabel';
 
 describe('EvidenceLabel', () => {
   it.each([
-    ['simulated', 'Simulated', 'text-status-simulation'],
-    ['design_target', 'Design target', 'text-status-target'],
-    ['design_intent', 'Design intent', 'text-status-future'],
-    ['not_available', 'Not yet available', 'text-status-future'],
-    ['measured', 'Measured', 'text-status-confirmed'],
-  ] as const)('shows %s as text with an icon', (kind, text, tone) => {
+    // Each kind is a different mark (highlighter, ink box, dashed pencil, red box), not only a different colour.
+    ['simulated', 'Simulated', 'bg-[var(--highlight)]'],
+    ['design_target', 'Design target', 'border-dashed'],
+    ['design_intent', 'Design intent', 'border-dashed'],
+    ['not_available', 'Not yet available', 'border-destructive'],
+    ['measured', 'Measured', 'border-foreground'],
+  ] as const)('shows %s as text with an icon and its own mark', (kind, text, mark) => {
     const { container } = render(<EvidenceLabel kind={kind} />);
     const label = screen.getByText(text);
     expect(label).toBeInTheDocument();
     const root = container.firstElementChild;
-    expect(root?.className).toContain(tone);
+    expect(root?.className).toContain(mark);
     expect(root?.className).toContain('font-mono-label');
     expect(root?.querySelector('svg[aria-hidden="true"]')).not.toBeNull();
   });

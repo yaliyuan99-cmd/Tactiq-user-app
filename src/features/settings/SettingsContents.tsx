@@ -32,7 +32,7 @@ export function SettingsContents() {
   };
 
   return (
-    <nav aria-labelledby={LABEL_ID} className="mb-6 rounded-lg border border-border bg-card px-4 py-3 shadow-card sm:px-5">
+    <nav aria-labelledby={LABEL_ID} className="mb-6 rounded-lg border-[1.5px] border-foreground bg-card px-4 py-3 shadow-card sm:px-5">
       <p id={LABEL_ID} className="font-mono-label text-muted-foreground">
         On this page
       </p>

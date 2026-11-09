@@ -32,6 +32,7 @@ export function StepFrame({ index, headingRef, onBack, onSkip, onContinue, child
           label={PROGRESS_LABEL}
           valueText={progress}
           showValueText={false}
+          segmented
         />
         {/* The progress bar carries this text as its value, so it is not read twice. */}
         <p className="font-mono-label mt-2 text-muted-foreground" aria-hidden="true">
@@ -39,13 +40,13 @@ export function StepFrame({ index, headingRef, onBack, onSkip, onContinue, child
         </p>
       </div>
 
-      <h1 id={PAGE_TITLE_ID} ref={headingRef} tabIndex={-1}>
+      <h1 key={step.id} id={PAGE_TITLE_ID} ref={headingRef} tabIndex={-1} className="animate-enter-rise">
         {step.title}
       </h1>
 
       <div className="mt-5 grid min-w-0 gap-8">{children}</div>
 
-      <div className="mt-10 flex flex-wrap items-center justify-between gap-3 border-t border-border pt-6">
+      <div className="mt-8 flex flex-wrap items-center justify-between gap-3 border-t border-border pt-5">
         <div>
           {controls.showBack && (
             <Button variant="secondary" leadingIcon={<ArrowLeft className="h-4 w-4" />} onClick={onBack}>

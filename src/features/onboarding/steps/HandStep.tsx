@@ -21,14 +21,7 @@ export function HandStep() {
     <>
       <StepLede>{HAND_LEDE}</StepLede>
 
-      <Callout kind="info">
-        <div className="grid gap-1.5">
-          <EvidenceLabel kind="simulated" />
-          <p>{SETUP_HONESTY}</p>
-        </div>
-      </Callout>
-
-      <div className="grid items-start gap-6 rounded-lg border border-border bg-card p-5 shadow-card sm:grid-cols-2 sm:p-6">
+      <div className="grid items-center gap-6 sm:grid-cols-[minmax(0,1fr)_minmax(0,1.1fr)]">
         <RadioGroupField<Hand>
           label={HAND_QUESTION}
           options={HAND_OPTIONS}
@@ -38,13 +31,25 @@ export function HandStep() {
             announce(choiceAnnouncement('Hand', HAND_LABELS[next]));
           }}
         />
-        <HandMap
-          hand={hand}
-          interactive={false}
-          size="sm"
-          caption={`Preview: ${HAND_LABELS[hand].toLowerCase()} hand, palm facing you. The ring sits on the index finger.`}
-        />
+        <div className="hero-band min-w-0 rounded-lg p-4 sm:p-5">
+          {/* Redrawn on a change, so the swap reads as an answer to the choice. */}
+          <HandMap
+            key={hand}
+            hand={hand}
+            interactive={false}
+            size="sm"
+            className="animate-enter-rise"
+            caption={`Preview: ${HAND_LABELS[hand].toLowerCase()} hand, palm facing you. The ring sits on the index finger.`}
+          />
+        </div>
       </div>
+
+      <Callout kind="info">
+        <div className="grid gap-1.5">
+          <EvidenceLabel kind="simulated" />
+          <p>{SETUP_HONESTY}</p>
+        </div>
+      </Callout>
     </>
   );
 }

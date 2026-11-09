@@ -23,7 +23,7 @@ export function RouteLoading({ standalone = false }: RouteLoadingProps) {
   );
   if (!standalone) return status;
   return (
-    <main id="main-content" tabIndex={-1} className="min-h-dvh bg-background text-foreground outline-none">
+    <main id="main-content" tabIndex={-1} className="notebook min-h-dvh bg-background text-foreground outline-none">
       {status}
     </main>
   );

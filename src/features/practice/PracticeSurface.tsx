@@ -42,8 +42,8 @@ export interface PracticeSurfaceProps {
 export const KEYBOARD_HINT =
   'Tab to a point, then press Enter or Space. Hold Enter or Space on the pinky fingertip for the emergency hold.';
 
-/** The panel a practice surface sits on: a card from the small breakpoint up, edge to edge on narrow phones where every pixel of width helps the points. */
-export const PRACTICE_PANEL_CLASSES = 'sm:rounded-lg sm:border sm:border-border sm:bg-card sm:p-6 sm:shadow-card';
+/** The panel a practice surface sits on: the deep-teal band, so the place you act is the same on every practice screen. */
+export const PRACTICE_PANEL_CLASSES = 'hero-band rounded-lg p-4 sm:p-6';
 
 /**
  * Everything a user needs to operate the ring on one screen: the squeeze
@@ -143,12 +143,13 @@ export function PracticeSurface({
             hasSecondRow && '@3xl:row-span-2',
           )}
         >
-          <ViewSwitch value={view} onChange={changeView} />
+          <ViewSwitch value={view} onChange={changeView} className="relative z-10 sm:max-w-xs" />
           {view === 'hand' && tooNarrowForHand && (
             <p className="text-sm text-muted-foreground">{HAND_VIEW_TOO_NARROW_NOTE}</p>
           )}
+          {/* The drawing leaves room above the fingertips; the negative margin puts it to use. */}
+          {shownView === 'hand' ? <HandMap hand={hand} size="md" className="-mt-[12%]" {...mapState} /> : <ContactList {...mapState} />}
           {operable && <p className="text-sm text-muted-foreground">{KEYBOARD_HINT}</p>}
-          {shownView === 'hand' ? <HandMap hand={hand} size="md" {...mapState} /> : <ContactList {...mapState} />}
           {!operable && (
             <p className="font-medium">
               {lastContact ? `Last detected point: ${getContact(lastContact).label}` : 'No point detected yet.'}

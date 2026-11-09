@@ -24,7 +24,7 @@ export const CalibrationPanel = forwardRef<HTMLHeadingElement, CalibrationPanelP
   return (
     <section
       aria-labelledby={headingId}
-      className={cn('min-w-0 rounded-lg border border-border bg-card p-5 text-card-foreground shadow-card sm:p-6', className)}
+      className={cn('min-w-0 rounded-lg border-[1.5px] border-foreground bg-card p-5 text-card-foreground shadow-card sm:p-6', className)}
     >
       <div className="mb-4 flex flex-wrap items-end justify-between gap-x-4 gap-y-2">
         <div className="min-w-0">

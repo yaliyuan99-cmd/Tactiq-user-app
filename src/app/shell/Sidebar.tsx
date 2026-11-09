@@ -7,21 +7,21 @@ import { useNavPathname, useShellSection } from './ShellSection';
 import { ThemeSwitcher } from './ThemeSwitcher';
 
 const LINK =
-  'relative flex min-h-11 items-center gap-2.5 rounded-md px-3 py-1.5 text-foreground no-underline hover:bg-secondary';
-const ACTIVE =
-  'bg-secondary font-semibold before:absolute before:inset-y-1.5 before:-left-2 before:w-[3px] before:rounded-r-full before:bg-primary';
+  'relative flex min-h-11 items-center gap-2.5 rounded-md px-3 py-1.5 no-underline transition-colors duration-[var(--dur-tap)]';
+/* Only one text colour is ever set: cn() does not resolve conflicting classes. */
+const IDLE = 'text-foreground hover:bg-foreground/[0.05]';
+/* The selected row is gone over with highlighter and its words are bold: fill and weight, not hue alone. */
+const ACTIVE = 'bg-[var(--highlight)] font-semibold text-[var(--highlight-ink)] hover:bg-[var(--highlight)]';
 
 function SidebarLink({ item, current, nested = false }: { item: NavItem; current: NavCurrent; nested?: boolean }) {
   const { path } = useShellSection();
   const Icon = item.icon;
   return (
-    <Link to={path(item.to)} aria-current={current} className={cn(LINK, nested && 'pl-9 text-[0.95em]', current && ACTIVE)}>
-      {!nested && (
-        <Icon
-          className={cn('h-5 w-5 shrink-0', current ? 'text-primary-strong' : 'text-muted-foreground')}
-          aria-hidden="true"
-        />
-      )}
+    <Link to={path(item.to)} aria-current={current} className={cn(LINK, nested && 'text-[0.95em]', current ? ACTIVE : IDLE)}>
+      <Icon
+        className={cn(nested ? 'h-4 w-4' : 'h-5 w-5', 'shrink-0', current ? 'text-[var(--highlight-ink)]' : 'text-muted-foreground')}
+        aria-hidden="true"
+      />
       <span className="min-w-0">{item.label}</span>
     </Link>
   );
@@ -36,7 +36,6 @@ function SidebarLink({ item, current, nested = false }: { item: NavItem; current
 function SidebarGroup({ item, pathname }: { item: NavItem; pathname: string }) {
   const labelId = `nav-${item.id}-${useId().replace(/:/g, '')}`;
   const inSection = sectionCurrent(item, pathname) !== undefined;
-  const Icon = item.icon;
   return (
     <>
       <p
@@ -46,7 +45,6 @@ function SidebarGroup({ item, pathname }: { item: NavItem; pathname: string }) {
           inSection ? 'font-semibold text-foreground' : 'text-muted-foreground',
         )}
       >
-        <Icon className="h-5 w-5 shrink-0" aria-hidden="true" />
         <span className="font-mono-label">{item.label}</span>
       </p>
       <ul aria-labelledby={labelId} className="grid gap-px">
@@ -67,7 +65,7 @@ export function Sidebar() {
   return (
     <div
       data-testid="sidebar"
-      className="hidden lg:sticky lg:top-[var(--app-top-bar-height)] lg:flex lg:h-[calc(100dvh-var(--app-top-bar-height))] lg:w-64 lg:shrink-0 lg:flex-col lg:overflow-y-auto lg:border-r lg:border-sidebar-border lg:bg-sidebar"
+      className="hidden lg:sticky lg:top-[var(--app-top-bar-height)] lg:flex lg:h-[calc(100dvh-var(--app-top-bar-height))] lg:w-64 lg:shrink-0 lg:flex-col lg:overflow-y-auto lg:border-r-2 lg:border-[color:var(--margin-rule)] lg:bg-sidebar"
     >
       <nav aria-label="Main" className="flex-1 px-2 py-4">
         <ul className="grid gap-px">

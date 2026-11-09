@@ -46,7 +46,7 @@ describe('HandMap', () => {
 
   it('styles fixed and shortcut points differently and rings the emergency point', () => {
     render(<HandMap hand="right" />);
-    expect(screen.getByRole('button', { name: 'Index fingertip' }).className).toContain('bg-foreground');
+    expect(screen.getByRole('button', { name: 'Index fingertip' }).className).toContain('bg-card');
     const pinkyTip = screen.getByRole('button', { name: 'Pinky fingertip' });
     expect(pinkyTip.className).toContain('bg-primary');
     expect(pinkyTip.querySelector('[data-emergency-ring]')).not.toBeNull();
@@ -217,7 +217,7 @@ describe('HandMap', () => {
     const pinkyTip = container.querySelector<HTMLElement>('[data-contact="pinky_tip"]');
     expect(pinkyTip).toHaveClass('bg-primary', 'text-primary-foreground');
     expect(pinkyTip?.querySelector('[data-emergency-ring]')?.className).toContain('border-dashed');
-    expect(container.querySelector('[data-contact="index_tip"]')).toHaveClass('bg-foreground', 'text-background');
+    expect(container.querySelector('[data-contact="index_tip"]')).toHaveClass('bg-card', 'border-foreground');
 
     const [, min, percent, max] = /w-\[clamp\((\d+)px,(\d+)%,(\d+)px\)\]/.exec(points[0]?.className ?? '')?.map(Number) ?? [];
     if (min === undefined || percent === undefined || max === undefined) throw new Error('No relative size class');

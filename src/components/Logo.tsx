@@ -1,6 +1,6 @@
-import { Hand } from 'lucide-react';
 import { Link } from 'react-router';
 import { cn } from '@/lib/cn';
+import { DotCell } from './DotCell';
 
 export interface LogoProps {
   readonly size?: 'sm' | 'md';
@@ -12,9 +12,8 @@ export interface LogoProps {
 export function Logo({ size = 'md', to, className }: LogoProps) {
   const content = (
     <>
-      <Hand className={cn('shrink-0 text-primary', size === 'sm' ? 'h-4 w-4' : 'h-5 w-5')} aria-hidden="true" />
-      <span
-        className={cn('font-semibold tracking-[-0.03em]', size === 'sm' ? 'text-base' : 'text-xl')}>
+      <DotCell size={size === 'sm' ? 16 : 20} className="text-primary" />
+      <span className={cn('font-semibold tracking-[-0.035em]', size === 'sm' ? 'text-base' : 'text-xl')}>
         Tactiq
       </span>
     </>

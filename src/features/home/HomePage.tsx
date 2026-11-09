@@ -25,7 +25,7 @@ const HomeBody = lazy(() => import('./HomeBody'));
 export default function HomePage() {
   usePageTitle('');
   return (
-    <div className="flex min-h-dvh flex-col bg-background text-foreground">
+    <div className="notebook logbook-page flex min-h-dvh flex-col bg-background text-foreground">
       <SkipLink />
       <PublicHeader />
       <main id="main-content" tabIndex={-1} className="w-full flex-1 outline-none">

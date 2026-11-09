@@ -12,7 +12,7 @@ export function CommandsSection() {
       collapsible
       lede="Eight contact points carry nine commands. Seven are fixed; you can customise Shortcut 1 and Shortcut 2."
     >
-      <ul role="list" aria-label="Contact points and their commands" className="max-w-3xl divide-y divide-border rounded-lg border border-border bg-card">
+      <ul role="list" aria-label="Contact points and their commands" className="max-w-3xl divide-y divide-border rounded-lg border-[1.5px] border-foreground bg-card">
         {COMMAND_SUMMARY_ROWS.map((row) => (
           <li key={row.token} className="grid gap-x-6 gap-y-0.5 px-4 py-3 sm:grid-cols-2 sm:items-baseline">
             <p className="min-w-0">

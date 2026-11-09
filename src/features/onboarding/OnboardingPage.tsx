@@ -7,6 +7,7 @@ import { WRITES_BLOCKED_NOTE } from '@/services/storage/StorageAdapter';
 import { OnboardingLayout } from './OnboardingLayout';
 import { PAGE_TITLE } from './onboardingCopy';
 import { skipSetupWords, stepControls, type OnboardingStep } from './onboardingFlow';
+import { SetupRail } from './SetupRail';
 import { StepFrame } from './StepFrame';
 import { DoneStep } from './steps/DoneStep';
 import { FirstCommandStep } from './steps/FirstCommandStep';
@@ -57,6 +58,7 @@ export default function OnboardingPage() {
     <OnboardingLayout
       leaveSetupLabel={leaving.label}
       onLeaveSetup={controls.showSkipSetup ? () => setConfirmLeave(true) : undefined}
+      rail={<SetupRail index={flow.index} onGoTo={flow.goTo} />}
     >
       {lostProgress && (
         <Callout kind="warning" role="status" title="Your saved setup could not be read" className="mb-6">

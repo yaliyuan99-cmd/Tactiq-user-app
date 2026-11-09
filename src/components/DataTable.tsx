@@ -87,7 +87,7 @@ export function DataTable<T>({
   return (
     <div
       ref={scrollRef}
-      className={cn('w-full overflow-x-auto rounded-lg border border-border bg-card', className)}
+      className={cn('w-full overflow-x-auto rounded-lg border-[1.5px] border-foreground bg-card', className)}
       tabIndex={overflowing ? 0 : undefined}
       role={overflowing ? 'region' : undefined}
       aria-label={overflowing ? `${caption} (scrolls sideways)` : undefined}
@@ -105,7 +105,7 @@ export function DataTable<T>({
           {caption}
         </caption>
         <thead role="rowgroup" className="max-sm:sr-only">
-          <tr role="row" className="border-b border-border">
+          <tr role="row" className="border-b-2 border-foreground">
             {columns.map((column) => (
               <th
                 key={column.key}

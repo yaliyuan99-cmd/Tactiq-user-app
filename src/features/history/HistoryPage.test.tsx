@@ -149,7 +149,7 @@ describe('HistoryPage', () => {
     expect(ringRow).toHaveTextContent('Measured');
   });
 
-  it('says Measured in the banner, Summary and By command when every record came from a ring', async () => {
+  it('says Measured in the banner, Summary, By command and Day by day when every record came from a ring', async () => {
     const measured = [0, 1, 2].map((minutes) =>
       makeGestureEvent({
         source: 'simulator',
@@ -165,7 +165,7 @@ describe('HistoryPage', () => {
 
     // The page never calls these simulated: the rows below are labelled Measured.
     await screen.findByRole('region', { name: 'Summary' });
-    expect(screen.getAllByText('Measured — on an unvalidated bench prototype')).toHaveLength(3);
+    expect(screen.getAllByText('Measured — on an unvalidated bench prototype')).toHaveLength(4);
     expect(screen.queryByText(/Every figure here comes from practice with the simulated ring/)).not.toBeInTheDocument();
     expect(
       screen.getByText('Every figure here was recorded on a connected bench ring, which has not been validated.'),

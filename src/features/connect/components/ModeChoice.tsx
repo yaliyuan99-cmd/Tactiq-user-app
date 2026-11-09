@@ -22,14 +22,13 @@ export interface ModeChoiceProps {
 
 export function ModeChoice({ mode, connected, onChange }: ModeChoiceProps) {
   return (
-    <div className="rounded-lg border border-border bg-card p-5 text-card-foreground shadow-card sm:p-6">
-      <RadioGroupField<DeviceMode>
-        label="How do you want to use Tactiq?"
-        options={MODE_OPTIONS}
-        value={mode}
-        onChange={onChange}
-        hint={connected ? 'Switching to Demo Mode disconnects the ring.' : undefined}
-      />
-    </div>
+    <RadioGroupField<DeviceMode>
+      label="How do you want to use Tactiq?"
+      options={MODE_OPTIONS}
+      value={mode}
+      onChange={onChange}
+      hint={connected ? 'Switching to Demo Mode disconnects the ring.' : undefined}
+      className="sm:[&>div]:grid-cols-2"
+    />
   );
 }

@@ -1,6 +1,8 @@
 import { useEffect, useRef, useState } from 'react';
+import { CircleAlert, CircleCheck, CircleSlash, CircleX, Hand, ShieldAlert, type LucideIcon } from 'lucide-react';
 import { Button, DataTable, EvidenceLabel, VisuallyHidden, type DataTableColumn } from '@/components';
 import type { GestureEvent } from '@/domain/models';
+import { cn } from '@/lib/cn';
 import { HISTORY_HEADING_IDS } from './historyIds';
 import { initialRecentPageSize } from './recentPageSize';
 import { sourceLabel } from './historyParams';
@@ -38,6 +40,26 @@ function OrNone({ value }: { value: string | null }) {
       <span aria-hidden="true">—</span>
       <VisuallyHidden>None</VisuallyHidden>
     </>
+  );
+}
+
+const OUTCOME_ICONS: Readonly<Record<GestureEvent['outcome'], { Icon: LucideIcon; tone: string }>> = {
+  recognised: { Icon: CircleCheck, tone: 'text-status-confirmed' },
+  mismatch: { Icon: CircleX, tone: 'text-destructive' },
+  rejected_duration: { Icon: CircleAlert, tone: 'text-status-target' },
+  window_closed: { Icon: CircleAlert, tone: 'text-status-target' },
+  emergency: { Icon: ShieldAlert, tone: 'text-foreground' },
+  emergency_cancelled: { Icon: CircleSlash, tone: 'text-muted-foreground' },
+};
+
+function ResultCell({ event }: { event: GestureEvent }) {
+  const activation = isActivation(event);
+  const { Icon, tone } = activation ? { Icon: Hand, tone: 'text-muted-foreground' } : OUTCOME_ICONS[event.outcome];
+  return (
+    <span className="inline-flex items-start gap-1.5">
+      <Icon className={cn('mt-0.5 h-4 w-4 shrink-0', tone)} aria-hidden="true" />
+      <span>{activation ? ACTIVATION_LABEL : describeOutcome(event)}</span>
+    </span>
   );
 }
 
@@ -80,7 +102,7 @@ const COLUMNS: readonly DataTableColumn<Row>[] = [
     header: 'Command',
     cell: ({ event }) => (isActivation(event) ? <NotApplicable /> : <OrNone value={intendedCommandLabel(event)} />),
   },
-  { key: 'result', header: 'Result', cell: ({ event }) => (isActivation(event) ? ACTIVATION_LABEL : describeOutcome(event)) },
+  { key: 'result', header: 'Result', cell: ({ event }) => <ResultCell event={event} /> },
   { key: 'label', header: 'Label', mobileLabel: '', cell: ({ event }) => <LabelCell event={event} /> },
 ];
 

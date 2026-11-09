@@ -1,23 +1,21 @@
 @custom-variant dark (&:is(.dark *));
 
 /*
- * Tactiq design tokens — deep teal, cool white and ink.
+ * Tactiq design tokens: the project's logbook.
  *
- * One system for the public product pages and the signed-in app. Teal marks
- * what you can act on, what is selected and real progress; everything else
- * stays neutral, so the interface reads as an instrument rather than a brand
- * exercise. Success is a separate green and warnings a separate amber, so the
- * brand colour is never mistaken for "this worked".
+ * Every screen is a page of the research notebook the project actually keeps:
+ * 5 mm grid paper, fine-liner ink for what is written down, blue biro for the
+ * author's own notes and for what you can act on, highlighter for what is only
+ * simulated, pencil for what is a target, red pen for what is not built. Braille
+ * appears as an accent, always real and always decorative beside the print.
  *
- * Colour never carries meaning alone: evidence labels, status pills and
- * contact states pair their colour with an icon and words.
+ * Meaning is never carried by colour alone: every evidence mark is also a
+ * different kind of mark (highlighted, boxed in ink, dashed pencil, red box)
+ * and is always written out in words.
  *
  * Every pair is recomputed by theme.contrast.test.ts across all four themes:
  * text at 4.5:1 or better, fills, focus rings and control boundaries at 3:1 or
- * better. Two values are load-bearing. White on the light primary is 5.47:1,
- * while white on the bright dark primary would be about 1.5:1 — which is why
- * dark primary buttons carry the deep ink as their label. The decorative
- * divider is only 1.33:1 and must never be used as a form-control boundary;
+ * better. The decorative divider stays below a control boundary's strength;
  * anything a user has to find and operate uses --border-strong.
  */
 :root {
@@ -25,26 +23,26 @@
   --font-size: 17px;
 
   /* Canvas and surfaces */
-  --background: #f7faf9;
+  --background: #f7f7f4;
   --card: #ffffff;
-  --card-foreground: #102a2a;
+  --card-foreground: #17181c;
   --popover: #ffffff;
-  --popover-foreground: #102a2a;
-  --muted: #eef3f1;
+  --popover-foreground: #17181c;
+  --muted: #f0f0ec;
   /* Selected / subtle accent surface. Always pairs with ink text. */
-  --secondary: #e5f3ef;
-  --secondary-foreground: #102a2a;
+  --secondary: #e6ebf7;
+  --secondary-foreground: #17181c;
 
   /* Text */
-  --foreground: #102a2a;
-  --muted-foreground: #566b68;
+  --foreground: #17181c;
+  --muted-foreground: #5d6068;
 
   /* Brand action. White on #0f766e is 5.47:1. */
-  --primary: #0f766e;
+  --primary: #17181c;
   --primary-foreground: #ffffff;
-  --primary-hover: #115e59;
-  --primary-strong: #0f766e;
-  --accent: #0f766e;
+  --primary-hover: #30323a;
+  --primary-strong: #2347a3;
+  --accent: #2347a3;
   --accent-foreground: #ffffff;
 
   --destructive: #b3261e;
@@ -53,46 +51,53 @@
   --warning-foreground: #ffffff;
 
   /* Decorative divider only — 1.33:1, never a control boundary. */
-  --border: #d7e3df;
-  /* Form-control boundary — 3.63:1 on a white surface. */
-  --border-strong: #708c87;
-  --input: #708c87;
+  --border: #cdd0d6;
+  /* Form-control boundary — 3.6:1 on a white surface. */
+  --border-strong: #6e717a;
+  --input: #6e717a;
   --input-background: #ffffff;
-  --switch-background: #b9c9c5;
+  --switch-background: #c4c7cc;
 
-  --ring: #0f766e;
-  --focus: #0f766e;
+  --ring: #2347a3;
+  --focus: #2347a3;
   --focus-width: 3px;
 
   /* Evidence and status. Always paired with an icon and words, never hue alone.
      Success is deliberately a different green from the teal brand, so a brand
      surface is never mistaken for a success state. */
-  --status-confirmed: #166534;
-  --status-simulation: #44546e;
+  --status-confirmed: #1d6b3a;
+  --status-simulation: #4a4f5c;
   --status-target: #7a5300;
-  --status-future: #566b68;
+  --status-future: #5d6068;
 
-  --chart-1: #0f766e;
-  --chart-2: #166534;
-  --chart-3: #44546e;
+  --chart-1: #17181c;
+  --chart-2: #1d6b3a;
+  --chart-3: #2347a3;
   --chart-4: #7a5300;
 
-  --radius: 0.625rem;
-  --sidebar: #ffffff;
-  --sidebar-foreground: #102a2a;
-  --sidebar-border: #d7e3df;
+  --radius: 0.375rem;
+  --sidebar: #fbfbf9;
+  --sidebar-foreground: #17181c;
+  --sidebar-border: #cdd0d6;
 
-  --shadow-card: 0 1px 2px rgba(16, 42, 42, 0.06);
-  --shadow-raised: 0 12px 32px rgba(16, 42, 42, 0.16);
+  --shadow-card: 0 1px 0 rgba(23, 24, 28, 0.06), 0 14px 26px -22px rgba(23, 24, 28, 0.5);
+  --shadow-raised: 0 1px 0 rgba(23, 24, 28, 0.08), 0 22px 38px -22px rgba(23, 24, 28, 0.55);
 
-  --ease-settle: cubic-bezier(0.16, 1, 0.3, 1);
-  --dur-tap: 120ms;
-  --dur-move: 180ms;
-  --dur-enter: 240ms;
+  --ease-settle: cubic-bezier(0.22, 1, 0.36, 1);
+  --dur-tap: 150ms;
+  --dur-move: 260ms;
+  --dur-enter: 420ms;
 
   --app-top-bar-height: 4rem;
   --app-bottom-bar-height: 3.5rem;
   --app-bar-gap: 0.75rem;
+  --grid: #e2e7ea;
+  --margin-rule: #d9907f;
+  --highlight: #ffe970;
+  --highlight-ink: #17181c;
+  --tape: rgba(232, 224, 190, 0.85);
+  --hole: #e2e5e8;
+  --hole-edge: #c4c9ce;
 }
 
 /* Body copy stays at or above 16px on small screens. */
@@ -111,59 +116,66 @@
 }
 
 .dark {
-  --background: #0c1717;
-  --card: #122322;
-  --card-foreground: #e9f5f2;
-  --popover: #122322;
-  --popover-foreground: #e9f5f2;
-  --muted: #17302e;
-  --secondary: #183b35;
-  --secondary-foreground: #e9f5f2;
+  --background: #15171b;
+  --card: #1d2025;
+  --card-foreground: #ecebe6;
+  --popover: #1d2025;
+  --popover-foreground: #ecebe6;
+  --muted: #252930;
+  --secondary: #222c46;
+  --secondary-foreground: #ecebe6;
 
-  --foreground: #e9f5f2;
-  --muted-foreground: #a3b9b3;
+  --foreground: #ecebe6;
+  --muted-foreground: #a5a9b1;
 
   /* Deep ink on #5eead4 is 9.79:1. White on it would be 1.5:1, so the button
      label is always the deep ink, never white. */
-  --primary: #5eead4;
-  --primary-foreground: #082f2a;
-  --primary-hover: #8af0dd;
-  --primary-strong: #a4e7de;
-  --accent: #5eead4;
-  --accent-foreground: #082f2a;
+  --primary: #ecebe6;
+  --primary-foreground: #15171b;
+  --primary-hover: #ffffff;
+  --primary-strong: #a9bdf5;
+  --accent: #a9bdf5;
+  --accent-foreground: #15171b;
 
   /* #f58478 clears 4.5:1 on all four dark surfaces; the supplied #f2786c
      reached only 4.48:1 on the selected surface. */
   --destructive: #f58478;
-  --destructive-foreground: #082f2a;
+  --destructive-foreground: #15171b;
   --warning: #e0b257;
-  --warning-foreground: #082f2a;
+  --warning-foreground: #15171b;
 
-  --border: #2b4540;
-  --border-strong: #78918c;
-  --input: #78918c;
-  --input-background: #0a1414;
-  --switch-background: #3f5a55;
+  --border: #363b44;
+  --border-strong: #80858e;
+  --input: #80858e;
+  --input-background: #1d2025;
+  --switch-background: #4a4f58;
 
-  --ring: #99f6e4;
-  --focus: #99f6e4;
+  --ring: #a9bdf5;
+  --focus: #a9bdf5;
 
   --status-confirmed: #86efac;
-  --status-simulation: #9db2d8;
+  --status-simulation: #c0c4cc;
   --status-target: #e0b257;
-  --status-future: #a3b9b3;
+  --status-future: #a5a9b1;
 
-  --chart-1: #5eead4;
+  --chart-1: #ecebe6;
   --chart-2: #86efac;
-  --chart-3: #9db2d8;
+  --chart-3: #a9bdf5;
   --chart-4: #e0b257;
 
-  --sidebar: #122322;
-  --sidebar-foreground: #e9f5f2;
-  --sidebar-border: #2b4540;
+  --sidebar: #15171b;
+  --sidebar-foreground: #ecebe6;
+  --sidebar-border: #2b2f36;
 
-  --shadow-card: 0 1px 2px rgba(0, 0, 0, 0.5);
-  --shadow-raised: 0 16px 40px rgba(0, 0, 0, 0.6);
+  --shadow-card: 0 1px 0 rgba(0, 0, 0, 0.45);
+  --shadow-raised: 0 18px 36px -18px rgba(0, 0, 0, 0.8);
+  --grid: #22262d;
+  --margin-rule: #7a3a32;
+  --highlight: #e6d25a;
+  --highlight-ink: #15171b;
+  --tape: rgba(120, 112, 84, 0.6);
+  --hole: #0e1013;
+  --hole-edge: #2b2f36;
 }
 
 /* Increased-contrast preference: darker ink, stronger borders, deeper accent. */
@@ -181,11 +193,11 @@
   --muted-foreground: #22302e;
 
   /* White on #0b544e is 7.76:1. */
-  --primary: #0b544e;
+  --primary: #000000;
   --primary-foreground: #ffffff;
-  --primary-hover: #073f3b;
-  --primary-strong: #0b544e;
-  --accent: #0b544e;
+  --primary-hover: #1f1f1f;
+  --primary-strong: #1a3478;
+  --accent: #1a3478;
   --accent-foreground: #ffffff;
 
   --destructive: #8f1a13;
@@ -227,11 +239,11 @@
   --muted-foreground: #d7eae6;
 
   /* Black on #7cf0dc is 11.9:1. */
-  --primary: #7cf0dc;
+  --primary: #ffffff;
   --primary-foreground: #000000;
-  --primary-hover: #a6f5e8;
-  --primary-strong: #b6f3e9;
-  --accent: #7cf0dc;
+  --primary-hover: #e6e6e6;
+  --primary-strong: #c6d4ff;
+  --accent: #c6d4ff;
   --accent-foreground: #000000;
 
   --destructive: #ff9b92;
@@ -269,6 +281,7 @@
   --color-primary: var(--primary);
   --color-primary-foreground: var(--primary-foreground);
   --color-primary-strong: var(--primary-strong);
+  --color-primary-hover: var(--primary-hover);
   --color-secondary: var(--secondary);
   --color-secondary-foreground: var(--secondary-foreground);
   --color-muted: var(--muted);
@@ -341,7 +354,7 @@
     background: var(--background);
     color: var(--foreground);
     font-family: var(--font-sans);
-    line-height: 1.6;
+    line-height: 1.5;
     min-height: 100dvh;
     -webkit-font-smoothing: antialiased;
   }
@@ -354,20 +367,24 @@
     letter-spacing: -0.015em;
     text-wrap: balance;
   }
+  /* Headings are written large in fine-liner: heavy, tight, left-aligned. */
   h1 {
-    font-size: var(--text-3xl);
-    letter-spacing: -0.01em;
-    line-height: 1.15;
+    font-size: clamp(2.5rem, 1.9rem + 2vw, 3.5rem);
+    font-weight: 800;
+    letter-spacing: -0.035em;
+    line-height: 1;
   }
   h2 {
-    font-size: var(--text-xl);
-    letter-spacing: -0.005em;
-    line-height: 1.25;
+    font-size: 1.5rem;
+    font-weight: 800;
+    letter-spacing: -0.025em;
+    line-height: 1.15;
   }
   h3 {
     font-size: var(--text-lg);
     font-weight: 700;
-    line-height: 1.35;
+    letter-spacing: -0.012em;
+    line-height: 1.3;
   }
   h4 {
     font-weight: 700;
@@ -387,7 +404,6 @@
   :focus-visible {
     outline: var(--focus-width) solid var(--focus);
     outline-offset: 2px;
-    border-radius: 3px;
   }
 
   ::selection {
@@ -444,9 +460,193 @@
   /* Small labels: measurements, evidence tags, eyebrows. */
   .font-mono-label {
     font-family: var(--font-mono);
-    font-size: 0.78rem;
-    letter-spacing: 0.02em;
+    font-size: 0.8rem;
+    font-weight: 600;
+    letter-spacing: 0.01em;
     font-variant-numeric: tabular-nums;
+  }
+
+  /* Anything clickable that is bigger than a button: it answers the pointer. */
+  .lift {
+    transition:
+      transform var(--dur-move) var(--ease-settle),
+      box-shadow var(--dur-move) var(--ease-settle),
+      border-color var(--dur-tap);
+  }
+  @media (hover: hover) {
+    .lift:hover {
+      transform: translateY(-2px) rotate(-0.3deg);
+      box-shadow: var(--shadow-raised);
+      border-color: var(--border-strong);
+    }
+  }
+  .lift:active {
+    transform: translateY(0);
+  }
+
+  /* A link whose hit area is the whole card it sits in. */
+  /* Frosted bar material. Solid where backdrop-filter is unavailable. */
+  .glass {
+    background: var(--background);
+  }
+  @supports ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+    .glass {
+      background: color-mix(in srgb, var(--background) 76%, transparent);
+      -webkit-backdrop-filter: saturate(180%) blur(20px);
+      backdrop-filter: saturate(180%) blur(20px);
+    }
+  }
+
+  /* Grid paper, 5 mm squares. High contrast gets plain paper. */
+  .notebook {
+    background-color: var(--background);
+    background-image:
+      linear-gradient(var(--grid) 1px, transparent 1px),
+      linear-gradient(90deg, var(--grid) 1px, transparent 1px);
+    background-size: 20px 20px;
+  }
+  [data-contrast='high'] .notebook {
+    background-image: none;
+  }
+
+  /* A strip of tape holding a note to the page. Decoration only. */
+  .tape {
+    position: relative;
+  }
+  .tape::before {
+    content: '';
+    position: absolute;
+    top: -0.6rem;
+    left: 50%;
+    width: 4.25rem;
+    height: 1.2rem;
+    margin-left: -2.125rem;
+    background: var(--tape);
+    transform: rotate(-3deg);
+    pointer-events: none;
+  }
+
+  /* Sheets pasted in by hand are never quite square. Siblings alternate, and motion settings do not matter: it is not motion. */
+  .pasted > :nth-child(odd) {
+    rotate: -0.35deg;
+  }
+  .pasted > :nth-child(even) {
+    rotate: 0.4deg;
+  }
+
+  /* Highlighter, dragged across a phrase by hand: ragged at both ends. */
+  .marker {
+    color: var(--highlight-ink);
+    background: linear-gradient(
+      100deg,
+      transparent 0.2em,
+      var(--highlight) 0.35em,
+      var(--highlight) calc(100% - 0.3em),
+      transparent calc(100% - 0.12em)
+    );
+    -webkit-box-decoration-break: clone;
+    box-decoration-break: clone;
+    padding: 0 0.14em;
+    margin: 0 -0.08em;
+  }
+  /* A highlighter stroke under a title. Thinner on the night page, so chalk letters stay on dark paper. */
+  .marker-under {
+    background-image: linear-gradient(transparent 60%, var(--highlight) 60%, var(--highlight) 94%, transparent 94%);
+    -webkit-box-decoration-break: clone;
+    box-decoration-break: clone;
+    padding: 0 0.08em;
+  }
+  :root.dark .marker-under {
+    background-image: linear-gradient(transparent 88%, var(--highlight) 88%, var(--highlight) 98%, transparent 98%);
+  }
+  [data-contrast='high'] .marker-under {
+    background-image: none;
+    text-decoration: underline 0.08em;
+    text-underline-offset: 0.12em;
+  }
+
+  /*
+   * The logbook page: a red margin rule and the three punched holes of a ring
+   * binder, outside the content shell (72rem). Wide screens only, where there is
+   * a margin to draw in.
+   */
+  .logbook-page {
+    position: relative;
+  }
+  @media (min-width: 80rem) {
+    .logbook-page::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      bottom: 0;
+      left: max(12px, calc(50% - 37.5rem));
+      border-left: 2px solid var(--margin-rule);
+      pointer-events: none;
+    }
+  }
+  @media (min-width: 86rem) {
+    .logbook-page::after {
+      content: '';
+      position: absolute;
+      top: 0;
+      bottom: 0;
+      left: calc(50% - 37.5rem - 4.25rem);
+      width: 24px;
+      background-image: radial-gradient(circle at 12px 12px, var(--hole) 0 9px, var(--hole-edge) 10px, transparent 11px);
+      background-size: 24px 22rem;
+      background-position: 0 9rem;
+      background-repeat: repeat-y;
+      pointer-events: none;
+    }
+  }
+  .margin-note {
+    color: var(--destructive);
+    font-style: italic;
+    font-weight: 600;
+    font-size: 0.85rem;
+    line-height: 1.25;
+  }
+
+  /* The author's own notes: blue biro, italic. */
+  .biro {
+    color: var(--primary-strong);
+    font-style: italic;
+    font-weight: 600;
+  }
+
+  /* A numbered list with drawn numbers. The numbers stay out of the text, so each item reads as its own words. */
+  .step-list {
+    counter-reset: step;
+    display: grid;
+    gap: 0.625rem;
+  }
+  .step-list > li {
+    counter-increment: step;
+    display: grid;
+    grid-template-columns: 1.5rem minmax(0, 1fr);
+    column-gap: 0.75rem;
+    text-wrap: pretty;
+  }
+  .step-list > li::before {
+    content: counter(step);
+    display: grid;
+    place-items: center;
+    width: 1.5rem;
+    height: 1.5rem;
+    margin-top: 0.125rem;
+    border-radius: 9999px;
+    background: var(--secondary);
+    color: var(--primary-strong);
+    font-size: var(--text-sm);
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .stretched-link::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    border-radius: inherit;
   }
 
   /*
@@ -532,5 +732,70 @@
 @media (prefers-reduced-motion: no-preference) {
   html:not(.force-reduced-motion) .contact-flash {
     animation: contact-flash 0.6s ease-out;
+  }
+}
+
+/*
+ * A figure plate: a sheet pasted into the logbook. The homepage demonstration,
+ * every practice surface and the dashboard's next step sit on one, edged in ink.
+ */
+.hero-band {
+  background: var(--card);
+  color: var(--foreground);
+  border: 1.5px solid var(--foreground);
+  box-shadow: var(--shadow-card);
+}
+
+
+/* Headlines rise into place once, as they scroll in. Transform only: the words are readable before and without it. */
+@media (prefers-reduced-motion: no-preference) {
+  html:not(.force-reduced-motion) [data-reveal='waiting'] {
+    transform: translateY(36px);
+  }
+  html:not(.force-reduced-motion) [data-reveal] {
+    transition: transform 900ms var(--ease-settle);
+  }
+}
+
+/* The link between the ring and this app, while something is moving along it. */
+@keyframes link-flow {
+  to {
+    stroke-dashoffset: -16;
+  }
+}
+@media (prefers-reduced-motion: no-preference) {
+  html:not(.force-reduced-motion) .link-flow {
+    animation: link-flow 0.9s linear infinite;
+  }
+}
+
+/* A finished lesson: one small answer to what the user just did. */
+@keyframes settle-in {
+  from {
+    transform: scale(0.6);
+  }
+  to {
+    transform: scale(1);
+  }
+}
+@media (prefers-reduced-motion: no-preference) {
+  html:not(.force-reduced-motion) .settle-in {
+    animation: settle-in var(--dur-enter) var(--ease-settle);
+  }
+}
+
+/* The command window is open: the stage answers, and the countdown runs. */
+@keyframes window-open {
+  0%,
+  100% {
+    box-shadow: 0 0 0 0 color-mix(in srgb, var(--primary) 35%, transparent);
+  }
+  50% {
+    box-shadow: 0 0 0 10px transparent;
+  }
+}
+@media (prefers-reduced-motion: no-preference) {
+  html:not(.force-reduced-motion) .window-open {
+    animation: window-open 1.1s ease-out infinite;
   }
 }

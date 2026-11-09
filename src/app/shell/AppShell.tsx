@@ -36,7 +36,7 @@ export function AppShell({ section = 'account' }: AppShellProps) {
   useMarkDemoSession(section === 'demo');
   return (
     <ShellSectionProvider id={section}>
-      <div className="min-h-dvh bg-background text-foreground">
+      <div className="notebook min-h-dvh bg-background text-foreground">
         <SkipLink targetId={MAIN_CONTENT_ID} />
         <TopBar />
         <div className="lg:flex">

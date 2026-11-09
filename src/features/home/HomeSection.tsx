@@ -1,4 +1,5 @@
 import { type ReactNode } from 'react';
+import { useReveal } from '@/lib/useReveal';
 import { type HomeSectionId } from '@/app/publicRoutes';
 import { cn } from '@/lib/cn';
 import { EYEBROW, LEDE, SECTION, SECTION_INNER, SHELL } from './homeStyles';
@@ -31,10 +32,18 @@ export function HomeSection({
   className,
 }: HomeSectionProps) {
   const headingId = `${id}-heading`;
+  const reveal = useReveal<HTMLDivElement>();
   const header = (
-    <div className={layout === 'split' ? 'lg:sticky lg:top-8' : 'max-w-3xl'}>
-      {eyebrow && <p className={EYEBROW}>{eyebrow}</p>}
-      <h2 id={headingId} className={cn('text-2xl sm:text-3xl', eyebrow && 'mt-3')}>
+    <div ref={reveal.ref} data-reveal={reveal.state} className={layout === 'split' ? 'lg:sticky lg:top-8' : 'max-w-3xl'}>
+      {eyebrow && <p className={cn(EYEBROW, 'text-lg')}>{eyebrow}</p>}
+      <h2
+        id={headingId}
+        className={cn(
+          'font-extrabold tracking-[-0.035em] text-balance',
+          layout === 'split' ? 'text-4xl leading-[1.04] sm:text-5xl' : 'text-4xl leading-[1.02] sm:text-5xl lg:text-[3.75rem]',
+          eyebrow && 'mt-2',
+        )}
+      >
         {heading}
       </h2>
       {lede && <div className={cn(LEDE, 'mt-4')}>{lede}</div>}
@@ -43,7 +52,8 @@ export function HomeSection({
 
   return (
     <section id={id} aria-labelledby={headingId} className={cn(SECTION, className)}>
-      <div className={cn(SHELL, SECTION_INNER)}>
+      {/* Each section is a new entry: a ruled line across the page. */}
+      <div className={cn(SHELL, SECTION_INNER, 'border-t-2 border-foreground')}>
         {layout === 'split' ? (
           <div className="grid gap-10 lg:grid-cols-[minmax(0,20rem)_minmax(0,1fr)] lg:items-start lg:gap-16">
             {header}

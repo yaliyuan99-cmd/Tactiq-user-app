@@ -39,7 +39,7 @@ export default function ConnectPage() {
 
         <section
           aria-labelledby="connect-device-heading"
-          className="rounded-lg border border-border bg-card p-5 text-card-foreground shadow-card sm:p-6"
+          className="rounded-lg border-[1.5px] border-foreground bg-card p-5 text-card-foreground shadow-card sm:p-6"
         >
           <h2 id="connect-device-heading" ref={deviceHeadingRef} tabIndex={-1} className="mb-4">
             {deviceSectionTitle(state.mode)}

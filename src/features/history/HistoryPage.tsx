@@ -1,12 +1,12 @@
 import { useEffect, useRef, useState } from 'react';
-import { Activity } from 'lucide-react';
-import { Button, ButtonLink, Callout, EmptyState, PAGE_TITLE_ID, PageHeader } from '@/components';
-import { ROUTES } from '@/app/routes';
+import { Callout, PAGE_TITLE_ID, PageHeader } from '@/components';
 import { usePageTitle } from '@/lib/usePageTitle';
 import { useFeedback } from '@/services/feedback/FeedbackProvider';
 import type { HistoryService } from '@/services/history/types';
 import { useHistory } from '@/services/ServicesProvider';
+import { ActivityEmpty } from './ActivityEmpty';
 import { CommandPerformanceSection } from './CommandPerformanceSection';
+import { DayByDaySection } from './DayByDaySection';
 import { useDemoHistorySeed } from '@/app/shell/useDemoHistorySeed';
 import { EvidenceBanner } from './EvidenceBanner';
 import { FiltersForm } from './FiltersForm';
@@ -14,7 +14,6 @@ import { HISTORY_HEADING_IDS } from './historyIds';
 import { toServiceFilter, type HistoryFilterState } from './historyParams';
 import { NoMatchingActivity } from './NoMatchingActivity';
 import { performanceRows } from './performance';
-import { RecentAttemptsSection } from './RecentAttemptsSection';
 import { SummarySection } from './SummarySection';
 import { useHistoryFilters } from './useHistoryFilters';
 import { YourDataSection } from './YourDataSection';
@@ -128,28 +127,14 @@ export default function HistoryPage() {
       )}
 
       {total === 0 ? (
-        <EmptyState
-          icon={Activity}
-          title="No activity yet"
-          body="Attempts from the simulator, lessons and calibration will appear here. Each one is labelled Simulated, or Measured when it came from a connected bench ring."
-          action={
-            <>
-              <ButtonLink to={ROUTES.simulator}>Practise a command</ButtonLink>
-              <ButtonLink to={ROUTES.train} variant="secondary">
-                Start a lesson
-              </ButtonLink>
-              {samples.canSeed && (
-                <Button
-                  variant="ghost"
-                  onClick={() => {
-                    const added = samples.seed();
-                    if (added > 0) announce(`${added} sample records added. Every one is labelled Sample.`);
-                  }}
-                >
-                  Add sample records
-                </Button>
-              )}
-            </>
+        <ActivityEmpty
+          onAddSamples={
+            samples.canSeed
+              ? () => {
+                  const added = samples.seed();
+                  if (added > 0) announce(`${added} sample records added. Every one is labelled Sample.`);
+                }
+              : null
           }
         />
       ) : (
@@ -182,8 +167,15 @@ export default function HistoryPage() {
                 emergency={emergency}
                 evidence={summary.evidence}
                 allSamples={allSamples}
+                onSelectCommand={(token) => changeFilters({ command: filters.command === token ? 'all' : token })}
               />
-              <RecentAttemptsSection key={filterKey} events={events} />
+              <DayByDaySection
+                key={filterKey}
+                events={events}
+                range={filters.range}
+                evidence={summary.evidence}
+                allSamples={allSamples}
+              />
             </>
           )}
 

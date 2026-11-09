@@ -1,4 +1,4 @@
-import { SelectField } from '@/components';
+import { SegmentedRadioGroup, SelectField } from '@/components';
 import { HISTORY_HEADING_IDS } from './historyIds';
 import {
   COMMAND_OPTIONS,
@@ -8,7 +8,6 @@ import {
   isSourceFilter,
   type HistoryFilterState,
 } from './historyParams';
-import { SegmentedRadioGroup } from './SegmentedRadioGroup';
 
 export interface FiltersFormProps {
   readonly filters: HistoryFilterState;
@@ -21,15 +20,15 @@ export function FiltersForm({ filters, onChange }: FiltersFormProps) {
     <form
       aria-labelledby={HISTORY_HEADING_IDS.filters}
       onSubmit={(event) => event.preventDefault()}
-      className="rounded-lg border border-border bg-card p-4 shadow-card sm:p-5"
+      className="rounded-lg border-[1.5px] border-foreground bg-card p-4 shadow-card sm:p-5"
     >
       <div className="flex flex-wrap items-baseline justify-between gap-x-4">
-        <h2 id={HISTORY_HEADING_IDS.filters} tabIndex={-1} className="text-lg">
+        <h2 id={HISTORY_HEADING_IDS.filters} tabIndex={-1} className="text-base">
           Filters
         </h2>
         <p className="text-sm text-muted-foreground">Changes apply straight away.</p>
       </div>
-      <div className="mt-3 grid gap-4 sm:grid-cols-2 lg:grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)_minmax(0,1fr)] lg:items-end">
+      <div className="mt-2 grid gap-4 sm:grid-cols-2 lg:grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)_minmax(0,1fr)] lg:items-end">
         <SegmentedRadioGroup
           legend="Range"
           options={RANGE_OPTIONS}

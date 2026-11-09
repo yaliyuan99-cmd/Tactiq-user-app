@@ -1,6 +1,8 @@
 import { ROUTES } from '@/app/routes';
 import { Logo } from '@/components';
 import { HelpLink } from './HelpLink';
+
+const TODAY = new Intl.DateTimeFormat(undefined, { day: 'numeric', month: 'long', year: 'numeric' });
 import { MoreMenu } from './MoreMenu';
 
 /**
@@ -15,13 +17,17 @@ import { MoreMenu } from './MoreMenu';
  */
 export function TopBar() {
   return (
-    <header className="z-30 border-b border-border bg-background sm:sticky sm:top-0">
+    <header className="glass z-30 border-b border-border sm:sticky sm:top-0 [border-bottom-color:var(--foreground)]">
       <div className="flex min-h-[var(--app-top-bar-height)] flex-wrap items-center gap-x-1 gap-y-1 px-3 py-1.5 sm:gap-x-2 sm:px-6 lg:h-[var(--app-top-bar-height)] lg:flex-nowrap lg:py-0">
         {/* The wordmark steps down a size below sm so the bar fits on one line at 320 px. */}
         <Logo
           to={ROUTES.root}
           className="[&>span]:text-base [&>svg]:h-4 [&>svg]:w-4 sm:[&>span]:text-xl sm:[&>svg]:h-5 sm:[&>svg]:w-5"
         />
+        {/* A logbook page carries the day it was written on. */}
+        <p className="font-mono-label ml-4 hidden text-muted-foreground md:block">
+          <time dateTime={new Date().toISOString().slice(0, 10)}>{TODAY.format(new Date())}</time>
+        </p>
         <div className="ml-auto flex flex-wrap items-center justify-end gap-x-0.5 sm:gap-x-2">
           <HelpLink />
           <MoreMenu className="lg:hidden" />

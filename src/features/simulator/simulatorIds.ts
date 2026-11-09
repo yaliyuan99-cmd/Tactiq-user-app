@@ -8,4 +8,4 @@ export const SIMULATOR_HEADING_IDS = {
 
 export const LINK_CLASSES = 'font-medium text-primary-strong underline';
 
-export const CARD_CLASSES = 'rounded-lg border border-border bg-card p-5 text-card-foreground shadow-card sm:p-6';
+export const CARD_CLASSES = 'rounded-lg border-[1.5px] border-foreground bg-card p-5 text-card-foreground shadow-card sm:p-6';

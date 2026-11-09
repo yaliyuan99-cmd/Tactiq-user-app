@@ -14,8 +14,12 @@ import { CONTACT_KEYS } from '@/domain/contacts';
 import { COMMAND_WINDOW_MS, EMERGENCY_HOLD_MS, formatMs } from '@/domain/timing';
 
 export const HERO = {
-  eyebrow: 'Student research prototype · Sydney, Australia',
-  headline: 'Control your phone with the hand you already know.',
+  eyebrow: 'A student research prototype from Sydney',
+  headline: 'Can you control a phone with the hand you already know?',
+  /** The part of the headline gone over with highlighter. The headline reads the same without it. */
+  headlineMark: 'the hand you already know?',
+  status: 'Status: no ring built. The app simulates it.',
+  question: 'The question this project is testing:',
   lede:
     'Squeeze a ring worn on your index finger and a short command window opens. Touch your thumb to one of eight points on your own fingers, and that point is designed to drive VoiceOver or TalkBack: next, previous, read again, confirm, back.',
   honest:

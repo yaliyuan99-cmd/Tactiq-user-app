@@ -28,7 +28,7 @@ export function Callout({ kind, title, children, role, className }: CalloutProps
     <div
       role={role}
       data-kind={kind}
-      className={cn('flex gap-3 rounded-md border border-l-4 border-border bg-card p-4', style.border, className)}
+      className={cn('tape flex gap-3 rounded-md border-[1.5px] border-l-4 border-foreground bg-card p-4 shadow-card', style.border, className)}
     >
       <Icon className={cn('mt-0.5 h-5 w-5 shrink-0', style.icon)} aria-hidden="true" />
       <div className="min-w-0 flex-1">

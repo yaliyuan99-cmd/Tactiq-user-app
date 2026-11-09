@@ -1,6 +1,7 @@
 import { useEffect, useRef } from 'react';
 import { ROUTES, helpRoute } from '@/app/routes';
 import { Card, EvidenceLabel, StatusPill } from '@/components';
+import { cn } from '@/lib/cn';
 import { describeDeviceState } from '@/lib/deviceStatus';
 import { useDevice } from '@/services/device/DeviceProvider';
 import { useFeedback } from '@/services/feedback/FeedbackProvider';
@@ -40,8 +41,8 @@ export function DeviceStatusSection({ now, className }: DeviceStatusSectionProps
   return (
     <Card
       heading="Your ring"
-      className={className}
-      actions={<DashboardLink to={ROUTES.connect}>Manage connection</DashboardLink>}
+      className={cn(tips.length === 0 && 'lift', className)}
+      actions={<DashboardLink to={ROUTES.connect} stretched={tips.length === 0}>Manage connection</DashboardLink>}
     >
       <div className="grid gap-4 md:grid-cols-2 md:gap-x-8">
         <div className="grid content-start gap-2">

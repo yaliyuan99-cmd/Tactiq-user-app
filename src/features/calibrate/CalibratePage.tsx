@@ -40,9 +40,14 @@ export default function CalibratePage() {
         title="Calibrate"
         lede={
           <>
-            <p>{CALIBRATE_LEDE}</p>
-            <p className="mt-2">{CALIBRATE_WHAT_IT_DOES}</p>
-            <p className="mt-2">
+            {/* Read once, before starting. During a run the prompt and the hand need the room. */}
+            {session.phase === 'start' && (
+              <>
+                <p>{CALIBRATE_LEDE}</p>
+                <p className="mt-2">{CALIBRATE_WHAT_IT_DOES}</p>
+              </>
+            )}
+            <p className={session.phase === 'start' ? 'mt-2' : undefined}>
               <EvidenceLabel kind={evidence.kind} detail={evidence.detail} />
             </p>
           </>

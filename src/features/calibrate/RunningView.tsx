@@ -1,12 +1,13 @@
 import { useEffect, useId, useRef, useState } from 'react';
 import { Button, Callout, ConfirmDialog, EvidenceLabel, ProgressBar } from '@/components';
 import { getContact } from '@/domain/contacts';
-import { PracticeSurface } from '@/features/practice';
+import { PRACTICE_PANEL_CLASSES, PracticeSurface } from '@/features/practice';
 import { CalibrationPanel } from './CalibrationPanel';
 import { acceptedTotal, misreadContact, missesInRun, requiredPerPoint, requiredTotal, sampleNumber } from './calibrationFlow';
 import { RUN_RING_OFFLINE_TITLE, RUN_RING_SENTENCES } from './calibrationCopy';
 import { missesSentence, pointCommandSentence, progressText, promptHeading } from './calibrationWording';
 import { FeedbackMessage } from './FeedbackMessage';
+import { PointCoverage } from './PointCoverage';
 import type { CalibrationSession } from './calibrationSessionTypes';
 
 export const PROMPT_HEADING_ID = 'calibrate-prompt-heading';
@@ -35,50 +36,53 @@ export function RunningView({ session }: { session: CalibrationSession }) {
   const misses = missesInRun(profile, run, prompt);
 
   return (
-    <div className="grid grid-cols-1 gap-6">
+    <div className="grid grid-cols-1 gap-6 lg:grid-cols-[minmax(0,1.5fr)_minmax(19rem,1fr)] lg:items-start">
+      {/* The same arrangement as the Simulator and lessons: the hand on the left, the prompt beside it. */}
       <CalibrationPanel
         ref={headingRef}
         headingId={PROMPT_HEADING_ID}
         eyebrow={`Point ${position} of ${run.points.length}`}
         heading={promptHeading(prompt)}
+        className="lg:sticky lg:top-4 lg:col-start-2 lg:row-start-1"
       >
-        <p className="text-lg">{contact.howToFind}</p>
+        <p className="text-lg text-pretty">{contact.howToFind}</p>
         <p className="mt-1 text-sm text-muted-foreground">{pointCommandSentence(prompt)}</p>
 
-        <div className="mt-5 grid grid-cols-1 gap-4 sm:grid-cols-[auto_minmax(0,1fr)] sm:items-end sm:gap-8">
-          <p className="text-lg font-semibold">
+        {feedback && <FeedbackMessage key={feedback.text} text={feedback.text} tone={feedback.tone} className="mt-4" />}
+
+        <div className="mt-4 flex items-center gap-3">
+          <p className="text-lg font-semibold tabular-nums">
             Sample {sampleNumber(profile, prompt)} of {requiredPerPoint(profile)}
           </p>
-          <div className="grid gap-1.5">
-            <ProgressBar
-              label="Calibration progress"
-              value={acceptedTotal(profile)}
-              max={requiredTotal(profile)}
-              valueText={progressText(profile)}
-            />
-            <EvidenceLabel kind={profile.evidence} />
-          </div>
+          <EvidenceLabel kind={profile.evidence} />
         </div>
-        {misses > 0 && <p className="mt-3 text-sm text-muted-foreground">{missesSentence(misses)}</p>}
+        {misses > 0 && <p className="mt-1 text-sm text-muted-foreground">{missesSentence(misses)}</p>}
 
-        {feedback && <FeedbackMessage text={feedback.text} tone={feedback.tone} className="mt-4" />}
+        <PointCoverage profile={profile} hand={session.hand} current={prompt} className="mt-3" />
+        <ProgressBar
+          label="Calibration progress"
+          value={acceptedTotal(profile)}
+          max={requiredTotal(profile)}
+          valueText={progressText(profile)}
+          className="mt-4"
+        />
 
         {runRingState === 'ring_offline' ? (
           <Callout kind="warning" role="status" title={RUN_RING_OFFLINE_TITLE} className="mt-4">
             <p>{RUN_RING_SENTENCES.ring_offline}</p>
           </Callout>
         ) : (
-          <p className="mt-4">{RUN_RING_SENTENCES[runRingState]}</p>
+          <p className="mt-4 text-sm">{RUN_RING_SENTENCES[runRingState]}</p>
         )}
 
-        <div className="mt-5 flex flex-wrap gap-2">
-          <Button variant="secondary" onClick={session.repeatPrompt} aria-describedby={repeatHintId}>
+        <div className="mt-4 flex flex-wrap gap-2">
+          <Button variant="secondary" size="sm" onClick={session.repeatPrompt} aria-describedby={repeatHintId}>
             Repeat this point
           </Button>
-          <Button variant="secondary" onClick={session.pause}>
+          <Button variant="secondary" size="sm" onClick={session.pause}>
             Pause
           </Button>
-          <Button variant="ghost" onClick={() => setConfirmingStop(true)}>
+          <Button variant="ghost" size="sm" onClick={() => setConfirmingStop(true)}>
             Stop
           </Button>
         </div>
@@ -88,13 +92,15 @@ export function RunningView({ session }: { session: CalibrationSession }) {
         </p>
       </CalibrationPanel>
 
-      <PracticeSurface
-        ring={ring}
-        hand={session.hand}
-        targetContact={prompt}
-        detectedContact={misreadContact(profile, run, prompt)}
-        showEmergencyHold={false}
-      />
+      <div className={`min-w-0 lg:col-start-1 lg:row-start-1 ${PRACTICE_PANEL_CLASSES}`}>
+        <PracticeSurface
+          ring={ring}
+          hand={session.hand}
+          targetContact={prompt}
+          detectedContact={misreadContact(profile, run, prompt)}
+          showEmergencyHold={false}
+        />
+      </div>
 
       <ConfirmDialog
         open={confirmingStop}

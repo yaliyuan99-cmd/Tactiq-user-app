@@ -9,10 +9,12 @@ export interface ProgressBarProps {
   readonly showValueText?: boolean;
   /** Overrides the "3 of 8" wording, for both the visible and the spoken value. */
   readonly valueText?: string;
+  /** Draws one block per unit, for a count of whole things such as lessons or steps. */
+  readonly segmented?: boolean;
   readonly className?: string;
 }
 
-export function ProgressBar({ value, max, label, showValueText = true, valueText, className }: ProgressBarProps) {
+export function ProgressBar({ value, max, label, showValueText = true, valueText, segmented = false, className }: ProgressBarProps) {
   const labelId = useId();
   const safeMax = Number.isFinite(max) && max > 0 ? max : 1;
   const safeValue = Number.isFinite(value) ? Math.min(Math.max(value, 0), safeMax) : 0;
@@ -38,9 +40,21 @@ export function ProgressBar({ value, max, label, showValueText = true, valueText
         aria-valuemax={safeMax}
         aria-valuenow={safeValue}
         aria-valuetext={text}
-        className="h-2 w-full overflow-hidden rounded-full border border-border bg-muted"
+        className={cn('h-2 w-full', segmented ? 'flex gap-1' : 'overflow-hidden rounded-full border border-border bg-muted')}
       >
-        <div className="h-full rounded-full bg-primary" style={{ width: `${percent}%` }} />
+        {segmented ? (
+          Array.from({ length: safeMax }, (_, index) => (
+            <span
+              key={index}
+              className={cn(
+                'h-full min-w-0 flex-1 rounded-full transition-colors duration-[var(--dur-tap)]',
+                index < safeValue ? 'bg-primary' : 'border border-border-strong bg-muted',
+              )}
+            />
+          ))
+        ) : (
+          <div className="h-full rounded-full bg-primary" style={{ width: `${percent}%` }} />
+        )}
       </div>
     </div>
   );

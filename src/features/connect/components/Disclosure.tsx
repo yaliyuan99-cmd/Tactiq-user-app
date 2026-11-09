@@ -17,7 +17,7 @@ export interface DisclosureProps {
 export function Disclosure({ summary, children, className }: DisclosureProps) {
   const { prefersReducedMotion } = usePreferences();
   return (
-    <details className={cn('group rounded-lg border border-border bg-card text-card-foreground shadow-card', className)}>
+    <details className={cn('group rounded-lg border-[1.5px] border-foreground bg-card text-card-foreground shadow-card', className)}>
       <summary
         className={cn(
           'target-44 flex cursor-pointer list-none items-center justify-between gap-3 rounded-lg px-5 py-3 font-medium',

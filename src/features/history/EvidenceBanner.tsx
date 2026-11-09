@@ -33,10 +33,12 @@ export function EvidenceBanner({ evidence, allSamples, sampleCount, onRemoveSamp
       </p>
       {sampleCount > 0 && (
         <Callout kind="info">
-          <p>{SAMPLE_RECORDS_NOTICE}</p>
-          <Button variant="secondary" size="sm" className="mt-3" onClick={() => setConfirming(true)}>
-            Remove sample records
-          </Button>
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <p className="min-w-0 flex-1 basis-64">{SAMPLE_RECORDS_NOTICE}</p>
+            <Button variant="secondary" size="sm" onClick={() => setConfirming(true)}>
+              Remove sample records
+            </Button>
+          </div>
         </Callout>
       )}
       <ConfirmDialog

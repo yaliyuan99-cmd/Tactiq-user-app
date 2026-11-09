@@ -17,8 +17,10 @@ export function ResetTrainingSection() {
   const [confirming, setConfirming] = useState(false);
 
   return (
-    <section aria-labelledby={HEADING_ID} className="border-t border-border pt-8">
-      <h2 id={HEADING_ID}>Start over</h2>
+    <section aria-labelledby={HEADING_ID} className="border-t border-border pt-6">
+      <h2 id={HEADING_ID} className="text-xl">
+        Start over
+      </h2>
       <p className="mt-2 max-w-3xl text-muted-foreground">
         Resetting clears lesson status, attempts and best accuracy in this browser. Your activity history stays; you can
         manage it on the{' '}

@@ -18,7 +18,7 @@ export function MobileNav() {
     <nav
       aria-label="Main"
       data-testid="mobile-nav"
-      className="fixed inset-x-0 bottom-0 z-30 border-t border-border bg-background pb-[env(safe-area-inset-bottom)] lg:hidden"
+      className="glass fixed inset-x-0 bottom-0 z-30 border-t border-border pb-[env(safe-area-inset-bottom)] lg:hidden"
     >
       <ul className="mx-auto grid max-w-xl grid-cols-5">
         {PRIMARY_NAV_ITEMS.map((item) => {
@@ -32,7 +32,7 @@ export function MobileNav() {
                 className={cn(
                   'relative flex min-h-[var(--app-bottom-bar-height)] flex-col items-center justify-center gap-0.5 px-0 py-1.5 text-center text-[length:min(0.75rem,12px)] leading-tight no-underline hyphens-auto break-words',
                   current
-                    ? 'font-semibold text-primary-strong before:absolute before:inset-x-3 before:top-0 before:h-1 before:rounded-b-full before:bg-primary'
+                    ? 'font-semibold text-primary-strong'
                     : 'text-muted-foreground hover:text-foreground',
                 )}
               >

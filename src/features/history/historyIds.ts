@@ -3,6 +3,7 @@ export const HISTORY_HEADING_IDS = {
   filters: 'activity-filters-heading',
   summary: 'activity-summary-heading',
   byCommand: 'activity-by-command-heading',
+  byDay: 'activity-by-day-heading',
   recent: 'activity-recent-heading',
   data: 'activity-data-heading',
 } as const;

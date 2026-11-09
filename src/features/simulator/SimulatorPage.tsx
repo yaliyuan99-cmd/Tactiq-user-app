@@ -1,6 +1,7 @@
 import { useRef } from 'react';
 import { EvidenceLabel, PageHeader } from '@/components';
-import { PracticeSurface, evidenceForDevice, useRing, useShortcutLabels, type HistoryEvidence } from '@/features/practice';
+import { usePhoneDemo } from '@/components/product/usePhoneDemo';
+import { PRACTICE_PANEL_CLASSES, PracticeSurface, evidenceForDevice, useRing, useShortcutLabels, type HistoryEvidence } from '@/features/practice';
 import { describeDeviceState } from '@/lib/deviceStatus';
 import { usePageTitle } from '@/lib/usePageTitle';
 import { useDevice } from '@/services/device/DeviceProvider';
@@ -12,7 +13,7 @@ import { GuidedPromptCard } from './GuidedPromptCard';
 import { HardwareNotice } from './HardwareNotice';
 import { ModeSwitch } from './ModeSwitch';
 import { SESSION_LOG_CLEARED } from './sessionLog';
-import { CARD_CLASSES, SIMULATOR_HEADING_IDS } from './simulatorIds';
+import { SIMULATOR_HEADING_IDS } from './simulatorIds';
 import type { SimulatorMode } from './simulatorMode';
 import { useGuidedPractice } from './useGuidedPractice';
 import { useSimulatorMode } from './useSimulatorMode';
@@ -46,7 +47,13 @@ export default function SimulatorPage({ random }: SimulatorPageProps) {
   const [mode, setMode] = useSimulatorMode();
   const guided = useGuidedPractice({ mapping, random });
   const session = useSimulatorSession({ mode, guided, mapping });
-  const ring = useRing({ onResult: session.onResult });
+  const phoneDemo = usePhoneDemo();
+  const ring = useRing({
+    onResult: (result) => {
+      session.onResult(result);
+      if (mode === 'free' && result.kind === 'command') phoneDemo.run(result.token);
+    },
+  });
   const ringHeadingRef = useRef<HTMLHeadingElement>(null);
 
   const evidence = evidenceForDevice(state);
@@ -74,29 +81,29 @@ export default function SimulatorPage({ random }: SimulatorPageProps) {
 
   return (
     <>
-      <PageHeader title="Simulator" lede={SIMULATOR_LEDE} />
+      <PageHeader title="Simulator" lede={SIMULATOR_LEDE} actions={<ModeSwitch mode={mode} onChange={changeMode} />} />
 
-      <div className="mb-8 grid gap-5">
+      <div className="mb-6 grid gap-4">
         <p className="flex flex-wrap items-center gap-x-3 gap-y-1">
           <EvidenceLabel kind={evidence} />
-          <span className="text-muted-foreground">{evidenceNote(evidence, waitingForRing)}</span>
+          <span className="text-sm text-muted-foreground">{evidenceNote(evidence, waitingForRing)}</span>
         </p>
         {waitingForRing && <HardwareNotice status={describeDeviceState(state).description} onSwitchToDemo={switchToDemo} />}
-        <ModeSwitch mode={mode} onChange={changeMode} />
       </div>
 
-      <div className="grid grid-cols-1 gap-8 xl:grid-cols-2 xl:gap-6 xl:grid-rows-[auto_1fr] xl:items-start">
-        <div className="min-w-0 xl:col-start-2 xl:row-start-1">
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-[minmax(0,1.5fr)_minmax(19rem,1fr)] lg:items-start">
+        {/* Beside the stage from the large breakpoint up, so the target stays in view while you practise. */}
+        <div className="min-w-0 lg:sticky lg:top-4 lg:col-start-2 lg:row-start-1">
           {isGuided ? (
             <GuidedPromptCard guided={guided} evidence={evidence} showHoldButton={ring.canOperate} />
           ) : (
-            <WhatWouldHappenPanel token={session.lastCommand} mapping={mapping} />
+            <WhatWouldHappenPanel token={session.lastCommand} mapping={mapping} phone={phoneDemo.phone} spoken={phoneDemo.spoken} />
           )}
         </div>
 
         <section
           aria-labelledby={SIMULATOR_HEADING_IDS.ring}
-          className={`${CARD_CLASSES} min-w-0 xl:col-start-1 xl:row-span-2 xl:row-start-1`}
+          className={`${PRACTICE_PANEL_CLASSES} min-w-0 lg:col-start-1 lg:row-start-1`}
         >
           <h2 id={SIMULATOR_HEADING_IDS.ring} ref={ringHeadingRef} tabIndex={-1} className="mb-4">
             Squeeze and tap
@@ -109,11 +116,7 @@ export default function SimulatorPage({ random }: SimulatorPageProps) {
           />
         </section>
 
-        <AttemptLog
-          entries={session.log}
-          onClear={clearLog}
-          className="min-w-0 xl:col-start-2 xl:row-start-2"
-        />
+        <AttemptLog entries={session.log} onClear={clearLog} className="min-w-0 lg:col-span-2" />
       </div>
     </>
   );

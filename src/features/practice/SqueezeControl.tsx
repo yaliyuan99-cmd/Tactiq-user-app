@@ -1,5 +1,5 @@
 import { Link } from 'react-router';
-import { Timer, TimerOff } from 'lucide-react';
+import { Hand, Timer, TimerOff } from 'lucide-react';
 import { Button, ProgressBar } from '@/components';
 import { ROUTES } from '@/app/routes';
 import { cn } from '@/lib/cn';
@@ -111,6 +111,47 @@ function TimeHint({ ring, longerTime }: { ring: RingController; longerTime: bool
   );
 }
 
+const DIAL_RADIUS = 58;
+const DIAL_CIRCUMFERENCE = 2 * Math.PI * DIAL_RADIUS;
+
+/**
+ * The round squeeze button. The ring around it drains as the window runs out.
+ * It repeats the progress bar beside it, so it is hidden from screen readers.
+ */
+function SqueezeDial({ ring, disabled, reducedMotion }: { ring: RingController; disabled: boolean; reducedMotion: boolean }) {
+  const left = ring.armed && ring.remainingMs !== null ? Math.min(ring.remainingMs / ring.windowMs, 1) : 0;
+  const shown = reducedMotion && left > 0 ? Math.ceil(left * 4) / 4 : left;
+  return (
+    <div className="relative grid h-[7.5rem] w-[7.5rem] shrink-0 place-items-center">
+      <svg aria-hidden="true" viewBox="0 0 120 120" className="absolute inset-0 h-full w-full -rotate-90">
+        <circle cx="60" cy="60" r={DIAL_RADIUS} fill="none" strokeWidth="3" className="stroke-border" />
+        <circle
+          cx="60"
+          cy="60"
+          r={DIAL_RADIUS}
+          fill="none"
+          strokeWidth="3"
+          strokeLinecap="round"
+          strokeDasharray={DIAL_CIRCUMFERENCE}
+          strokeDashoffset={DIAL_CIRCUMFERENCE * (1 - shown)}
+          className={cn('stroke-primary', !reducedMotion && 'transition-[stroke-dashoffset] duration-100 ease-linear')}
+        />
+      </svg>
+      <Button
+        onClick={ring.squeeze}
+        aria-disabled={disabled || undefined}
+        leadingIcon={<Hand className="h-6 w-6" />}
+        className={cn(
+          'h-[6.5rem] w-[6.5rem] flex-col gap-1 rounded-full! whitespace-normal px-2 text-center text-sm leading-tight',
+          ring.armed && 'window-open',
+        )}
+      >
+        Squeeze the ring
+      </Button>
+    </div>
+  );
+}
+
 /**
  * Opens the command window. In Demo Mode it is a large button that squeezes
  * the simulated ring; with a hardware ring it explains the physical squeeze.
@@ -122,23 +163,27 @@ export function SqueezeControl({ ring, disabled = false, className }: SqueezeCon
   return (
     <div className={cn('grid gap-3', className)} data-armed={ring.armed || undefined}>
       {ring.canOperate ? (
-        <Button size="lg" fullWidth onClick={ring.squeeze} aria-disabled={disabled || undefined}>
-          Squeeze the ring
-        </Button>
+        <div className="flex items-center gap-5">
+          <SqueezeDial ring={ring} disabled={disabled} reducedMotion={prefersReducedMotion} />
+          {/* Held at the height of the open state, so the hand below does not jump when the window opens. */}
+          <div className="grid min-h-20 min-w-0 flex-1 content-center">
+            <WindowState ring={ring} reducedMotion={prefersReducedMotion} />
+          </div>
+        </div>
       ) : (
-        <p className="font-medium">Squeeze the physical ring to open the command window.</p>
+        <>
+          <p className="font-medium">Squeeze the physical ring to open the command window.</p>
+          {!ring.canReceive && (
+            <p className="text-sm">
+              No ring is connected, so no commands can arrive yet.{' '}
+              <Link to={ROUTES.connect} className={LINK_CLASSES}>
+                Connect a ring
+              </Link>
+            </p>
+          )}
+          <WindowState ring={ring} reducedMotion={prefersReducedMotion} />
+        </>
       )}
-
-      {!ring.canOperate && !ring.canReceive && (
-        <p className="text-sm">
-          No ring is connected, so no commands can arrive yet.{' '}
-          <Link to={ROUTES.connect} className={LINK_CLASSES}>
-            Connect a ring
-          </Link>
-        </p>
-      )}
-
-      <WindowState ring={ring} reducedMotion={prefersReducedMotion} />
 
       <TimeHint ring={ring} longerTime={preferences.longerInteractionTime} />
     </div>

@@ -66,51 +66,61 @@ export function LessonPractice({ run, headingLevel, onExit }: LessonPracticeProp
   return (
     <div className="grid gap-6">
       <div className="grid gap-3">
-        <ProgressBar label="Lesson progress" value={position} max={total} valueText={`Step ${position} of ${total}`} />
-        <LessonHeading ref={run.stepHeadingRef} level={headingLevel} tabIndex={-1}>
+        <ProgressBar label="Lesson progress" value={position} max={total} valueText={`Step ${position} of ${total}`} segmented />
+        <LessonHeading
+          key={state.stepIndex}
+          ref={run.stepHeadingRef}
+          level={headingLevel}
+          tabIndex={-1}
+          className="animate-enter-rise text-2xl font-bold leading-snug text-balance sm:text-3xl"
+        >
           <VisuallyHidden>{`Step ${position} of ${total}: `}</VisuallyHidden>
           {step.instruction}
         </LessonHeading>
       </div>
 
-      <StepFeedbackPanel
-        step={step}
-        evaluation={state.evaluation}
-        attempts={attempts}
-        stepComplete={state.stepComplete}
-        isLastStep={position === total}
-        autoAdvance={run.autoAdvance}
-        onNextStep={run.nextStep}
-        onHold={run.holdStep}
-      />
-
-      {/* Whenever a hold completes the notice must be visible — including on a squeeze step,
-          where the step itself has nothing to say about it. */}
-      {(state.emergencyCompleted || ring.lastResult?.kind === 'emergency') && <EmergencyNotice />}
-
-      {step.kind === 'squeeze' ? (
-        <div className={`grid max-w-xl gap-4 ${PRACTICE_PANEL_CLASSES}`}>
-          <SqueezeControl ring={ring} />
-          {armed && !state.stepComplete ? (
-            <p>The command window is still open. Let it close, then squeeze again.</p>
-          ) : (
-            <p className="text-muted-foreground">No tapping needed yet.</p>
-          )}
-        </div>
-      ) : (
-        <div className={PRACTICE_PANEL_CLASSES}>
-          <PracticeSurface
-            ring={ring}
-            hand={preferences.hand}
-            targetContact={step.contact}
-            detectedContact={state.evaluation?.detectedContact ?? null}
-            showEmergencyHold={step.kind === 'hold'}
-            showEmergencyNotice={false}
+      {/* The same arrangement as the Simulator: the stage on the left, what to do and how it went beside it. */}
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-[minmax(0,1.5fr)_minmax(19rem,1fr)] lg:items-start">
+        <div className="grid min-w-0 gap-4 lg:sticky lg:top-4 lg:col-start-2 lg:row-start-1">
+          <StepFeedbackPanel
+            step={step}
+            evaluation={state.evaluation}
+            attempts={attempts}
+            stepComplete={state.stepComplete}
+            isLastStep={position === total}
+            autoAdvance={run.autoAdvance}
+            onNextStep={run.nextStep}
+            onHold={run.holdStep}
           />
-        </div>
-      )}
 
-      <RunStats totals={runTotals(state.records)} evidence={evidenceForDevice(device)} />
+          {/* Whenever a hold completes the notice must be visible — including on a squeeze step,
+              where the step itself has nothing to say about it. */}
+          {(state.emergencyCompleted || ring.lastResult?.kind === 'emergency') && <EmergencyNotice />}
+          <RunStats totals={runTotals(state.records)} evidence={evidenceForDevice(device)} />
+        </div>
+
+        {step.kind === 'squeeze' ? (
+          <div className={`grid min-w-0 gap-4 lg:col-start-1 lg:row-start-1 ${PRACTICE_PANEL_CLASSES}`}>
+            <SqueezeControl ring={ring} />
+            {armed && !state.stepComplete ? (
+              <p>The command window is still open. Let it close, then squeeze again.</p>
+            ) : (
+              <p className="text-muted-foreground">No tapping needed yet.</p>
+            )}
+          </div>
+        ) : (
+          <div className={`min-w-0 lg:col-start-1 lg:row-start-1 ${PRACTICE_PANEL_CLASSES}`}>
+            <PracticeSurface
+              ring={ring}
+              hand={preferences.hand}
+              targetContact={step.contact}
+              detectedContact={state.evaluation?.detectedContact ?? null}
+              showEmergencyHold={step.kind === 'hold'}
+              showEmergencyNotice={false}
+            />
+          </div>
+        )}
+      </div>
 
       <div className="flex flex-wrap items-center gap-3 border-t border-border pt-5">
         <Button variant="secondary" leadingIcon={<RotateCcw className="h-4 w-4" />} onClick={() => setConfirmingRestart(true)}>

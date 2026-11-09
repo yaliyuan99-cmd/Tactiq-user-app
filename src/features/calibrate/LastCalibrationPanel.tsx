@@ -6,6 +6,7 @@ import { formatDateTime } from '@/lib/time';
 import { CalibrationPanel } from './CalibrationPanel';
 import { acceptedTotal, remainingPoints, requiredTotal } from './calibrationFlow';
 import { joinWithAnd, progressText } from './calibrationWording';
+import { PointCoverage } from './PointCoverage';
 
 export const LAST_CALIBRATION_HEADING_ID = 'calibrate-last-heading';
 
@@ -16,8 +17,8 @@ function statusWords(profile: CalibrationProfile): string {
 
 function Row({ term, children }: { term: string; children: ReactNode }) {
   return (
-    <div className="grid gap-0.5 sm:grid-cols-[10rem_minmax(0,1fr)] sm:gap-4">
-      <dt className="text-muted-foreground">{term}</dt>
+    <div className="grid gap-0.5">
+      <dt className="text-sm text-muted-foreground">{term}</dt>
       <dd className="font-medium">{children}</dd>
     </div>
   );
@@ -38,8 +39,9 @@ export function LastCalibrationPanel({ profile }: { profile: CalibrationProfile 
         value={acceptedTotal(profile)}
         max={requiredTotal(profile)}
         valueText={progressText(profile)}
-        className="mb-5"
+        className="mb-3"
       />
+      <PointCoverage profile={profile} hand={profile.hand} className="mb-5" />
       <dl className="grid gap-3">
         <Row term="Status">{statusWords(profile)}</Row>
         <Row term="Points to repeat">

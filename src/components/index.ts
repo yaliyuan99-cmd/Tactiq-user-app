@@ -10,6 +10,7 @@ export { SelectField, type SelectFieldProps, type SelectOption } from './fields/
 export { CheckboxField, type CheckboxFieldProps } from './fields/CheckboxField';
 export { SwitchField, type SwitchFieldProps } from './fields/SwitchField';
 export { RadioGroupField, type RadioGroupFieldProps, type RadioOption } from './fields/RadioGroupField';
+export { SegmentedRadioGroup, type SegmentedOption, type SegmentedRadioGroupProps } from './fields/SegmentedRadioGroup';
 export { useFieldIds, type FieldIds } from './fields/fieldIds';
 
 export { Dialog, type DialogProps, type DialogSize } from './Dialog';
@@ -28,6 +29,8 @@ export { VisuallyHidden, type VisuallyHiddenProps } from './VisuallyHidden';
 export { SkipLink, type SkipLinkProps } from './SkipLink';
 export { Logo, type LogoProps } from './Logo';
 export { RingMark, type RingMarkProps } from './RingMark';
+export { DotCell, type DotCellProps } from './DotCell';
+export { Braille, type BrailleProps } from './Braille';
 
 export { HandMap } from './hand/HandMap';
 export { ContactList } from './hand/ContactList';

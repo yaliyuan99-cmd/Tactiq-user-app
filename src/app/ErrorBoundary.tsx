@@ -93,7 +93,7 @@ function ErrorFallback({ error, variant }: { error: Error; variant: ErrorBoundar
           Go to the dashboard
         </ButtonLink>
       </div>
-      <details className="mt-8 rounded-lg border border-border bg-card px-4 py-2">
+      <details className="mt-8 rounded-lg border-[1.5px] border-foreground bg-card px-4 py-2">
         <summary className="flex min-h-11 cursor-pointer items-center font-medium">Technical details</summary>
         <pre className="mb-2 mt-2 whitespace-pre-wrap break-words font-mono text-sm text-foreground">
           {error.message || 'No error message was provided.'}
@@ -105,7 +105,7 @@ function ErrorFallback({ error, variant }: { error: Error; variant: ErrorBoundar
   if (variant === 'section') return <div className="max-w-3xl">{content}</div>;
 
   return (
-    <div className="flex min-h-dvh flex-col bg-background text-foreground">
+    <div className="notebook flex min-h-dvh flex-col bg-background text-foreground">
       <header className="border-b border-border">
         <div className="mx-auto flex min-h-16 w-full max-w-5xl items-center px-4 sm:px-6">
           <Logo />

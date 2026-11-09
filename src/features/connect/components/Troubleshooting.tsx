@@ -1,4 +1,5 @@
 import { Link } from 'react-router';
+import { ChevronDown } from 'lucide-react';
 import { helpRoute } from '@/app/routes';
 import { DEVICE_NAME } from '@/domain/protocol';
 
@@ -29,11 +30,16 @@ export function Troubleshooting() {
   return (
     <section aria-labelledby="connect-troubleshooting-heading" className="grid gap-4">
       <h2 id="connect-troubleshooting-heading">Troubleshooting</h2>
-      <ul className="grid gap-3">
+      <ul role="list" className="divide-y divide-border rounded-lg border-[1.5px] border-foreground bg-card shadow-card">
         {TIPS.map((tip) => (
-          <li key={tip.problem} className="border-l-2 border-border-strong pl-4">
-            <span className="block font-medium">{tip.problem}</span>
-            <span className="block text-muted-foreground">{tip.fix}</span>
+          <li key={tip.problem}>
+            <details className="group">
+              <summary className="target-44 flex cursor-pointer list-none items-center justify-between gap-3 px-4 py-3 font-medium transition-colors duration-[var(--dur-tap)] hover:bg-muted [&::-webkit-details-marker]:hidden">
+                {tip.problem}
+                <ChevronDown className="h-5 w-5 shrink-0 text-muted-foreground group-open:rotate-180" aria-hidden="true" />
+              </summary>
+              <p className="px-4 pb-4 text-muted-foreground text-pretty">{tip.fix}</p>
+            </details>
           </li>
         ))}
       </ul>

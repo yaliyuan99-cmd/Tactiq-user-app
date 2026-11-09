@@ -22,7 +22,7 @@ export function ModeBar() {
   const demo = section.id === 'demo';
 
   return (
-    <div className="border-b border-border bg-muted">
+    <div className="border-b border-border">
       <div className="mx-auto flex w-full max-w-5xl flex-wrap items-center gap-x-3 gap-y-1.5 px-4 py-2 sm:px-6">
         {demo && (
           <span className="inline-flex items-center gap-1.5 rounded-full border border-border-strong bg-card px-2.5 py-1 text-sm font-medium leading-none">
@@ -39,11 +39,11 @@ export function ModeBar() {
           Reflow on every dashboard route. The bottom bar carries the same pair
           of properties for the same reason.
         */}
-        <p className="min-w-0 flex-1 hyphens-auto break-words text-sm leading-snug text-foreground">
+        <p className="order-last min-w-0 basis-full hyphens-auto break-words text-sm leading-snug text-foreground md:order-none md:flex-1 md:basis-0">
           {modeSentence(section.id, view.kind)}
         </p>
         {demo && (
-          <ButtonLink to={ROUTES.signUp} size="sm" variant="secondary" className="shrink-0">
+          <ButtonLink to={ROUTES.signUp} size="sm" variant="secondary" className="ml-auto shrink-0 md:ml-0">
             Create a profile
           </ButtonLink>
         )}

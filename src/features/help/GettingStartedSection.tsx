@@ -26,7 +26,7 @@ export function GettingStartedSection() {
       </ol>
 
       <HelpSubsection title="Set up and practise">
-        <ul role="list" className="max-w-2xl divide-y divide-border rounded-lg border border-border bg-card">
+        <ul role="list" className="max-w-2xl divide-y divide-border rounded-lg border-[1.5px] border-foreground bg-card">
           {NEXT_STEP_LINKS.map((link) => (
             <li key={link.to}>
               <Link

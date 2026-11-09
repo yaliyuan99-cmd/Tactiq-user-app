@@ -13,7 +13,7 @@ export function HandFigure({ hand, className }: { hand: Hand; className?: string
       data-hand={hand}
     >
       <g transform={hand === 'left' ? `translate(${HAND_VIEWBOX_WIDTH} 0) scale(-1 1)` : undefined}>
-        <g fill="currentColor" opacity="0.05">
+        <g className="fill-card">
           {HAND_OUTLINE.map((rect) => (
             <rect
               key={rect.id}
@@ -26,7 +26,7 @@ export function HandFigure({ hand, className }: { hand: Hand; className?: string
             />
           ))}
         </g>
-        <g fill="none" stroke="currentColor" strokeOpacity="0.45" strokeWidth="2">
+        <g fill="none" stroke="currentColor" strokeOpacity="0.9" strokeWidth="2.2">
           {HAND_OUTLINE.map((rect) => (
             <rect
               key={rect.id}

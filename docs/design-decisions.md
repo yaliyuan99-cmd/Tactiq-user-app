@@ -142,3 +142,30 @@ bench rig that exists: present, substituted, or absent. The three magnetometers
 are the paper's sensing architecture, checked in simulation only; the bench
 firmware senses with flex sensors, force-sensitive resistors and an IMU.
 Blending those into one story would be the easiest overclaim on the page.
+
+## November 2026: the project's logbook, with braille accents
+
+**Decided 9 November 2026** (Eric), on the local `ui/redesign` branch, after
+comparing four concepts (Raised Print, Lab Notebook, Window, Cell; boards in the
+aussef folder's `docs/concepts/`). It replaces the short-lived Apple-style pass
+of 7 November.
+
+- **The idea.** Every screen is a page of the research logbook the project
+  keeps: 5 mm grid paper, a red margin rule (the sidebar's edge), the day's
+  date in the top bar, figures captioned "Fig. 1".
+- **Ink, biro, highlighter, pencil, red pen.** Actions and headings are ink
+  (`--primary` is near-black, chalk in dark mode). Blue biro (`--primary-strong`)
+  is for links, the author's notes and focus. Evidence marks are kinds of mark,
+  not colours: highlighter = Simulated, ink box = Measured, dashed pencil =
+  Design target / intent, red box = Not yet available. This replaces teal.
+- **Braille as an accent.** Real literary braille (`lib/braille.ts`, tested):
+  every string page title carries its braille above it, the homepage opens with
+  "feel it", and the logo is the letter t. Always `aria-hidden`; the print is
+  what is read.
+- **Type.** Atkinson Hyperlegible Next and Mono, by the Braille Institute,
+  self-hosted (OFL). Inter has been removed.
+- **Figure plates.** `.hero-band` is now a white sheet edged in ink, not a dark
+  band; practice surfaces and the homepage demonstration sit on one.
+
+Every pair is still checked by `theme.contrast.test.ts` in all four themes;
+high contrast drops the grid and keeps plain paper.

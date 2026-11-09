@@ -28,7 +28,7 @@ export function Card({
 
   return (
     <Tag
-      className={cn('rounded-lg border border-border bg-card p-5 text-card-foreground shadow-card sm:p-6', className)}
+      className={cn('relative rounded-lg border-[1.5px] border-foreground bg-card p-5 text-card-foreground shadow-card sm:p-6', className)}
       aria-labelledby={hasHeading ? headingId : undefined}
       {...rest}
     >

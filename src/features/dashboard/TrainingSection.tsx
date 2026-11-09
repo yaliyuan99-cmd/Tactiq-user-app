@@ -2,6 +2,7 @@ import { type ReactNode } from 'react';
 import { ROUTES } from '@/app/routes';
 import { Card, EvidenceLabel, ProgressBar, VisuallyHidden } from '@/components';
 import { COMMAND_TOKENS } from '@/domain/commands';
+import { cn } from '@/lib/cn';
 import type { TrainingSummary } from '@/domain/models';
 import { formatPercent } from '@/lib/time';
 import { useHistory } from '@/services/ServicesProvider';
@@ -15,7 +16,7 @@ export interface TrainingSectionProps {
 
 function Stat({ term, children }: { term: string; children: ReactNode }) {
   return (
-    <div className="min-w-0 border-l-2 border-border-strong pl-3">
+    <div className="min-w-0 rounded-lg bg-muted px-3 py-2.5">
       <dt className="text-sm text-muted-foreground">{term}</dt>
       <dd className="text-xl font-semibold tabular-nums">{children}</dd>
     </div>
@@ -26,7 +27,7 @@ function Stat({ term, children }: { term: string; children: ReactNode }) {
 export function TrainingSection({ summary, className }: TrainingSectionProps) {
   const note = trainingEvidenceNote(useHistory().summarise({ range: 'all', source: 'training' }).evidence);
   return (
-    <Card heading="Training" className={className} actions={<DashboardLink to={ROUTES.train}>All lessons</DashboardLink>}>
+    <Card heading="Training" className={cn('lift', className)} actions={<DashboardLink to={ROUTES.train} stretched>All lessons</DashboardLink>}>
       <div className="grid gap-4">
         <ProgressBar label="Lessons completed" value={summary.lessonsCompleted} max={summary.lessonsTotal} />
         <dl className="grid grid-cols-1 gap-3 min-[400px]:grid-cols-3">

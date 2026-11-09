@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router';
 import { ROUTES } from '@/app/routes';
-import { Button, ButtonLink, Callout, ConfirmDialog, SwitchField } from '@/components';
+import { Button, ButtonLink, Callout, ConfirmDialog, HandMap, SwitchField } from '@/components';
 import { useFeedback } from '@/services/feedback/FeedbackProvider';
 import { CalibrationPanel } from './CalibrationPanel';
 import {
@@ -95,18 +95,22 @@ export function StartView({ session }: { session: CalibrationSession }) {
             <div className="flex flex-wrap gap-3">
               {startState.kind === 'resume' ? (
                 <>
-                  <Button onClick={session.resume}>Resume calibration</Button>
+                  <Button size="lg" onClick={session.resume}>
+                    Resume calibration
+                  </Button>
                   <Button variant="secondary" onClick={startFresh}>
                     {freshLabel}
                   </Button>
                 </>
               ) : (
-                <Button onClick={startFresh}>{freshLabel}</Button>
+                <Button size="lg" onClick={startFresh}>
+                  {freshLabel}
+                </Button>
               )}
             </div>
 
             <h3 className="mt-7">{WHAT_HAPPENS_HEADING}</h3>
-            <ol className="mt-2 grid list-decimal gap-1.5 pl-6">
+            <ol role="list" className="step-list mt-3">
               {WHAT_HAPPENS_STEPS.map((step) => (
                 <li key={step}>{step}</li>
               ))}
@@ -115,7 +119,13 @@ export function StartView({ session }: { session: CalibrationSession }) {
         )}
       </CalibrationPanel>
 
-      {profile && <LastCalibrationPanel profile={profile} />}
+      {profile ? (
+        <LastCalibrationPanel profile={profile} />
+      ) : (
+        <div className="hero-band rounded-lg p-5 sm:p-6">
+          <HandMap hand={session.hand} interactive={false} size="sm" caption="The eight points you will tap." />
+        </div>
+      )}
 
       <ConfirmDialog
         open={confirmingRestart}

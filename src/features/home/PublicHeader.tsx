@@ -4,7 +4,8 @@ import { ROUTES } from '@/app/routes';
 import { ButtonLink, Logo } from '@/components';
 import { cn } from '@/lib/cn';
 import { useAuth } from '@/services/auth/AuthProvider';
-import { SHELL } from './homeStyles';
+
+const TODAY = new Intl.DateTimeFormat(undefined, { day: 'numeric', month: 'long', year: 'numeric' });
 
 const NAV_LINKS = [
   { label: 'How it works', section: HOME_SECTIONS.howItWorks },
@@ -14,7 +15,7 @@ const NAV_LINKS = [
 ] as const;
 
 const NAV_LINK =
-  'target-44 inline-flex items-center rounded-md px-3 py-2 font-medium text-foreground no-underline hover:bg-secondary';
+  'target-44 inline-flex items-center px-3 py-2 font-medium text-foreground no-underline decoration-[color:var(--primary-strong)] decoration-2 underline-offset-[6px] hover:underline';
 
 /**
  * The public banner. Deliberately not sticky: a fixed bar can leave a focused
@@ -28,9 +29,12 @@ const NAV_LINK =
 export function PublicHeader() {
   const { user, loading } = useAuth();
   return (
-    <header className="border-b border-border bg-background">
-      <div className={cn(SHELL, 'flex min-h-16 flex-wrap items-center gap-x-4 gap-y-2 py-2')}>
-        <Logo to={PUBLIC_ROUTES.home} />
+    <header>
+      <div className={cn('mx-auto w-full max-w-6xl px-4 sm:px-6 lg:px-8', 'flex min-h-16 flex-wrap items-center gap-x-4 gap-y-2 border-b-2 border-foreground py-2')}>
+        <span className="flex items-baseline gap-2">
+          <Logo to={PUBLIC_ROUTES.home} />
+          <span className="font-mono-label hidden text-muted-foreground sm:inline">logbook</span>
+        </span>
         <nav aria-label="Sections of this page" className="hidden md:ml-4 md:flex md:items-center md:gap-1">
           {NAV_LINKS.map((link) => (
             <a key={link.section} href={homeHash(link.section)} className={NAV_LINK}>
@@ -38,8 +42,11 @@ export function PublicHeader() {
             </a>
           ))}
         </nav>
+        <p className="font-mono-label ml-auto hidden text-muted-foreground lg:block">
+          <time dateTime={new Date().toISOString().slice(0, 10)}>{TODAY.format(new Date())}</time>
+        </p>
         {!loading && (
-          <div className="ml-auto flex flex-wrap items-center gap-2">
+          <div className="ml-auto flex flex-wrap items-center gap-2 lg:ml-2">
             {user ? (
               <ButtonLink
                 to={ROUTES.dashboard}

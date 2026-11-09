@@ -102,38 +102,36 @@ describe('theme contrast', () => {
     expect(failures(THEMES[theme] ?? {}, NON_TEXT_PAIRS, 3)).toEqual([]);
   });
 
-  it('the dark primary is labelled with ink, because white on it would fail badly', () => {
-    const tokens = THEMES.dark ?? {};
-    expect(tokens.primary).toBe('#5eead4');
-    expect(tokens.accent).toBe('#5eead4');
-    expect(tokens['primary-foreground']).toBe('#082f2a');
-    expect(tokens['primary-strong']).toBe('#a4e7de');
-    expect(contrastRatio('#082f2a', '#5eead4')).toBeCloseTo(9.79, 2);
-    expect(contrastRatio('#ffffff', '#5eead4')).toBeLessThan(2);
-    expect(contrastRatio('#5eead4', '#0c1717')).toBeGreaterThanOrEqual(3);
-    expect(contrastRatio('#5eead4', '#122322')).toBeGreaterThanOrEqual(3);
+  // The logbook's actions are written in ink: near-black on paper, chalk on the night page.
+  it('the light primary is ink, and carries white text far above AA', () => {
+    const tokens = THEMES.light ?? {};
+    expect(tokens.primary).toBe('#17181c');
+    expect(tokens['primary-foreground']).toBe('#ffffff');
+    expect(contrastRatio('#ffffff', '#17181c')).toBeGreaterThanOrEqual(7);
+    // Blue biro is the link and note colour; it must read on the selected surface too.
+    expect(tokens['primary-strong']).toBe('#2347a3');
+    expect(contrastRatio(tokens['primary-strong'] ?? '', tokens.secondary ?? '')).toBeGreaterThanOrEqual(4.5);
   });
 
-  it('the light primary carries white text above AA', () => {
-    const tokens = THEMES.light ?? {};
-    expect(tokens.primary).toBe('#0f766e');
-    expect(tokens['primary-foreground']).toBe('#ffffff');
-    expect(contrastRatio('#ffffff', '#0f766e')).toBeCloseTo(5.47, 2);
-    expect(contrastRatio(tokens['primary-strong'] ?? '', tokens.secondary ?? '')).toBeGreaterThanOrEqual(4.5);
+  it('the dark primary is chalk, labelled with the night page, because white on it would fail badly', () => {
+    const tokens = THEMES.dark ?? {};
+    expect(tokens.primary).toBe('#ecebe6');
+    expect(tokens['primary-foreground']).toBe('#15171b');
+    expect(contrastRatio('#15171b', '#ecebe6')).toBeGreaterThanOrEqual(7);
+    expect(contrastRatio('#ffffff', '#ecebe6')).toBeLessThan(2);
   });
 
   it('high-contrast themes flip the primary label to the opposite extreme', () => {
     const hcDark = THEMES['high-contrast dark'] ?? {};
-    expect(hcDark.primary).toBe('#7cf0dc');
+    expect(hcDark.primary).toBe('#ffffff');
     expect(hcDark['primary-foreground']).toBe('#000000');
-    expect(contrastRatio('#000000', '#7cf0dc')).toBeGreaterThanOrEqual(7);
     const hcLight = THEMES['high-contrast light'] ?? {};
-    expect(hcLight.primary).toBe('#0b544e');
+    expect(hcLight.primary).toBe('#000000');
     expect(hcLight['primary-foreground']).toBe('#ffffff');
-    expect(contrastRatio('#ffffff', '#0b544e')).toBeGreaterThanOrEqual(7);
+    expect(contrastRatio('#ffffff', '#000000')).toBeGreaterThanOrEqual(7);
   });
 
-  it('success is a different hue from the teal brand, and a warning token exists', () => {
+  it('success is a different hue from the brand ink, and a warning token exists', () => {
     // Two colours of similar brightness can still be told apart by hue, which is
     // what matters here: a success tick must not read as "this is the brand".
     // Contrast ratio would be meaningless between two light mints, so measure hue.

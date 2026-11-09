@@ -44,13 +44,19 @@ const INTERACTIVE_POINT_SIZE = 'h-[44px] min-h-[44px] w-[44px] min-w-[44px]';
 const DECORATIVE_POINT_SIZE = 'aspect-square w-[clamp(20px,10%,40px)]';
 
 function pointClasses(state: ContactVisualState, interactive: boolean, disabled: boolean): string {
-  const filled = state.isActive || state.isShortcut ? 'bg-primary text-primary-foreground' : 'bg-foreground text-background';
+  // Drawn the way the logbook draws them: an ink ring on paper, shortcut points inked in, and the
+  // point being pressed gone over with highlighter.
+  const filled = state.isActive
+    ? 'border-2 border-foreground bg-[var(--highlight)] text-[var(--highlight-ink)]'
+    : state.isShortcut
+      ? 'border-2 border-primary bg-primary text-primary-foreground'
+      : 'border-2 border-foreground bg-card text-foreground';
   return cn(
     'absolute flex -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full',
     interactive ? INTERACTIVE_POINT_SIZE : DECORATIVE_POINT_SIZE,
-    'font-mono-label font-medium leading-none shadow-card transition-[scale,background-color] duration-[var(--dur-tap)]',
+    'font-mono-label font-semibold leading-none transition-[scale,background-color] duration-[var(--dur-tap)]',
     filled,
-    state.isActive && 'z-10 scale-110 ring-4 ring-primary/35',
+    state.isActive && 'z-10 scale-110 ring-4 ring-foreground/15',
     state.isFlashing && 'contact-flash',
     interactive && 'cursor-pointer touch-none select-none [-webkit-touch-callout:none]',
     interactive && !disabled && !state.isActive && 'hover:scale-105',

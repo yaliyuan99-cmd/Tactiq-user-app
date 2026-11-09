@@ -50,7 +50,7 @@ export function TroubleshootingSection() {
       id="troubleshooting"
       lede="Choose a problem to show what to try. The most likely fix comes first."
     >
-      <div className="max-w-3xl divide-y divide-border rounded-lg border border-border bg-card">
+      <div className="max-w-3xl divide-y divide-border rounded-lg border-[1.5px] border-foreground bg-card">
         {TROUBLESHOOTING_ENTRIES.map((entry) => (
           <TroubleshootingItem key={entry.id} entry={entry} />
         ))}

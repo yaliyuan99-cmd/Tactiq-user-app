@@ -1,5 +1,5 @@
 import { useId, type ReactNode } from 'react';
-import { ArrowRight, RotateCcw } from 'lucide-react';
+import { ArrowRight, Check, RotateCcw } from 'lucide-react';
 import { ROUTES, lessonRoute } from '@/app/routes';
 import { Button, ButtonLink, EvidenceLabel, VisuallyHidden } from '@/components';
 import { getLesson, nextLessonId } from '@/domain/lessons';
@@ -22,7 +22,7 @@ export interface LessonSummaryProps {
 
 function Stat({ term, children }: { term: string; children: ReactNode }) {
   return (
-    <div className="min-w-0 border-l-2 border-border-strong pl-3">
+    <div className="min-w-0 rounded-lg bg-muted px-3 py-2.5">
       <dt className="text-sm text-muted-foreground">{term}</dt>
       <dd className="flex flex-wrap items-center gap-x-2 text-xl font-semibold tabular-nums">{children}</dd>
     </div>
@@ -61,14 +61,22 @@ export function LessonSummary({ run, headingLevel, showLessonLinks }: LessonSumm
 
   return (
     <section aria-labelledby={headingId} className="grid max-w-3xl gap-6">
-      <div>
-        <LessonHeading ref={run.summaryHeadingRef} id={headingId} level={headingLevel} tabIndex={-1}>
-          Lesson complete
-        </LessonHeading>
-        <p className="mt-2 text-lg">{runSummarySentence(lesson, state.records)}</p>
+      <div className="flex items-start gap-4">
+        <span
+          aria-hidden="true"
+          className="settle-in inline-flex h-14 w-14 shrink-0 items-center justify-center rounded-full bg-primary text-primary-foreground"
+        >
+          <Check className="h-7 w-7" />
+        </span>
+        <div className="min-w-0">
+          <LessonHeading ref={run.summaryHeadingRef} id={headingId} level={headingLevel} tabIndex={-1}>
+            Lesson complete
+          </LessonHeading>
+          <p className="mt-1 text-lg">{runSummarySentence(lesson, state.records)}</p>
+        </div>
       </div>
 
-      <dl className="grid grid-cols-1 gap-4 rounded-lg border border-border bg-card p-5 shadow-card min-[400px]:grid-cols-2 sm:grid-cols-3 sm:p-6">
+      <dl className="grid grid-cols-1 gap-4 rounded-lg border-[1.5px] border-foreground bg-card p-5 shadow-card min-[400px]:grid-cols-2 sm:grid-cols-3 sm:p-6">
         <Stat term="Steps">{lesson.steps.length}</Stat>
         <Stat term="Attempts">{totals.attempts}</Stat>
         <Stat term="Correct">{totals.correct}</Stat>

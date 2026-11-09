@@ -34,7 +34,7 @@ export interface CommandDetailProps {
 export function CommandDetail({ entry, className }: CommandDetailProps) {
   const { contact, tap, hold } = entry;
   return (
-    <div className={cn('rounded-lg border border-border bg-card p-5 text-card-foreground shadow-card', className)}>
+    <div className={cn('rounded-lg border-[1.5px] border-foreground bg-card p-5 text-card-foreground shadow-card', className)}>
       <div role="status">
         <p className="font-mono-label text-muted-foreground">{contact.label}</p>
         <p className="mt-1 text-xl font-semibold">{tap.label}</p>

@@ -54,7 +54,7 @@ function FeedbackDetails({ command }: { command: CommandDefinition }) {
 export function CommandFeedbackList() {
   const { prefersReducedMotion } = usePreferences();
   return (
-    <ul className="divide-y divide-border rounded-lg border border-border bg-card">
+    <ul className="divide-y divide-border rounded-lg border-[1.5px] border-foreground bg-card">
       {COMMANDS.map((command) => (
         <li key={command.token}>
           <details className="group" data-command={command.token}>

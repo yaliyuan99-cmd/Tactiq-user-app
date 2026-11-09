@@ -16,7 +16,7 @@ export const AUTH_ILLUSTRATION_CAPTION = 'Eight contact points, nine commands.';
  */
 export function AuthLayout({ children }: { readonly children: ReactNode }) {
   return (
-    <div className="grid min-h-dvh grid-cols-1 bg-background text-foreground lg:grid-cols-[5fr_7fr] lg:grid-rows-[auto_1fr]">
+    <div className="notebook grid min-h-dvh grid-cols-1 bg-background text-foreground lg:grid-cols-[5fr_7fr] lg:grid-rows-[auto_1fr]">
       <div className="flex flex-wrap items-center gap-x-4 gap-y-1 border-b border-border px-4 py-4 sm:px-6 lg:col-start-1 lg:row-start-1 lg:block lg:border-b-0 lg:border-r lg:bg-card lg:px-10 lg:pt-10">
         <Logo />
         <p className="text-sm text-muted-foreground lg:mt-3 lg:max-w-xs">{AUTH_PROTOTYPE_LINE}</p>

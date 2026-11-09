@@ -24,7 +24,7 @@ export function SettingsSection({ id, intro, children, className }: SettingsSect
       className={cn(
         // min-w-0: as a grid item the section would otherwise be at least as wide
         // as its widest content, pushing the whole page sideways at 320 px.
-        'min-w-0 rounded-lg border border-border bg-card p-5 text-card-foreground shadow-card sm:p-6',
+        'min-w-0 rounded-lg border-[1.5px] border-foreground bg-card p-5 text-card-foreground shadow-card sm:p-6',
         className,
       )}
     >

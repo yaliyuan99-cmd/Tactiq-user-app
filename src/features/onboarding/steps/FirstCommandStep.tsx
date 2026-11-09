@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Callout, EvidenceLabel } from '@/components';
-import { PracticeSurface, useRing, useShortcutLabels } from '@/features/practice';
+import { PRACTICE_PANEL_CLASSES, PracticeSurface, useRing, useShortcutLabels } from '@/features/practice';
 import { useFeedback } from '@/services/feedback/FeedbackProvider';
 import { usePreferences } from '@/services/preferences/PreferencesProvider';
 import { firstCommandOutcome, type FirstCommandOutcome } from '../firstCommand';
@@ -57,11 +57,9 @@ export function FirstCommandStep({ done, onDone }: FirstCommandStepProps) {
       <StepLede>{FIRST_COMMAND_LEDE}</StepLede>
 
       <div className="grid gap-4">
-        <ol className="grid max-w-prose list-decimal gap-3 pl-6 marker:font-semibold marker:text-primary-strong">
+        <ol role="list" className="step-list max-w-prose">
           {FIRST_COMMAND_STEPS.map((line) => (
-            <li key={line} className="pl-1">
-              {line}
-            </li>
+            <li key={line}>{line}</li>
           ))}
         </ol>
         <p className="max-w-prose">{ring.isDemo ? FIRST_COMMAND_DEMO_NOTE : FIRST_COMMAND_HARDWARE_NOTE}</p>
@@ -79,15 +77,9 @@ export function FirstCommandStep({ done, onDone }: FirstCommandStepProps) {
         </Callout>
       )}
 
-      {done && (
-        <Callout kind="success" title={FIRST_COMMAND_DONE_TITLE}>
-          <p>{FIRST_COMMAND_DONE}</p>
-        </Callout>
-      )}
-
       <section
         aria-labelledby={FIRST_COMMAND_HEADING_ID}
-        className="min-w-0 rounded-lg border border-border bg-card p-4 shadow-card sm:p-6"
+        className={`min-w-0 ${PRACTICE_PANEL_CLASSES}`}
       >
         <h2 id={FIRST_COMMAND_HEADING_ID} className="mb-4">
           Squeeze and tap
@@ -105,6 +97,13 @@ export function FirstCommandStep({ done, onDone }: FirstCommandStepProps) {
           <p className="mt-1">{outcome ? outcome.message : FIRST_COMMAND_NO_ATTEMPT}</p>
         </div>
       </section>
+
+      {/* Below the surface, so success does not push the hand away from under the finger that just tapped it. */}
+      {done && (
+        <Callout kind="success" title={FIRST_COMMAND_DONE_TITLE}>
+          <p>{FIRST_COMMAND_DONE}</p>
+        </Callout>
+      )}
 
       <p className="max-w-prose text-muted-foreground">{FIRST_COMMAND_SKIPPABLE}</p>
     </>

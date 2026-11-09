@@ -1,3 +1,4 @@
+import { CircleCheck, Hourglass } from 'lucide-react';
 import { Button, ButtonLink, Callout, EvidenceLabel } from '@/components';
 import { ROUTES } from '@/app/routes';
 import { DEVICE_NAME, PING_COMMAND } from '@/domain/protocol';
@@ -47,7 +48,12 @@ export function ConnectedPanel() {
         <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
           <Button onClick={() => void send()}>Send a test ping</Button>
           {phase !== 'idle' && (
-            <p className="font-medium" data-testid="ping-result">
+            <p className="inline-flex items-center gap-1.5 font-medium" data-testid="ping-result">
+              {phase === 'replied' ? (
+                <CircleCheck className="h-4 w-4 shrink-0 text-status-confirmed" aria-hidden="true" />
+              ) : (
+                <Hourglass className="h-4 w-4 shrink-0 text-muted-foreground" aria-hidden="true" />
+              )}
               {phase === 'replied' ? PING_REPLIED_TEXT : PING_WAITING_TEXT}
             </p>
           )}
